@@ -1,9 +1,9 @@
 # Site settings
 title: ICE CAKE BLOG
-SEOTitle: 冰块的博客 | ICE Blog
+SEOTitle: 冰块的博客 | ICE CAKE BLOG
 header-img: img/bluesky-bg-desk.jpg
 email: l3b2w1@gmail.com
-description: "情痴真 才趣化"
+description: "情必近于痴而始真 才必兼乎趣而始化"
 keyword: "linux, kernel, 冰块, ice cake"
 url: "https://l3b2w1.github.io"          # your host, for absolute URL
 baseurl: ""      # for example, '/blog' if your blog hosted on 'host/blog'
@@ -57,7 +57,7 @@ kramdown:
 
 # 评论系统
 # Disqus（https://disqus.com/）
-# disqus_username: l3b2w1
+disqus_username: l3b2w1
 
 # Gitalk
 gitalk:
@@ -77,8 +77,8 @@ gitalk:
 ba_track_id: b50bf2b12b5338a1845e33832976fd68
 
 # Google Analytics
-ga_track_id: 'UA-90855596-1'            # Format: UA-xxxxxx-xx
-ga_domain: l3b2w1.top               # 默认的是 auto, 这里我是自定义了的域名，你如果没有自己的域名，需要改成auto
+ga_track_id: 'UA-131778754-1'            # Format: UA-xxxxxx-xx
+ga_domain: auto               # 默认的是 auto, 这里我是自定义了的域名，你如果没有自己的域名，需要改成auto
 
 
 
