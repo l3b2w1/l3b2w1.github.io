@@ -3,7 +3,7 @@ layout:     post
 title:      Just for fun !
 subtitle:   who, what, when, where
 date:       2019-01-05
-author:     ice cake
+author:     iceberg
 header-img: img/bluelinux.jpg
 catalog: true
 ---

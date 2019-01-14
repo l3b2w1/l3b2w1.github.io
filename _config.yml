@@ -1,10 +1,10 @@
 # Site settings
-title: ICE CAKE BLOG
-SEOTitle: 冰块的博客 | ICE CAKE BLOG
+title: ICEBERGBLOG
+SEOTitle: 冰块的博客 | ICEBERG BLOG
 header-img: img/bluesky-bg-desk.jpg
 email: l3b2w1@gmail.com
 description: "情必近于痴而始真 才必兼乎趣而始化"
-keyword: "linux, kernel, 冰块, ice cake"
+keyword: "linux, kernel, 冰块, iceberg"
 url: "https://l3b2w1.github.io"          # your host, for absolute URL
 baseurl: ""      # for example, '/blog' if your blog hosted on 'host/blog'
 github_repo: "https://github.com/l3b2w1/l3b2w1.github.io.git" # you code repository
