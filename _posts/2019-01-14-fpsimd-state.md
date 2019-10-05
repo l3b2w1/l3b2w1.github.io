@@ -6,6 +6,10 @@ date:       2019-01-14
 author:     iceberg
 header-img: img/bluelinux.jpg
 catalog: true
+tags:
+    - fpsimd
+    - 浮点
+    - arm64
 
 ---
 # 内核浮点支持
