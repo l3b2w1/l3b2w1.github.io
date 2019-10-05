@@ -10,7 +10,6 @@ catalog: true
 
 # 内核浮点支持
 
-----
 4.4.65  arm64
 [lxr](https://elixir.bootlin.com/linux/v4.4.65/source/arch/arm64/kernel/fpsimd.c)
 
@@ -20,6 +19,7 @@ catalog: true
 
 * 用户态
 * 内核态 : 系统调用  软中断  硬中断
+
 ----
 无论是用户态还是内核态时进行浮点运算，理论上以下场合，浮点寄存器状态(FPSIMD state)都应该保存下来，后续再次执行的时候可以恢复回来
 
@@ -29,6 +29,7 @@ catalog: true
 
 ---
 ##内核的实现
+
 为了降低不必要的 FSIMD state 的拷贝，内核会跟踪两个事情：
 
 1.
