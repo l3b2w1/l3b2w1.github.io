@@ -6,8 +6,8 @@ date:       2019-01-14
 author:     iceberg
 header-img: img/bluelinux.jpg
 catalog: true
----
 
+---
 # 内核浮点支持
 
 4.4.65  arm64
@@ -29,7 +29,6 @@ catalog: true
 
 ---
 ## 内核的实现
-
 为了降低不必要的 FSIMD state 的拷贝，内核会跟踪两个事情：
 
 1.
@@ -78,18 +77,15 @@ ret_to_user
 如果是中断或者软中断上下文
 
 * begin中保存浮点状态到 
-```hardirq_fpsimdstate```或者
-```softirq_fpsimdstate```;
+`hardirq_fpsimdstate`或者`softirq_fpsimdstate`;
 end  中恢复
 
 * 如果是进程上下文，保存到当前task的备份空间
-```
- current->thread.fpsimd_state;
-```
+`current->thread.fpsimd_state;`
 end 中并不会立即恢复，而是推迟到返回用户空间的时候 ```ret_to_user```
 
 
 * 如果是内核线程进行浮点运算，该怎么做呢？因为这里会检查
-```current->mm ```
+`current->mm`
 而内核线程mm字段为NULL
 
