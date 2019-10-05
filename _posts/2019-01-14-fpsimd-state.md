@@ -62,15 +62,10 @@ catalog: true
 
 ## 针对应用进程的 FPSIMD state
 * 任务切换时保存浮点状态
-`__switch_to -> fpsimd_thread_switch `
+`__switch_to -> fpsimd_thread_switch`
 
 * 中断，软中断或者异常陷入内核，处理完之后从内核空间返回至用户空间的时候，恢复 FPSIMD state
-`
-ret_to_user
-->  if (ti->flags & TIF_FOREIGN_FPSTATE) do_notify_resume
--> fpsimd_restore_current_state
--> fpsimd_load_state
-`
+`ret_to_user -> if (ti->flags & TIF_FOREIGN_FPSTATE) do_notify_resume -> fpsimd_restore_current_state -> fpsimd_load_state`
 
 ---
 ## 内核空间使用浮点运算
