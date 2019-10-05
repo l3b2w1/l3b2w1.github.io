@@ -1,4 +1,5 @@
 ---
+---
 layout:     post
 title:      内核浮点支持
 <!-- subtitle:    -->
@@ -6,6 +7,7 @@ date:       2019-01-14
 author:     iceberg
 header-img: img/bluelinux.jpg
 catalog: true
+---
 
 # 内核浮点运算支持
 
