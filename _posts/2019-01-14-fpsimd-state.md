@@ -1,15 +1,14 @@
 ---
----
 layout:     post
 title:      内核浮点支持
-<!-- subtitle:    -->
+subtitle:   arm64 arch specific
 date:       2019-01-14
 author:     iceberg
 header-img: img/bluelinux.jpg
 catalog: true
 ---
 
-# 内核浮点运算支持
+# 内核浮点支持
 
 ----
 4.4.65  arm64

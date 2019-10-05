@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      Just for fun !
-subtitle:   who, what, when, where
+subtitle:   who, what, when, where, why
 date:       2019-01-05
 author:     iceberg
 header-img: img/bluelinux.jpg
@@ -15,11 +15,11 @@ catalog: true
 ### linux
 
     created by linus
-	
+
 ### kernel
 
-	dip deep into kernel
-    
+	dig deep into kernel implementation
+
 
 
 
