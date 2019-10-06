@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      wpa/wpa2 四步握手原理
+title:      wpa/wpa2 四步握手过程
 subtitle:   wireless dictionary brutal hacking
 date:       2019-10-05
 author:     iceberg
@@ -70,7 +70,7 @@ The way WPA/WPA2 PSK works is that, it derives the per-sessions key called Pairw
 4. Authenticator MAC address (Access Point MAC),
 5. Suppliant MAC address (Wi-Fi Client MAC).
 
-![](https://github.com/l3b2w1/l3b2w1.github.io/tree/master/img/1-sta-ap.jpeg)
+![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/1-sta-ap.jpeg)
 
 This key is then used to encrypt all data between the access point and client.
 
@@ -89,7 +89,7 @@ create the PTK.
 
 **This is exactly how WPA/WPA2 PSK cracking works!**
 
-![](https://github.com/l3b2w1/l3b2w1.github.io/tree/master/img/1-dictionary-hacking.jpeg)
+![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/1-dictionary-hacking.jpeg)
 
 
 **One of the more CPU and time-consuming calculations is that of the Pre-Shared Key using the PSK passphrase and the SSID through the PBKDF2.**
@@ -106,6 +106,6 @@ Also, the parameters will vary in the handshake everytime and hence, this step c
 It is important to note that, as the SSID is also used to calculate the PMK, with the same passphrase but a different SSID,
 we would end up with a different PMK. Thus, the PMK depends on both the passphrase and the SSID.
 
-![](https://github.com/l3b2w1/l3b2w1.github.io/tree/master/img/1-hackit.jpeg)
+![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/1-hackit.jpeg)
 
 [链接](http://calc.opensecurityresearch.com/)
