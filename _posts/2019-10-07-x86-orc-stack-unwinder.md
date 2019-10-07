@@ -10,6 +10,7 @@ tags:
     - stack
     - unwind
     - orc
+    - x86
 
 ---
 * 本文翻译自 [Code Blueprint - The Linux x86 ORC Stack Unwinder](https://www.codeblueprint.co.uk/2017/07/31/the-orc-unwinder.html)
