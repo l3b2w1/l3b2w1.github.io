@@ -22,7 +22,7 @@ tags:
 如果Linux机器崩溃，内核开发人员希望知道崩溃的执行路径，因为可以帮助调试解决问题。 堆栈展开是为了弄清楚一个进程如何执行到当前机器指令的。 这个过程称为堆栈跟踪或调用栈。 它是到执行到当前指令途中调用函数的列表。
 
 发生崩溃时，oops消息中将显示一个调用栈。一个示例如下：
-![](https://github.com/l3b2w1/l3b2w1.github.io/tree/master/img/2-orc-oops.png)
+![](https://github.com/l3b2w1/l3b2w1.github.io/tree/master/img/2-orc-oops.jpeg)
 
 
 性能分析器（例如perf和ftrace）也会使用栈回溯。甚至热补丁，也需要参考调用栈，因为只有所有进程当前都没有调用到旧的函数接口时才能将其重定向到新的补丁接口。这就需要在进程的调用栈中搜索该接口。
