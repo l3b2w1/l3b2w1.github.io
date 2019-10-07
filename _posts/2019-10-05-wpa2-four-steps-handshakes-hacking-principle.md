@@ -44,7 +44,7 @@ The KCK and KEK are used to protect handshake messages, while the TK is used to 
 
 If WPA2 is used, the 4-way handshake also transports the current Group Temporal Key (GTK) to the supplicant.
 
-![](https://github.com/l3b2w1/l3b2w1.github.io/tree/master/img/1-supp-auth-2.jpeg)
+![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/1-supp-auth-2.jpeg)
 
 ---
 ## 四步握手认证过程
