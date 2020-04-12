@@ -140,27 +140,26 @@ QEMU在kvm之前就已经存在了，可以没有KVM的情况下执行。
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2020-04-12-virt-kvm-4.jpeg)
 
 单纯靠QEMU在用户态解释执行cpu指令，性能是很低的。满足以下三个条件，就可以极大提升性能。
-1. 客户机指令可以直接在CPU上执行。
-2. 指令可以在VMX non-root模式下不加修改，直接执行。
-3. cpu不能直接执行的指令可以识别出来之后交给qemu模拟处理。
-KVM就是基于这个想法而开发的。以最小的修改，最大化利用现有的开源软件，实现虚拟机的创建。
+1. 客户机指令可以直接在CPU上执行。  
+2. 指令可以在VMX non-root模式下不加修改，直接执行。  
+3. cpu不能直接执行的指令可以识别出来之后交给qemu模拟处理。  
 
-
-0. 首先kvm模块创建一个设备节点/dev/kvm。
-qemu 使用 ioctl  通过 /dev/kvm 和 kvm内核模块交互，发送各种请求实现 VM功能。
-1. qemu 调用 ioctl 指示 kvm 启动虚拟机。
-2. kvm 执行 VM Entry，开始运行客户机。
-3. 当客户机执行到敏感指令时，触发VM Exit，kvm会识别出exit的原因。
+KVM就是基于这个想法而开发的。以最小的修改，最大化利用现有的开源软件，实现虚拟机的创建．  
+0. 首先kvm模块创建一个设备节点/dev/kvm。  
+1. qemu 调用 ioctl 指示 kvm 启动虚拟机。  
+    qemu 使用ioctl 通过 /dev/kvm 和 kvm内核模块交互，发送各种请求实现 VM功能。  
+2. kvm 执行 VM Entry，开始运行客户机。  
+3. 当客户机执行到敏感指令时，触发VM Exit，kvm会识别出exit的原因。  
 4. 如果需要qemu的干预执行IO任务或者切换任务，控制权就会转给qemu。
-    一旦qemu执行完毕，再次调用ioctl系统调用，请求kvm继续运行客户机。
-这就回到第一步了，周而复始。
+    一旦qemu执行完毕，再次调用ioctl系统调用，请求kvm继续运行客户机。  
+这就回到第一步了，周而复始。  
 
 QEMU/KVM架构  
-1. KVM内核模块的实现把 linux 内核转化成了一个 hypervisor。
-2. 每一个客户机都对应一个qemu进程。多个客户机运行，就有同样数量的qemu进程。
-3. qemu是个多线程进程，客户机系统的每一个虚拟cpu(vcpu)都对应一个线程。
-4. 从内核角度看，qemu的每一个线程都对应一普通的用户态进程。
-   所以vcpu的线程调度是由内核调度器负责的，就像调度其它进程线程一样。
+1. KVM内核模块的实现把 linux 内核转化成了一个 hypervisor。  
+2. 每一个客户机都对应一个qemu进程。多个客户机运行，就有同样数量的qemu进程。  
+3. qemu是个多线程进程，客户机系统的每一个虚拟cpu(vcpu)都对应一个线程。  
+4. 从内核角度看，qemu的每一个线程都对应一普通的用户态进程。  
+   所以vcpu的线程调度是由内核调度器负责的，就像调度其它进程线程一样。  
 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2020-04-12-virt-kvm-5.jpeg)
 
