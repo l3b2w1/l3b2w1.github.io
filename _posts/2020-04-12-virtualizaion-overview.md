@@ -19,7 +19,7 @@ tags:
 
 ### Intel VT-x 和 敏感指令
 Intel VT ，Intel Virtualization Technology，intel虚拟化技术的通用名称  
-包含VT-x x86处理器，VT-i 安腾处理，一级VT-d 支持I/O虚拟化 (direct I/O).
+包含VT-x x86处理器，VT-i 安腾处理，以及VT-d 支持I/O虚拟化 (direct I/O).
 
 Intel VT-x可以视为一个硬件功能部件，用于监测敏感指令的执行，一旦检测到CPU执行敏感指令就切换到hypervisor管理者程序。hypervisor是运行在物理机上的客户机监控程序．
 
@@ -56,7 +56,6 @@ cpu必须能够检测到这些指令的执行，然后通知hypervisor代表虚�
 vmm 主要负责管理客户机需要的各种资源，根据客户机的配置分配相应的资源  
 不论采用何种虚拟化方式，vmm对物理资源的虚拟可以归结为三个主要任务:  
 * 处理器虚拟化  
-* 中断虚拟化
 * 内存虚拟化  
 * I/O虚拟化  
 
