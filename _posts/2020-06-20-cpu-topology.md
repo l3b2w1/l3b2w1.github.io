@@ -12,6 +12,8 @@ tags:
     - topology
 ---
 
+**把系统CPU拓扑搞清楚了,有助于理解 调度域 shed domain 和 负载均衡 load balance**
+
 ### FSB
 Front Side Bus 前端总线
 计算机的速度实际上取决于许多因素。这不仅仅是有多少内存或者处理器的速度;   
@@ -27,6 +29,7 @@ Central Processing Units   中央处理器单元  一般就称为处理器
 
 ### CORE
 ALU FPU Cache Registers Control-Unit FSB 物理上这样一套组件合起来就可以构成一个core   
+每个core都是一个独立的执行单元,可以运行一个线程  
 硬件设计人员把这一套必要组件称为core, 操作系统研发人员还是称为cpu
 每个core可能都有自己的FSB,也可能共享FSB,和具体硬件设计有关  
 
@@ -108,8 +111,6 @@ CPU family:            6
 Model:                 94
 Model name:            Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz
 ```
-
-**把系统CPU拓扑搞清楚了,有助于理解 调度域 shed domain 和 负载均衡 load balance**
 
 [参考链接]  
 < Chip Multi Processing aware Linux Kernel Scheduler >  
