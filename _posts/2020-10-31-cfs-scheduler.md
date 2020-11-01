@@ -542,7 +542,7 @@ static void task_fork_fair(struct task_struct *p)
 通过组调度, CFS会首先尝试对组公平,然后再对组内进程公平。因此两个用户都获得	50%	的	CPU。  
 
 ---------------------------------------------------------
-[参考链接]
+[参考链接]  
 << 深入linux内核架构 >>  
 https://www.cnblogs.com/linhaostudy/p/9946814.html  
 https://cloud.tencent.com/developer/article/1370903  
