@@ -543,5 +543,7 @@ static void task_fork_fair(struct task_struct *p)
 
 ---------------------------------------------------------
 [参考链接]
-<< 深入linux内核架构 >>
+<< 深入linux内核架构 >>  
+https://www.cnblogs.com/linhaostudy/p/9946814.html  
+https://cloud.tencent.com/developer/article/1370903  
 https://cloud.tencent.com/developer/article/1372345  
