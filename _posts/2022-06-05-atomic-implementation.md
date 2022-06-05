@@ -1,3 +1,14 @@
+---
+layout:     post
+title:      原子实现
+subtitle:   不同架构原子实现
+date:       2022-06-15
+author:     iceberg
+catalog: true
+tags:
+    - atomic
+---
+
 # 简介
 在多核执行环境，原子操作指令对于内存共享内存的并发访问保护至关重要。  
 也是实现其它高级并发元语的基础。比如semaphore/mutex/spinlock/rwlock等。  
