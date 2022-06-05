@@ -13,7 +13,7 @@ tags:
 
 # x86 nmi
 
-##　简介
+## 简介
 NMI（Nonmaskable Interrupt）中断之所以称之为NMI的原因是：  
 这种类型的中断不能被CPU的EFLAGS寄存器的IF标志位所屏蔽。  
 
