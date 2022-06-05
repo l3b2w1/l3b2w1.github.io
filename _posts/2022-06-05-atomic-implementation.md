@@ -69,15 +69,16 @@ x86处理器三种机制保证原子性
 * 16-bit boundary for locked word accesses.
 * 32-bit boundary for locked doubleword accesses.
 * 64-bit boundary for locked quadword accesses.
-### 1. Automatic Locking 自动锁
+
+### Automatic Locking 自动锁
 在以下场合处理器会自动使能锁总线(intel manual vol3 8.1.2.1)
 > * When executing an XCHG instruction that references memory.
 * When setting the B (busy) flag of a TSS descriptor
 * When updating segment descriptors
 * When updating page-directory and page-table entries
-* Acknowledging interrupts
+* Acknowledging interrupts  
 
-### 2. Software Controlled Bus Locking 软件可控的锁
+### Software Controlled Bus Locking 软件可控的锁
 软件在以下场合可以控制处理器使能锁总线(intel manual vol3 8.1.2.2)
 > * The bit test and modify instructions (BTS, BTR, and BTC).
 * The exchange instructions (XADD, CMPXCHG, and CMPXCHG8B).
@@ -85,7 +86,7 @@ x86处理器三种机制保证原子性
 * The following single-operand arithmetic and logical instructions: INC, DEC, NOT, and NEG.
 * The following two-operand arithmetic and logical instructions: ADD, ADC, SUB, SBB, AND, OR, and XOR
 
-**x86原子指令自带内存屏障效果，会导致cpu冲刷流水线，会导致多核间频繁修改的共享数据在data cache中无效化
+**x86原子指令自带内存屏障效果，会导致cpu冲刷流水线，会导致多核间频繁修改的共享数据在data cache中无效化，
 总的来说对性能是有影响的。**
 
 
