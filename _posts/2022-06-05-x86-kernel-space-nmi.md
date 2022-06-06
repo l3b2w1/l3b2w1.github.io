@@ -51,7 +51,58 @@ iret指令用于从中断或者异常返回，并且会重新使能NMI。
 我们知道，加载内核模块时会使用vmalloc，模块的文本段被映射到进程虚拟地址空间，在第一次执行到时就会触发pagefault。
 如果模块代码里有注册NMI handler callback，这个callkback可能会导致重入NMI。
 
-为了让nmi handler正常执行，不被破坏，必须同时能够处理这两种异常。
+## 解决方案
+**为了让nmi handler正常执行，不被破坏，必须同时能够处理这两种异常。  
+现如今的代码，解决方案方式是三份上下文拷贝。**
+
+
+nmi执行期间没有发生异常的情况下，栈上三份frame内容都一样，整个nmi流程不会改变。  
+一旦发生nmi嵌套，三份frame各自用途：  
+1. original frame 栈顶位置特地为硬件准备的，一旦nmi上来，硬件自动保存当前被中断的上下文到这里
+2. iret frame     发生nmi嵌套时，必须在first nmi执行完之后，能够继续处理嵌套的nmi，起衔接作用
+3. outermost frame 起备份作用，被first nmi打断的上下文就保存在这里，  
+  如果发生嵌套，就要从outermost frame拷贝到iret frame,  
+  这样恢复最初被nmi打断现场的责任就交给了nested nmi
+
+## 不发生nmi 嵌套
+1. first nmi执行期间，没有发生任何异常，那么就不会发生因为执行iret指令而离开nmi context的情况，也就重新使能nmi，所以不会发生嵌套。此时栈上的三份拷贝完全一致
+2. first nmi执行期间，发生了异常，那么异常返回时执行iret指令就会导致重新开启nmi，一旦有新的nmi信号捅给cpu，就会发生异常嵌套；没有新的nmi上来，则不会嵌套，此时栈上的三份拷贝完全一致。
+
+## 发生nmi嵌套
+1. first nmi执行期间，发生了异常，并且异常返回后有新的nmi信号捅给cpu，那么cpu会立即响应nested nmi
+nested nmi 会修改iret frame，然后尽快返回。修改iret frame 就是为了通知first nmi，后面还有一个nmi呢，你执行完了记得拉我一把。
+2. first nmi 执行结束前，会清零nmi executing标记，最后执行iret指令，就会跳转到repeate_nmi，repeate_nmi首先设置nmi executing，然后在栈上把 outermost frame拷贝到iret frame位置，outermost frame存取的就是最初被first nmi中断的现场。现在由nested nmi负责在自己执行结束后恢复最初的上下文。
+
+```
+/*
+ * Here's what our stack frame will look like:
+ * +---------------------------------------------------------+ <--high address
+ * | original SS                                             |
+ * | original Return RSP                                     |
+ * | original RFLAGS                                         |
+ * | original CS                                             |
+ * | original RIP                                            |
+ * +---------------------------------------------------------+
+ * | temp storage for rdx                                    |
+ * +---------------------------------------------------------+
+ * | "NMI executing" variable                                |
+ * +---------------------------------------------------------+
+ * | iret SS          } Copied from "outermost" frame        |
+ * | iret Return RSP  } on each loop iteration; overwritten  |
+ * | iret RFLAGS      } by a nested NMI to force another     |
+ * | iret CS          } iteration if needed.                 |
+ * | iret RIP         }                                      |
+ * +---------------------------------------------------------+
+ * | outermost SS          } initialized in first_nmi;       |
+ * | outermost Return RSP  } will not be changed before      |
+ * | outermost RFLAGS      } NMI processing is done.         |
+ * | outermost CS          } Copied to "iret" frame on each  |
+ * | outermost RIP         } iteration.                      |
+ * +---------------------------------------------------------+
+ * | pt_regs                                                 |
+ * +---------------------------------------------------------+ <--low address
+ */
+ ```
 
 ------------------------------------------------------------------------------
 
@@ -61,13 +112,12 @@ iret指令用于从中断或者异常返回，并且会重新使能NMI。
 
 硬件自动保存的NMI栈帧大小为40字节 SS + Return RSP + RFLAGS + CS + RIP
 ```
-
 1193     /* Use %rdx as our temp variable throughout */
-1194     pushq   %rdx
+1194     pushq   %rdx   // ---------------------2
 1195       
-1196     testb   $3, CS-RIP+8(%rsp)  // 判断发生nmi时，地址空间处于内核态还是用户态
-1197     jz  .Lnmi_from_kernel
-... // skip userspace
+1196     testb   $3, CS-RIP+8(%rsp)  // ---------------------3
+1197     jz  .Lnmi_from_kernel    // 判断发生nmi时，地址空间处于内核态还是用户态
+... // skip userspace           // ---------------------4
 ... // skip userspace
 .Lnmi_from_kernel:
 	/*
@@ -110,7 +160,7 @@ iret指令用于从中断或者异常返回，并且会重新使能NMI。
    1318          * resume the outer NMI.
    1319          */
    1320
-   1321         movq    $repeat_nmi, %rdx
+   1321         movq    $repeat_nmi, %rdx     // --------------------- 5
    1322         cmpq    8(%rsp), %rdx	// $rsp + 8 位置存储的是被NMI打断现场的RIP，由硬件自动压入栈
    1323         ja      1f		// repeat_nmi > RIP，跳转到1f 继续判断；否则 repeate_nmi <= RIP，RIP有可能位于区间 [repeat_nmi ~ end_repeat_nmi]，不跳转，继续判断
    1324         movq    $end_repeat_nmi, %rdx	//  repeate_nmi <= RIP < end_repeat_nmi，跳出去nested_nmi_out；否则执行1f位置，继续判断
@@ -123,8 +173,8 @@ iret指令用于从中断或者异常返回，并且会重新使能NMI。
    1331          * This will not detect if we interrupted an outer NMI just
    1332          * before IRET.
    1333          */
-   1334         cmpl    $1, -8(%rsp)		// 判断nmi excuting 是否为1，为1表示nmi嵌套
-   1335         je      nested_nmi
+   1334         cmpl    $1, -8(%rsp)		// ---------------------6
+   1335         je      nested_nmi    // 判断nmi excuting 是否为1，为1表示nmi嵌套
    1336
    1337         /*
    1338          * Now test if the previous stack was an NMI stack.  This covers
@@ -138,7 +188,7 @@ iret指令用于从中断或者异常返回，并且会重新使能NMI。
    1346          * if it controls the kernel's RSP.  We set DF before we clear
    1347          * "NMI executing".
    1348          */
-   1349         lea     6*8(%rsp), %rdx
+   1349         lea     6*8(%rsp), %rdx // ---------------------7
    1350         /* Compare the NMI stack (rdx) with the stack we came from (4*8(%rsp)) */
    1351         cmpq    %rdx, 4*8(%rsp)
    1352         /* If the stack pointer is above the NMI stack, this is a normal NMI */
@@ -156,7 +206,7 @@ iret指令用于从中断或者异常返回，并且会重新使能NMI。
    1364
    1365         /* This is a nested NMI. */
    1366
-   1367 nested_nmi:
+   1367 nested_nmi:   // ---------------------8
    1368         /*
    1369          * Modify the "iret" frame to point to repeat_nmi, forcing another
    1370          * iteration of NMI handling.
@@ -172,13 +222,13 @@ iret指令用于从中断或者异常返回，并且会重新使能NMI。
    1380         /* Put stack back */
    1381         addq    $(6*8), %rsp		// 	重新指向temp storage for rdx
    1382
-   1383 nested_nmi_out:
+   1383 nested_nmi_out:   // ---------------------9
    1384         popq    %rdx
    1385
    1386         /* We are returning to kernel mode, so this cannot result in a fault. */
    1387         INTERRUPT_RETURN	// original位置现在保存的是nested NMI的 frame，也就是被中断的first nmi的现场，执行iret返回后，继续恢复执行first nmi
    1388
-   1389 first_nmi:
+   1389 first_nmi:    // --------------------- 10
    1390         /* Restore rdx. */
    1391         movq    (%rsp), %rdx
    1392
@@ -211,7 +261,7 @@ iret指令用于从中断或者异常返回，并且会重新使能NMI。
    1419 #endif
    1420	// 一旦出现page fault或者breakpoing等异常，那么异常返回时执行iret，CPU就会重新处于enable NMI的状态，随时可能被新的NMI打断，也就是nested nmi
 		// 被中断的NMI执行完毕时也会执行iret指令，就会返回到repeat_nmi，从这里开始执行。
-   1421 repeat_nmi:
+   1421 repeat_nmi:     // ---------------------11
    1422         /*
    1423          * If there was a nested NMI, the first NMI's iret will return
    1424          * here. But NMIs are still enabled and we can take another
@@ -245,9 +295,9 @@ iret指令用于从中断或者异常返回，并且会重新使能NMI。
    1452          * Everything below this point can be preempted by a nested NMI.  // 为什么是从这里开始，CPU有可能响应新的NMI，发生NMI嵌套
    1453          * If this happens, then the inner NMI will change the "iret"
    1454          * frame to point back to repeat_nmi.
-   1455          */
+   1455          */   
    1456         pushq   $-1                             /* ORIG_RAX: no syscall to restart */
-   1457         ALLOC_PT_GPREGS_ON_STACK				// 调整rsp，为pt_regs分配空间
+   1457         ALLOC_PT_GPREGS_ON_STACK				// ---------------------12
    1458
    1459         /*
    1460          * Use paranoid_entry to handle SWAPGS, but no need to use paranoid_exit
@@ -256,18 +306,18 @@ iret指令用于从中断或者异常返回，并且会重新使能NMI。
    1463          * setting NEED_RESCHED or anything that normal interrupts and
    1464          * exceptions might do.
    1465          */
-   1466         call    paranoid_entry
+   1466         call    paranoid_entry      
    1467
    1468         /* paranoidentry do_nmi, 0; without TRACE_IRQS_OFF */
    1469         movq    %rsp, %rdi
    1470         movq    $-1, %rsi
-   1471         call    do_nmi
+   1471         call    do_nmi              // --------------------- 12
    1472
    1473         testl   %ebx, %ebx                      /* swapgs needed? */
    1474         jnz     nmi_restore
    1475 nmi_swapgs:
-   1476         SWAPGS_UNSAFE_STACK
-   1477 nmi_restore:
+   1476         SWAPGS_UNSAFE_STACK     // --------------------- 13
+   1477 nmi_restore:                  // --------------------- 14
    1478         RESTORE_EXTRA_REGS
    1479         RESTORE_C_REGS
    1480
@@ -290,9 +340,33 @@ iret指令用于从中断或者异常返回，并且会重新使能NMI。
    1497          * stack in a single instruction.  We are returning to kernel
    1498          * mode, so this cannot result in a fault.
    1499          */
-   1500         INTERRUPT_RETURN
+   1500         INTERRUPT_RETURN      // --------------------- 14
    1501 END(nmi)
    ```
+
+   1. ENTRY(nmi)
+   2. rdx入栈   // rdx即为被中断上下文的RIP，指令地址，入栈后访问的话，即为+8(%rsp)
+   3. 如果RIP位于kernel mode，则跳转到5 nmi_from_kernel; 否则nmi from user mode，继续执行
+   4. 用户模式nmi处理流程
+   5. 如果repeat_nmi =<  interrupted RIP <= end_repeat_nmi，表明当前nmi属于nested_nmi，跳转到nested_nmi_out
+       因为被抢占的nmi也刚好正在该代码段执行，正在修改栈上的iret frame。
+       则当前nested nmi 直接弹出rdx，不可以修改iret frame，执行iret 返回kernel mode。
+       这个nested nmi抢占时机不巧，只能丢弃掉。
+   6. 检查NMI executing 标记，为1表示当前nmi为嵌套nmi，跳转到8 nested_nmi;否则继续执行
+   7. 检测被中断上下文的栈是否为 nmi stack，如果是跳转到8 nested_nmi；否则跳转到first_nmi
+   8. nested_nmi 重新入栈整个iret frame， iret RIP 指向repeat_nmi，这样first_nmi执行iret返回的时候就会跳转到 repeat_nmi 继续处理嵌套nmi
+   9. nested_nmi_out        弹出rdx ，执行iret返回
+   10. first_nmi:    0入栈，代表NMI executing为0，不是嵌套nmi
+       调整rsp，减去40字节的栈空间，留给iret frame，然后把即栈顶位置origianl frame 拷贝到outermost frame
+   11. repeat_nmi: 标记NMI executing，表示发生nmi嵌套；然后拷贝outermost frame到 iret frame
+       这样的话，等nested_nmi 执行到iret时，就可以从iret frame恢复被first_nmi中断的上下文
+       [repeat_nmi, end_repeat_nmi]代码区间是不可重入的，前面第5步骤会做检测，一旦发生重叠，就会直接返回
+   12. 栈上分配pt_regs空间，调用paranoid_entry判断是否需要执行swapgs，然后调用do_nmi
+       register_nmi_handler注册的handler都挂在
+       从这里开始往下 执行的时候，有可能被新的nmi打断
+       因为代码执行到这里，就可能会出现触发异常的情况，一旦异常处理完毕返回，就会重新使能nmi，也就有可能发生nmi嵌套
+   13. 检测是否需要执行swapgs
+   14. 恢复被中断现场，执行iret返回
 
 
 --------------------------------------------------------------------------------
