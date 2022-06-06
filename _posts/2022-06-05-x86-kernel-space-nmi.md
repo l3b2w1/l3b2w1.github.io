@@ -676,3 +676,6 @@ nested nmi 会修改iret frame，然后尽快返回。修改iret frame 就是为
    0xffff88023fd12000:     0x0000000000000000      0x0000000000000000
 
    ```
+[参考链接]  
+1. <https://lwn.net/Articles/484932/>
+2. <https://linux-kernel.vger.kernel.narkive.com/KRnCqHwE/v5-patch-2-6-x86-nmi-create-new-nmi-handler-routines>
