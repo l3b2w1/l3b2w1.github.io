@@ -60,11 +60,9 @@ ffffffff8144306a: 48 89 e5 mov %rsp,%rbp
 ffffffff8144306d: 41 57 push %r15
 ```
 
-linux@pc:~/kernel/linux-4.16.8$ sudo cat /proc/kallsyms | ag mcount
-[sudo] password for linux:  
-ffffffffa6e15168 T __start_mcount_loc
-ffffffffa6e5fc20 T __stop_mcount_loc
-
+linux@pc:~/kernel/linux-4.16.8$ sudo cat /proc/kallsyms | ag mcount  
+ffffffffa6e15168 T __start_mcount_loc  
+ffffffffa6e5fc20 T __stop_mcount_loc  
 
 ## 系统初始化阶段
 ftrace 处理 __start_mcount_loc ~ __stop_mcount_loc 数据段，  
