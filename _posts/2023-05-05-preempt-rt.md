@@ -987,5 +987,5 @@ Index: drivers/net/cq/nic/cq_pf.c
 <https://docs.kernel.org/scheduler/sched-rt-group.html>  
 <https://www.linuxfoundation.org/blog/blog/intro-to-real-time-linux-for-embedded-developers>  
 <https://wiki.linuxfoundation.org/realtime/documentation/howto/debugging/debug-steps>  
-《Challenges Using Linux as a Real-Time Operating System》(https://ntrs.nasa.gov/api/citations/20200002390/downloads/20200002390.pdf)  
+[《Challenges Using Linux as a Real-Time Operating System》](https://ntrs.nasa.gov/api/citations/20200002390/downloads/20200002390.pdf)  
 
