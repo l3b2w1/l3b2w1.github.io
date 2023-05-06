@@ -3,7 +3,7 @@ layout:     post
 title:      Linux x86 ORC 栈回溯
 subtitle:   The Linux x86 ORC Stack Unwinder
 date:       2019-10-07
-author:     iceberg
+author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
