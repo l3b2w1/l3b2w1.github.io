@@ -826,8 +826,9 @@ ring_buffer_resize
 1. 一开始是注意到执行top命令的时候，过不了多久top就不再定时刷新数据了，Ctrl+C也没反应，挂住不动了  
 查看top进程并没有D状态挂死，只是一直处于休眠状态，得不到调度    
 正常情况下top每隔三秒刷新串口输出，从下面的调用栈可以看出在内核态是利用hrtimer驱动定时器刷新的  
-出现问题时，一直没有hrtimer软中断报上来，所以top定时器回调得不到调度，表现为控制台输出不刷新  
+出现问题时，一直没有hrtimer软中断报上来，所以top定时器回调得不到调度，表现为控制台输出不刷新   
 cat /proc/softirqs 也可以明显看到HRTIMER统计数据始终保持不变  
+
 ```
 [root@(none) /]# ps aux | grep top                                                                                                  
 root      2397  1.1  0.0  11456  6976 ttyp1    S+   11:59   1:18 /usr/bin/top -H                                                    
