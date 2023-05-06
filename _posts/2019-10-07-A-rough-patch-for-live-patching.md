@@ -3,7 +3,7 @@ layout:     post
 title:      实时补丁框架
 subtitle:   A rough patch for live patching
 date:       2019-10-07
-author:     iceberg
+author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
