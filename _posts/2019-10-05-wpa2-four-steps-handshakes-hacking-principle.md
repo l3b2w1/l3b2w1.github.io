@@ -3,7 +3,7 @@ layout:     post
 title:      wpa/wpa2 四步握手过程
 subtitle:   wireless dictionary brutal hacking
 date:       2019-10-05
-author:     iceberg
+author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
