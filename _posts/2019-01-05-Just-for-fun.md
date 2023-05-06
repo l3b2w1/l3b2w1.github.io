@@ -3,7 +3,7 @@ layout:     post
 title:      Just for fun !
 subtitle:   who, what, when, where, why
 date:       2019-01-05
-author:     iceberg
+author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 ---
@@ -14,11 +14,11 @@ catalog: true
 
 ### linux
 
-    created by linus
+created by linus
 
 ### kernel
 
-	dig deep into kernel implementation
+dig deep into kernel implementation
 
 
 
