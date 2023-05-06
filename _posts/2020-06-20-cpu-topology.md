@@ -3,7 +3,7 @@ layout:     post
 title:      CPU Topology
 subtitle:   cpu 拓扑
 date:       2020-06-20
-author:     iceberg
+author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
