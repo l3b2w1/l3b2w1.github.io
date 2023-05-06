@@ -823,10 +823,10 @@ ring_buffer_resize
 这个只能说是业务逻辑和内核代码逻辑产生冲突
 
 ##### hrtimer事件丢失
-1. 一开始是注意到执行top命令的时候，过不了多久top就不再定时刷新数据了，Ctrl+C也没反应，挂住不动了  
+一开始是注意到执行top命令的时候，过不了多久top就不再定时刷新数据了，Ctrl+C也没反应，挂住不动了  
 查看top进程并没有D状态挂死，只是一直处于休眠状态，得不到调度  
-正常情况下top每隔三秒刷新串口输出，从下面的调用栈可以看出在内核态是利用hrtimer驱动定时器刷新的        
-出现问题时，一直没有hrtimer软中断报上来，所以top定时器回调得不到调度，表现为控制台输出不刷新  	
+正常情况下top每隔三秒刷新串口输出，从下面的调用栈可以看出在内核态是利用hrtimer驱动定时器刷新的  
+出现问题时，一直没有hrtimer软中断报上来，所以top定时器回调得不到调度，表现为控制台输出不刷新  
 cat /proc/softirqs 也可以明显看到HRTIMER统计数据始终保持不变  
 ```
 [root@(none) /]# ps aux | grep top                                                                                                  
@@ -880,7 +880,7 @@ Call trace:
  2197 }
 ```  
 
-2. softirq需要先raise，设置percpu标记HRTIMER_SOFTIRQ  
+softirq需要先raise，设置percpu标记HRTIMER_SOFTIRQ  
 这样下次softirqd线程(run_ksoftirqd)执行的时候会调用相应的软中断处理函数  
 如果没有raise操作，下次run_ksoftirqd不会调用到回调 action  
 所以加了两处调试打印，一处是raise的地方，一处是__do_softirq里面  
@@ -921,11 +921,11 @@ __do_softirq
   581         }
 ```
 
-3. RT补丁又提高了并发程度，所以就怀疑HRTIMER_SOFTIRQ可能因为代码并发有问题被冲掉了  
+RT补丁又提高了并发程度，所以就怀疑HRTIMER_SOFTIRQ可能因为代码并发有问题被冲掉了  
 pending标记是个percpu变量，很可能是当前cpu上可能其它流程raise softirq时冲掉了标记位  
 就在置位的必经之路__raise_softirq_irqoff里面加了个trace_dump_stack，抓到如下调用栈  
 ```
-irq/237-eth1-rx-2042    [000] .....12    70.122246: <stack trace>  // . 标记处于中断使能上下文
+irq/237-eth1-rx-2042    [000] .....12    70.122246: <stack trace>  // . 标记处于中断使能上下文 
  => __raise_softirq_irqoff
  => __napi_schedule_irqoff // 该接口本身不会关中断，但是要求所处上下文关中断
  => cq_intr_handler         // 驱动注册的中断handler
@@ -934,6 +934,7 @@ irq/237-eth1-rx-2042    [000] .....12    70.122246: <stack trace>  // . �
  => kthread                                                                                                                         
  => ret_from_fork
 ```
+
 无论是否打了实时补丁 hrtimer_interrupt 本身都是硬中断上下文  
 实时补丁打进来之后，驱动中断处理函数cq_intr_handler从中断上下文变成了线程上下文，原本关中断的上下文，现在开了中断  
 ```
@@ -952,7 +953,7 @@ net/core/dev.c
   3887 }
 ```
 
-4. hrtimer_interrupt函数里也会调用raise_softirq_irqoff，设置HRTIMER_SOFTIRQ标记  
+hrtimer_interrupt函数里也会调用raise_softirq_irqoff，设置HRTIMER_SOFTIRQ标记  
 所以出现问题时是 hrtimer_interrupt 中断了 cq_intr_handler  
 中断返回之后 cq_intr_handler ->… -> __raise_softirq_irqoff 恢复执行的时候把 hrtimer_interrupt 设置的 HRTIMER_SOFTIRQ 标记位冲掉了  
 导致后续所有hrtimer softirq事件全部丢失，top不刷新只是其中一种现象，还会引起其它问题，毕竟hrtimer softirq完全失效了  
