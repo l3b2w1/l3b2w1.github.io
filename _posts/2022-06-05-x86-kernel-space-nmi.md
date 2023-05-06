@@ -3,7 +3,7 @@ layout:     post
 title:      x86 nmi
 subtitle:   kernel space processing
 date:       2022-06-05
-author:     iceberg
+author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
