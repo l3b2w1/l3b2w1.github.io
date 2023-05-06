@@ -30,20 +30,20 @@ COST硬件不可预知，再加上不可能计算到所有代码控制路径和�
 IO操作也会带来临时性不确定延迟，不但取决于硬件，也取决于驱动实现。    
 IPC进程间通信也会影响到实时性，因为需要利用同步手段在不同的进程地址空间共享数据，包括网络通信。
 
-## 延迟构成-软件因素    
+##### 延迟构成-软件因素    
 - 响应中断延迟  
 - 中断处理耗时  
 - 调度决策延迟  
 - 调度器耗时  
 
-## 延迟构成-硬件因素
+##### 延迟构成-硬件因素
 - System Management Interrupt (SMI)
 - Cache miss (instruction cache, data cache)
 - Branch prediction
 - Hyper-threading - Simultaneous multithreading (SMT)
 - Page fault / Translation Lookaside Buffer (TLB)
 
-## 上下文的划分
+##### 上下文的划分
 非实时内核有三个上下文  
 - interrupt context(non-preemptible)  
 - software interrupt context(non-preemptible)  
@@ -55,7 +55,7 @@ IPC进程间通信也会影响到实时性，因为需要利用同步手段在�
 - software interrupt context(fully-preemptible)  
 - process context(fully-preemptible)  
 
-## 内核抢占模型
+##### 内核抢占模型
 
 |配置项|解释说明|
 |----|----|
@@ -81,7 +81,7 @@ IPC进程间通信也会影响到实时性，因为需要利用同步手段在�
 把自旋锁和读写锁替换为可以抢占的、支持优先级继承的锁，强制中断线程化，并且引入各种机制来打破长的、不可抢占的临界区。  
 主要用于延迟要求为100微秒或稍低（几十微秒）的实时系统  
 
-## 调度策略  
+##### 调度策略  
 先进先出调度和轮流调度的主要区别是对优先级相同的实时进程的处理策略不同：  
 前者不会把处理器让给优先级相同的实时进程，后者会把处理器让给优先级相同的实时进程  
 
@@ -137,7 +137,9 @@ IPC进程间通信也会影响到实时性，因为需要利用同步手段在�
   实时进程在main函数里使用malloc/mmap预先分配内存，并且调用函数mlockall，把所有虚拟页映射到物理页，锁定在内存中，阻止内核回收这些物理页  
 
 # 提高实时性的策略  
-## 强制中断线程化
+---------------------------------------------------------------------------------------------------------
+
+### 强制中断线程化
 
 使用内核线程执行中断处理函数，内核线程名称 irq/<irq>-<devname>   调度策略SCHED_FIFO，实时优先级50
 ```  
@@ -187,7 +189,7 @@ handle_irq_event_percpu
 
 irq_thread   /// Interrupt handler thread
 ```
-## 高精度定时器
+### 高精度定时器
 软中断到期模式  
 HRTIMER_MODE_SOFT            - Timer callback function will be executed in soft irq context  
 到期的时候在类型为HRTIMER_SOFTIRQ的软中断里面执行定时器回调函数
@@ -198,7 +200,7 @@ HRTIMER_MODE_HARD            - Timer callback function will be executed in hard 
 
 如果没有指定到期模式，那么在实时内核中默认使用软中断到期模式  
 
-5.4版本为内核主线将来支持软实时做准备，增加HRTIMER_MODE_HARD  
+版本5.4内核主线支持软实时做准备，增加HRTIMER_MODE_HARD  
 1. 如果把到期模式指定为HRTIMER_MODE_HARD，那么在硬中断里面执行定时器回调函数，即使在实时内核中也是这样做。  
 2. 如果没有指定到期模式，那么在非实时内核中默认使用硬中断到期模式，在实时内核中默认使用软中断到期模式。  
 
@@ -206,7 +208,7 @@ HRTIMER_MODE_HARD            - Timer callback function will be executed in hard 
 1. 必须在硬中断里面执行，例如进程调度器周期性地调度进程。  
 2. 对延迟很敏感，例如函数nanosleep()把睡眠时间精确到纳秒。  
 
-## 软中断线程化
+### 软中断线程化
 - 非实时内核  
 一部分软中断在中断处理程序的后半部分执行，有时间限制，最多执行10轮(MAX_SOFTIRQ_RESTART)，并且总时间不超过2ms(MAX_SOFTIRQ_TIME)。  
 剩下的软中断由软中断线程执行，或者在进程开启软中断(local_bh_enable)的时候执行。   
@@ -257,7 +259,7 @@ static inline void invoke_softirq(void)
 #endif
 ```
 
-## 解决RCU读端临界区不能抢占问题
+### 解决RCU读端临界区不能抢占问题
 Linux内核支持3种RCU
 - 不可抢占RCU（RCU-sched），不允许进程在读端临界区被其他进程抢占。
 - 加速版不可抢占RCU（RCU-bh）是针对不可抢占RCU的改进，在软中断很多的情况可以缩短宽限期。
@@ -365,8 +367,12 @@ void __local_bh_disable_ip(unsigned long ip, unsigned int cnt)
 }
 
 ```
-
-## 解决优先级反转问题
+	
+### rcu_nocbs
+RCU callback影响实时性，执行在中断上下文的callback会带来不可忽略的延迟。
+Sarma 和 McKenney 引入了 CONFIG_RCU_NOCB_CPU 和 rcu_nocbs 参数，把callback的执行推到了对时限要求不高的内核线程中。
+	
+### 解决优先级反转问题
 
 什么是优先级反转（priority inversion）问题？  
 假设进程1的优先级低，进程2的优先级高。进程1持有互斥锁，进程2申请互斥锁，  
@@ -401,7 +407,7 @@ task_blocks_on_rt_mutex
         check_class_changed(rq, p, prev_class, oldprio);
             p->sched_class->switched_to(rq, p);
 ```
-## 对自旋锁的修改
+### 对自旋锁的修改
 自旋锁（spinlock_t）保护的临界区是不可抢占的，导致实时进程不能被及时调度。  
 实时内核使用互斥锁实现自旋锁（spinlock_t），临界区是可以抢占的，支持优先级继承(就可以避免优先级反转问题)。  
 在实时内核中，spin_lock_irq和spin_lock_irqsave不会禁止硬中断。  
@@ -436,7 +442,7 @@ typedef struct spinlock {
 ```
 
 
-## 对读写锁的修改
+### 对读写锁的修改
 读写锁（rwlock_t）保护的临界区是不可抢占的，导致实时进程不能被及时调度  
 实时内核使用实时互斥锁实现读写锁，临界区是可以抢占的，支持优先级继承  
 read_lock_irq()、read_lock_irqsave()、write_lock_irq()和write_lock_irqsave()不会禁止硬中断  
@@ -485,7 +491,8 @@ struct rw_semaphore {
 	...
 };
 ```
-## 针对禁止内核抢占或硬中断保护的临界区的修改
+	
+### 针对禁止内核抢占或硬中断保护的临界区的修改
 对于使用 *禁止硬中断*  保护的临界区，因为在实时内核中使用内核线程执行大多数处理函数，所以大多数临界区不需要禁止硬中断  
 对于使用 *禁止内核抢占* 保护的临界区，在实时内核中大多数临界区可以修改为可以抢占的  
 
@@ -505,7 +512,7 @@ local_lock为使用禁止内核抢占或硬中断保护的临界区提供了命�
 
 内核中禁止内核抢占或禁止硬中断的临界区比较多，需要判断是否可以使用local_lock替换，修改的工作量巨大，目前只有少数临界区使用local_lock  
 
-## 针对禁止软中断保护的临界区的修改
+### 针对禁止软中断保护的临界区的修改
 在实时内核中，软中断由软中断线程执行，或者在进程开启软中断的时候执行  
 使用禁止软中断保护的临界区 和 软中断线程 使用本地锁  softirq_ctrl.lock 互斥(5.4没有该实现，更高版本才有)  
 5.4上用的是  static DEFINE_LOCAL_IRQ_LOCK(bh_lock);  
@@ -514,7 +521,7 @@ __local_bh_enable
 __local_bh_enable_ip
 __local_bh_disable_ip
 
-## 实时内核开发注意事项
+# 实时内核开发注意事项
 1. 实时内核打开了配置项 CONFIG_IRQ_FORCED_THREADING=y 强制irq线程化  
 驱动确实需要关中断实现，禁止线程化，可以在注册中断时传递 IRQF_NO_THREAD flag标记  
 
@@ -536,13 +543,12 @@ stack_grow ();  // 在栈上分配空间，并且清零，强制提交到内存
 mlockall(MCL_CURRENT | MCL_FUTURE);  // 确保当前和未来要用的内存锁定
 [...]
 ```
-
 禁用overcommit
 ```
 echo 0 > /proc/sys/vm/overcommit_memory
 ```
 
-3.	系统配置
+3. 系统配置
 ```
 # cat /proc/sys/kernel/sched_rt_period_us
 1000000
@@ -559,27 +565,27 @@ sched_rt_runtime_us  所有实时进程运行时间之和不超过该值，避�
 # echo -1 > /proc/sys/kernel/sched_rt_runtime_us   //禁用 sched_rt_runtime_us产生的功效
 ```
 
-4.	针对spinlock_t，spin_lock_irqsave并不会禁止硬件中断  
+4. 针对spinlock_t，spin_lock_irqsave并不会禁止硬件中断  
 少数使用自旋锁保护的临界区不允许抢占，内核定义了原始自旋锁（raw_spinlock），提供传统的自旋锁。  
 禁中断或者禁抢占的场合再使用spin_lock就不合法了，必须使用raw spinlock  
 慎用raw_xxx 系列元语。只有很少的场合需要使用raw_xxx，比如调度器，架构相关代码以及RCU  
 
-5.	 dot.config debug配置项能关闭尽量关闭，因为有可能带来不可预知的延迟  
+5. dot.config debug配置项能关闭尽量关闭，因为有可能带来不可预知的延迟  
 
-6.	应用log记录一般会保存到存储介质，IO太频繁可能带来未知延迟
+6. 应用log记录一般会保存到存储介质，IO太频繁可能带来未知延迟
 
-7.	用户态实时进程如果有依赖中断和软中断，那么三者之间的优先级需要妥善配置。  
+7. 用户态实时进程如果有依赖中断和软中断，那么三者之间的优先级需要妥善配置。  
 软中断和用户实时进程，谁的优先级应该更高一些，可能需要结合实际业务逻辑，具体谁比谁设置优先级更高，得采取不同的策略，  
 (为了降低延迟，中断线程的优先级至少大于等于进程优先级)  
 
-8.	实时进程在下一次deadline到来之前没事做的时候，如果等待时长超过两倍的调度延迟时间，可以采用短暂忙等加sleep的方式  
+8. 实时进程在下一次deadline到来之前没事做的时候，如果等待时长超过两倍的调度延迟时间，可以采用短暂忙等加sleep的方式  
 最好是sleep一段时间，然后提前唤醒，再busy wait一小段等时间  
 
-9.	printk目前是rtpatch合入主线最大的障碍，printk的延迟在rt上是不可接受的  
+9. printk目前是rtpatch合入主线最大的障碍，printk的延迟在rt上是不可接受的  
 最后一个执行printk的进程会冲刷缓冲区，低优先级的进程可能因为大量打印阻塞高优先级进程  
-当前只能通过调低loglevel规避这个问题  
+当前可以通过调低loglevel规避这个问题  
 
-10.	高精度定时器  
+10. 高精度定时器  
 驱动如使用高精度定时器，需根据需要适配修改MODE   
 版本5.4为内核主线将来支持软实时做准备，增加HRTIMER_MODE_HARD，如下:  
 如果把到期模式指定为HRTIMER_MODE_HARD，那么在硬中断里面执行定时器回调函数，即使在实时内核中也是这样做。  
@@ -589,7 +595,7 @@ sched_rt_runtime_us  所有实时进程运行时间之和不超过该值，避�
 Glibc版本不低于2.5  
 当前uclibc实现不支持实时应用，不支持优先级继承的pthread mutex  
 
-## 安装实时补丁
+### 安装实时补丁
 选择一个内核版本和相应的实时补丁版本  
 cd ~/kernels  
 wget https://www.kernel.org/pub/linux/kernel/v5.x/linux-5.4.170.tar.xz  
@@ -600,9 +606,10 @@ wget https://mirrors.edge.kernel.org/pub/linux/kernel/projects/rt/5.4/older/patc
 unxz patch-5.4.170-rt68.patch.xz
 patch -p1 < patch-5.4.170-rt68.patch
 
-## 遇到的几个问题
+# 遇到的几个问题
+记录下项目中应用preempt-rt补丁时遇到的几个问题。
 
-### 执行kdb bt命令没有打印调用栈
+##### 执行kdb bt命令没有打印调用栈
 
 这个现象和RT补丁的printk ringbuffer实现有关系，为了降低printk可能带来的不可预知的延迟，
 目前printk_kthread_func刷到串口的操作是放到了printk的内核线程里，只有有新的打印数据的时候才会唤醒printk内核线程
@@ -662,7 +669,7 @@ Stack traceback for pid 141
 [   11.693754] 000:  el0_svc+0x8/0x204
 ```
 
-###  MMC驱动代码触发死锁BUG  
+#####  MMC驱动代码触发死锁BUG  
 实时补丁打进去之后发现一个MMC死锁问题  
 
 这个中断申请的时候禁止线程化  
@@ -747,7 +754,7 @@ worker线程执行mmc work调度到的mmc_blk_rw_wait时候准备把自己挂到
 <4>[  258.343913] 000:  kthread+0x158/0x168                                                                                         
 <4>[  258.343916] 000:  ret_from_fork+0x10/0x18   
 ```
-### ftrace调整buffer size时挂住
+##### ftrace调整buffer size时挂住
 ```
 # echo 40960 > /sys/kernel/debug/tracing/buffer_size_kb   // echo时bash进程挂住
 Kdb> bt
@@ -769,7 +776,7 @@ Call trace:
  el0_svc+0x8/0x1e4
 ```
 
-1.	因为ring buffer是percpu的，调整buffer size每个核都需要调整自己的缓冲区大小  
+1. 因为ring buffer是percpu的，调整buffer size每个核都需要调整自己的缓冲区大小  
 ```
 ring_buffer_resize
    1833                                 cpu_buffer->nr_pages_to_update = 0;
@@ -819,7 +826,7 @@ ring_buffer_resize
 这个只能说是业务逻辑和内核代码逻辑产生冲突
 
 
-### hrtimer事件丢失
+##### hrtimer事件丢失
 1. 一开始是注意到执行top命令的时候，过不了多久top就不再定时刷新数据了，Ctrl+C也没反应，挂住不动了  
 查看top进程并没有D状态挂死，只是一直处于休眠状态，得不到调度    
 
