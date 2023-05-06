@@ -3,7 +3,7 @@ layout:     post
 title:      完全公平调度
 subtitle:   CFS
 date:       2020-10-31
-author:     iceberg
+author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
