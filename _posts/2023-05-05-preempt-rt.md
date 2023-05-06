@@ -3,7 +3,7 @@ layout:     post
 title:      内核实时性
 subtitle:   preempt-rt
 date:       2023-05-05
-author:     iceberg
+author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
