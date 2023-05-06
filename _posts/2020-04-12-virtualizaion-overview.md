@@ -3,7 +3,7 @@ layout:     post
 title:      Virtualization Overview
 subtitle:   虚拟化概述
 date:       2020-04-12
-author:     iceberg
+author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
