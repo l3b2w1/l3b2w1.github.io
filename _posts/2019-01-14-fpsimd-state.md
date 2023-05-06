@@ -3,7 +3,7 @@ layout:     post
 title:      内核浮点支持
 subtitle:   arm64 arch specific
 date:       2019-01-14
-author:     iceberg
+author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
