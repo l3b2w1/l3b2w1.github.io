@@ -824,11 +824,10 @@ ring_buffer_resize
 
 ##### hrtimer事件丢失
 1. 一开始是注意到执行top命令的时候，过不了多久top就不再定时刷新数据了，Ctrl+C也没反应，挂住不动了  
-查看top进程并没有D状态挂死，只是一直处于休眠状态，得不到调度    
-正常情况下top每隔三秒刷新串口输出，从下面的调用栈可以看出在内核态是利用hrtimer驱动定时器刷新的  
-出现问题时，一直没有hrtimer软中断报上来，所以top定时器回调得不到调度，表现为控制台输出不刷新   
-cat /proc/softirqs 也可以明显看到HRTIMER统计数据始终保持不变  
-
+查看top进程并没有D状态挂死，只是一直处于休眠状态，得不到调度      
+正常情况下top每隔三秒刷新串口输出，从下面的调用栈可以看出在内核态是利用hrtimer驱动定时器刷新的      
+出现问题时，一直没有hrtimer软中断报上来，所以top定时器回调得不到调度，表现为控制台输出不刷新     
+cat /proc/softirqs 也可以明显看到HRTIMER统计数据始终保持不变    
 ```
 [root@(none) /]# ps aux | grep top                                                                                                  
 root      2397  1.1  0.0  11456  6976 ttyp1    S+   11:59   1:18 /usr/bin/top -H                                                    
@@ -850,7 +849,7 @@ Call trace:
  __switch_to+0xa4/0x1f0                                                                                                             
  __schedule+0x24c/0x6a8                                                                                                             
  schedule+0x40/0xe0                                                                                                                 
- schedule_hrtimeout_range_clock+0x9c/0x1e0  //   Line 2191 of "kernel/time/hrtimer.c"                                                                                    
+ schedule_hrtimeout_range_clock+0x9c/0x1e0  //   Line 2191 of "kernel/time/hrtimer.c"                                                                                   
  schedule_hrtimeout_range+0x18/0x20                                                                                                 
  do_select+0x3c0/0x560                                                                                                              
  core_sys_select+0x344/0x4d8                                                                                                        
@@ -879,15 +878,15 @@ Call trace:
  2195
  2196         return !t.task ? 0 : -EINTR;
  2197 }
-```
+```  
 
 2. softirq需要先raise，设置percpu标记HRTIMER_SOFTIRQ  
 这样下次softirqd线程(run_ksoftirqd)执行的时候会调用相应的软中断处理函数  
-如果没有raise操作，下次run_ksoftirqd不会调用到回调 action
+如果没有raise操作，下次run_ksoftirqd不会调用到回调 action  
 所以加了两处调试打印，一处是raise的地方，一处是__do_softirq里面  
 结果抓到的信息显示，最后一次HRTIMER_SOFTIRQ标记有置位  
 但是__do_softirq中遍历__softirq_pending位时，HRTIMER_SOFTIRQ标记位丢失，没能调用到回调hrtimer_run_softirq  
-hrtimer_run_softirq ---> hrtimer_update_softirq_timer没能续命， 一口气掉不上来，后续所有hrtimer softirq全部丢失    
+hrtimer_run_softirq ---> hrtimer_update_softirq_timer没能续命， 一口气掉不上来，后续所有hrtimer softirq全部丢失      
 ```
 hrtimer_interrupt
  1805         if (!ktime_before(now, cpu_base->softirq_expires_next)) {
