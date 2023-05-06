@@ -3,7 +3,7 @@ layout:     post
 title:      ftrace原理与实现
 subtitle:   Ftrace Principle and Implementation
 date:       2022-07-22
-author:     iceberg
+author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
