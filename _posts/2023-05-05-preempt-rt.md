@@ -605,7 +605,7 @@ unxz patch-5.4.170-rt68.patch.xz
 patch -p1 < patch-5.4.170-rt68.patch
 
 # 遇到的几个问题
-记录下项目中应用preempt-rt补丁时遇到的几个问题。
+记录下项目中应用 preempt-rt 时遇到的几个问题(版本号5.4.74-rt42)。
 
 ##### 执行kdb bt命令没有打印调用栈
 
