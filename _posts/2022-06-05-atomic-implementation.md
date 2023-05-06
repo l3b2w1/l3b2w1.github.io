@@ -3,7 +3,7 @@ layout:     post
 title:      原子实现
 subtitle:   不同架构原子实现
 date:       2022-06-05
-author:     iceberg
+author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
