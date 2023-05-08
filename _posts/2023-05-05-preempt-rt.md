@@ -12,7 +12,7 @@ tags:
 ---
 **实时内核提高实时性的关键在于降低延迟**  
 ===============================================================================================
-PREEMPT_RT的目标主要是想尽可能的达成如下两个目标
+PREEMPT_RT主要是想尽可能的达成如下两个目标
 
 * **降低中断响应延迟(中断线程化)**  
 大多数硬中断实现极为精简，每个架构相关代码都只有几十行，减少了禁中断的时间  
@@ -969,7 +969,7 @@ Index: drivers/net/cq/nic/cq_pf.c
         /* Disable interrupts.
          *
 @@ -1272,7 +1273,7 @@
-        otx2_write64(pf, NIX_LF_CINTX_ENA_W1C(qidx), BIT_ULL(0));
+        ooo_write64(pf, NIX_LF_CINTX_ENA_W1C(qidx), BIT_ULL(0));
  
         /* Schedule NAPI */
 -       napi_schedule_irqoff(&cq_poll->napi);
