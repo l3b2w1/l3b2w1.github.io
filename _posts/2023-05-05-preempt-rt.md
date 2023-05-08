@@ -883,10 +883,11 @@ Call trace:
 softirq需要先raise，设置percpu标记HRTIMER_SOFTIRQ  
 这样下次softirqd线程(run_ksoftirqd)执行的时候会调用相应的软中断处理函数  
 如果没有raise操作，下次run_ksoftirqd不会调用到回调 action  
+
 所以加了两处调试打印，一处是raise的地方，一处是__do_softirq里面  
-结果抓到的信息显示，最后一次HRTIMER_SOFTIRQ标记有置位  
-但是__do_softirq中遍历__softirq_pending位时，HRTIMER_SOFTIRQ标记位丢失，没能调用到回调hrtimer_run_softirq  
-hrtimer_run_softirq ---> hrtimer_update_softirq_timer没能续命， 一口气掉不上来，后续所有hrtimer softirq全部丢失  
+抓到的打印信息显示，最后一次置位HRTIMER_SOFTIRQ标记之后  
+__do_softirq中遍历__softirq_pending位时，HRTIMER_SOFTIRQ标记位丢失，没能调用到回调hrtimer_run_softirq  
+hrtimer_run_softirq ---> hrtimer_update_softirq_timer没能续命， 一口气吊不上来，后续所有hrtimer softirq事件全部丢失  
 ```
 hrtimer_interrupt
  1805         if (!ktime_before(now, cpu_base->softirq_expires_next)) {
