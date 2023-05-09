@@ -506,8 +506,6 @@ setup_arch
       setup_bootmem
       setup_vm_final
 ```
-
-
 ### paging_init
 paging_init 初始化swapper_pg_dir 页表，全面启用MMU分页机制
 
