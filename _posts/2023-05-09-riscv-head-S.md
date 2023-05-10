@@ -24,6 +24,9 @@ arch/riscv/kernel/head.S 是 RISC-V架构Linux内核的一个汇编语言源文�
 
 4. 启动CPU。head.S最后调用start_kernel函数启动内核。
 
+基于内核版本v6.2  
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/?h=v6.2
+
 ```
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
@@ -721,6 +724,4 @@ hexdump arch/riscv/boot/Image
 0000010 3000 011d 0000 0000 0000 0000 0000 0000
 0000020 0002 0000 0000 0000 0000 0000 0000 0000
 0000030 4952 4353 0056 0000 5352 0543 0040 0000
-
-
 ```
