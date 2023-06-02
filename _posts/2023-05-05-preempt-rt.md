@@ -382,7 +382,7 @@ Sarma 和 McKenney 引入了 CONFIG_RCU_NOCB_CPU 和 rcu_nocbs 参数，把callb
 进程B开始运行，因为它的优先级比进程C高，所以它可以抢占进程C，导致进程C持有互斥锁的时间延长，进程A等待的时间延长。  
 
 **优先级继承（priority inheritance）可以解决优先级反转问题**  
-![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-05-12-1-priority-inheritance.png)  
+![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-05-12-2-priority-inheritance.png)  
 如果低优先级的进程持有互斥锁，高优先级的进程申请互斥锁，那么把持有互斥锁的进程的优先级临时提升到申请互斥锁的进程的优先级。  
 在上面的例子中，把进程1的优先级临时提升到进程2的优先级，防止进程3抢占进程1，使进程1尽快执行完临界区，减少进程2的等待时间  
 
