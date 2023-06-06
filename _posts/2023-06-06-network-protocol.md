@@ -289,3 +289,7 @@ void netif_carrier_off(struct net_device *dev);
 void netif_carrier_on(struct net_device *dev);
 int netif_carrier_ok(struct net_device *dev);
 ```
+# 参考索引
+《深入linux内核架构》
+《深入理解LINUX网络内幕》
+《精通linux内核网络》
