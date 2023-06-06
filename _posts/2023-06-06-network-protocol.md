@@ -7,8 +7,7 @@ author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
-    - real time
-    - preempt-rt
+    - network 
 ---
 ### 套接字缓冲区 sk_buff
 
