@@ -41,7 +41,7 @@ struct sk_buff_head {
 
 ### 分组发送  
 
-###### TX蓝图  
+###### TX流程图  
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-12-ip-out.PNG)
 
 ###### skb_buff发送操作  
@@ -58,7 +58,7 @@ struct sk_buff_head {
 
 ### 分组接收  
 
-###### RX蓝图  
+###### RX流程图  
 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-11-ip-in.PNG)
 
