@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      内核网络协议栈
+title:      网络协议栈大体框架
 subtitle:   kernel network protocol
 date:       2023-06-06
 author:     icecube
@@ -10,7 +10,7 @@ tags:
     - real time
     - preempt-rt
 ---
-# 套接字缓冲区 sk_buff
+### 套接字缓冲区 sk_buff
 套接字缓冲区，用于内核协议栈管理报文收发的结构体，在网络实现的各个层次之间交换数据，而无需来回复制分组数据，对性能提高很可观。
 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-1-sk-buff-netprot.png)
@@ -40,6 +40,13 @@ struct sk_buff_head {
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-3-sk-buff-netprot.png)
 
 # 分组发送
+
+### TX蓝图
+![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-12-ip-out.PNG)
+
+### skb_buff发送操作
+![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-15-skb_buff-out.PNG)
+
 1. 在一个新分组产生时，TCP层首先在用户空间中分配内存来容纳该分组数据（首部和净荷）。  
    分组的空间大于数据实际需要的长度，因此较低的协议层可以进一步增加首部。
 
@@ -53,9 +60,7 @@ struct sk_buff_head {
 
 ### RX蓝图
 
-![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-6-transport-ip-layer.png)
-
-![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-7-netif_receive_skb.png)
+![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-11-ip-in.PNG)
 
 为提高多处理器系统的性能，为每个CPU创建等待队列，支持分组的并行处理　
 ```
@@ -68,7 +73,7 @@ struct softnet_data {
 }
 ```
 
-### 协议栈底层代码处理
+### 网卡驱动和协议栈交接
   分组数据复制到内核分配的一个内存中，并在整个分析期间一直处于内存区中。  
   与该分组相关的套接字缓冲区在各层之间顺序传递，各层依次将其中的各个指针设置为正确的值。
 
@@ -88,8 +93,14 @@ struct softnet_data {
 4. 为提高多处理器系统的性能，对每个CPU都会创建等待队列，支持分组的并行处理。  
 
 5. net_rx_action 作为软中断的处理函数  
-
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-5-netif_rx.png)
+
+
+**遍历sd->poll_list设备链表, 如果有需要处理的设备, 就调用网络设备驱动的poll方法,从网卡芯片接收报文**
+```
+struct softnet_data *sd = this_cpu_ptr(&softnet_data); 
+```
+![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-13-net_rx_action.PNG)
 
 a. __skb_dequeue从等待队列移除一个套接字缓冲区，该缓冲区管理着一个接收到的分组。  
 
@@ -99,8 +110,20 @@ b. netif_receive_skb分析分组类型（协议类型），对给定的套接字
 
 c. 接下来deliver_skb函数使用一个特定于分组类型的处理函数func，承担分组的更高层的处理。  
 
-d. 所有从底层的网络访问层接收数据的网络层函数都注册在一个散列表中，通过全局数组ptype_base实现。  
-  新的协议通过dev_add_pack增加。  各个数组项类型为struct packet_type  
+d. 处理完退出的情况:
+* 处理完了,没有超时,也没有超过预算
+* 处理花费的时间超出netdev_budget_usecs(4.16.8定义的值为2000微秒) 
+* 处理的分组个数超出预算netdev_budget (4.16.8定义的值为300个)
+* 没有处理完,则调用__raise_softirq_irqoff(NET_RX_SOFTIRQ) ,继续开启软中断,等待合适的时机再次处理
+
+预算可通过proc配置,系统默认为300个
+/proc/sys/net/core/netdev_budget
+
+
+### tcpdump抓包位置
+
+所有从底层的网络访问层接收数据的网络层函数都注册在一个散列表中，通过全局数组ptype_base实现。   
+新的协议通过dev_add_pack增加。  各个数组项类型为struct packet_type    
 ```
 <netdevice.h>
 struct packet_type {
@@ -119,8 +142,47 @@ type 指定了协议的标识符，处理程序会使用该标识符。
 dev将一个协议处理程序绑定到特定的网卡（NULL指针表示该处理程序对系统中所有网络设备都有效）。  
 func 指向网络层函数的指针，如果分组的类型适当，将其传递给该函数。其中一个处理程序就是ip_rcv，用于ipv4的协议。  
 
-### NAPI
+1. 接收路径   
+__netif_receive_skb_core 中遍历 ptype_all 链表
+```
+static int __netif_receive_skb_core(struct sk_buff **pskb, bool pfmemalloc,
+				    struct packet_type **ppt_prev)
+{
+      ....
+      list_for_each_entry_rcu(ptype, &ptype_all, list) {
+      if (pt_prev)
+          ret = deliver_skb(skb, pt_prev, orig_dev);
+          pt_prev = ptype;
+      }
+      .....
+}
+```
 
+2. 发送路径  
+dev_queue_xmit_nit 中遍历 ptype_all 链表  
+```
+void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
+{
+	struct packet_type *ptype;
+	struct sk_buff *skb2 = NULL;
+	struct packet_type *pt_prev = NULL;
+	struct list_head *ptype_list = &ptype_all;
+
+	rcu_read_lock();
+again:
+	list_for_each_entry_rcu(ptype, ptype_list, list) {
+      .....
+
+		if (pt_prev) {
+			deliver_skb(skb2, pt_prev, skb->dev);
+			pt_prev = ptype;
+			continue;
+		}
+    ......
+}
+```
+
+### NAPI
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-8-NAPI.png)
 
 内核以轮询方式处理链表上的所有设备，依次轮询各个设备，如果已经花费了一定的时间来处理某个设备，则选择下一个设备进行处理。  
@@ -135,18 +197,18 @@ func 指向网络层函数的指针，如果分组的类型适当，将其传递
 并将该适配器放到一个轮询链表上。
 只要适配器上还有分组需要处理，内核就一直对轮询表上的设备进行轮询。重新启用Rx中断。
 
-### 适用场合
+###### 适用场合
 1. 对于上层的应用程序而言，系统不能在每个数据包接收到的时候都可以及时地去处理它，而且随着传输速度增加，累计的数据包将会耗费大量的内存。  
 
 2. 对于大的数据包处理比较困难，原因是大的数据包传送到网络层上的时候耗费的时间比短数据包长很多  
 
 由此可见, NAPI 技术适用于对高速率的短长度数据包的处理。
 
-### 对设备的要求
+###### 对设备的要求
 设备必须能够保留多个接收的分组，例如保存到DMA环形缓冲区中，即Rx缓冲区。  
 该设备还必须能够禁用用于分组接收到IRQ，而且，发送分组或其他可能通过IRQ进行的操作，都仍然是启用的。
 
-### 代码实现
+###### 代码实现
 支持NAPI的设备必须提供一个Poll函数，该方法特定于设备，在用netif_napi_add注册网卡时指定。调用该函数注册，表明设备可以且必须用新方法处理。
 ```
 /**
@@ -182,7 +244,6 @@ b.已经完全用掉了预算，但仍然有更多的分组需要处理，则设
 内核通过依次调用各个设备特定的poll方法，处理轮询表上当前的所有设备。
 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-9-net_rx_action.png)
-![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-10-softnet_data.png)
 
 ###### NAPI和非NAPI之间的两点差异
 1. NAPI驱动必须提供poll方法(由netif_napi_add注册poll方法，参考例e1000_probe)  
@@ -206,10 +267,20 @@ netif_rx将接收到的分组放置到一个特定于CPU的等待队列上(sd->i
 
 所以说backlog dev是一个为了适配NAPI接口的伪设备，只是为了在软中断net_rx_action中统一调用poll方法
 
-net_dev_init　为每个CPU 初始化 softnet_data
+net_dev_init中为每个CPU 初始化 softnet_data
 ```
-sd->backlog.poll = process_backlog;
-sd->backlog.weight = weight_p;
+static int __init net_dev_init(void)
+{
+  .....
+  for_each_possible_cpu(i) {
+      struct softnet_data *sd = &per_cpu(softnet_data, i);
+      .....
+      sd->backlog.poll = process_backlog;
+      sd->backlog.weight = weight_p;
+  }
+  ......
+}
+
 ```
 
 # 网络驱动程序
