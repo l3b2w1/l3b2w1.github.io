@@ -11,6 +11,7 @@ tags:
     - preempt-rt
 ---
 ### 套接字缓冲区 sk_buff
+
 套接字缓冲区，用于内核协议栈管理报文收发的结构体，在网络实现的各个层次之间交换数据，而无需来回复制分组数据，对性能提高很可观。
 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-1-sk-buff-netprot.png)
@@ -39,12 +40,12 @@ struct sk_buff_head {
 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-3-sk-buff-netprot.png)
 
-# 分组发送
+# 分组发送  
 
-### TX蓝图
+### TX蓝图  
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-12-ip-out.PNG)
 
-### skb_buff发送操作
+### skb_buff发送操作  
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-15-skb_buff-out.PNG)
 
 1. 在一个新分组产生时，TCP层首先在用户空间中分配内存来容纳该分组数据（首部和净荷）。  
@@ -56,9 +57,9 @@ struct sk_buff_head {
    只需要向已经分配但尚未占用的那部分内存空间写入数据即可，除了data之外的所有指针都不变，data现在指向IP首部的起始处。  
    下面的各层会重复同样的操作，直至分组完成，即将通过网络发送。
 
-# 分组接收
+# 分组接收  
 
-### RX蓝图
+### RX蓝图  
 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-06-05-11-ip-in.PNG)
 
