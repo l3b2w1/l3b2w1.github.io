@@ -984,7 +984,7 @@ Index: drivers/net/cq/nic/cq_pf.c
 
 产品反馈 给内核传参irqaffinity=0，绑定irqs到0核并没有生效，其他核还是有中断上来  
 
-1. 先看下irqaffinity传参处理，入参cpu范围会设置到全局变量irq_default_affinity  
+先看下irqaffinity传参处理，入参cpu范围会设置到全局变量irq_default_affinity  
 
 ```
 static int __init irq_affinity_setup(char *str)
@@ -1001,7 +1001,7 @@ static int __init irq_affinity_setup(char *str)
 __setup("irqaffinity=", irq_affinity_setup);   // 所以如果入参写成irqaffinity=0，那么等价于只指定一个boot cpu负责处理irqs
 ```
 
-2. 系统初始化使用全局变量irq_default_affinity记录到每个中断对应的desc
+系统初始化使用全局变量irq_default_affinity记录到每个中断对应的desc
 
 ```
 static void __init init_irq_default_affinity(void)
@@ -1023,7 +1023,7 @@ start_kernel
 				desc_smp_init(desc, node, affinity);  // 系统在desc里面跟踪记录亲和性，因为affinity为NULL，所以所有cpu均可处理  
 ```
 
-3. 然后每个中断注册的时候会配置当前irq的亲和性，用的是desc里的affinity cpumask  
+然后每个中断注册的时候会配置当前irq的亲和性，用的是desc里的affinity cpumask  
 irq亲和性最终是要下发给gic，这样相应中断上来的时候才会上报给指定cpu
 
 ```
@@ -1037,7 +1037,7 @@ request_threaded_irq
 							its_send_movi(its_dev, target_col, id);  // irq亲和性最终是要下发给gic ，这样相应中断上来的时候才会上报给指定cpu
 ```
 
-4. 在走读irq affinity相关代码的时候发现irq_do_set_affinity  
+在走读irq affinity相关代码的时候发现irq_do_set_affinity  
 该函数会直接调用chip->irq_set_affinity，其实就是msi_domain_set_affinity  
 msi_domain_set_affinity又调用了its_set_affinity  
 
