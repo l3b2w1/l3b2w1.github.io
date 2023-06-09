@@ -958,8 +958,8 @@ net/core/dev.c
 hrtimer_interrupt函数里也会调用raise_softirq_irqoff，设置HRTIMER_SOFTIRQ标记  
 
 出现问题时是 hrtimer_interrupt 中断了 cq_intr_handler  
-中断返回之后 cq_intr_handler ->… -> __raise_softirq_irqoff 恢复执行的时候
-把 hrtimer_interrupt 设置的 HRTIMER_SOFTIRQ 标记位冲掉了，导致后续所有hrtimer softirq事件全部丢失   
+中断返回之后 `cq_intr_handler ->… -> __raise_softirq_irqoff` 恢复执行的时候
+把 `hrtimer_interrupt` 设置的 `HRTIMER_SOFTIRQ` 标记位冲掉了，导致后续所有 hrtimer softirq 事件全部丢失   
 
 top不刷新只是其中一种现象，还会引起其它问题，毕竟hrtimer softirq完全失效了  
 
@@ -986,7 +986,9 @@ Index: drivers/net/cq/nic/cq_pf.c
 ```
 ##### irqaffinity 中断亲和性不生效
 
-产品反馈 给内核传参irqaffinity=0，绑定irqs到0核并没有生效，其他核还是有中断上来  
+产品属于5G设备，为了尽最大可能降低延迟，给实时进程分配了单独的cpu，同时迁移irqs和kernel threads
+给内核传参 `isolcpus=1-5 nohz_full=1-5 irqaffinity=0` 
+反馈 给内核传参irqaffinity=0，绑定irqs到0核并没有生效，其他核还是有中断上来  
 
 先看下irqaffinity传参处理，入参cpu范围会设置到全局变量irq_default_affinity  
 
