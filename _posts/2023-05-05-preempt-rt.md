@@ -958,8 +958,11 @@ net/core/dev.c
 hrtimer_interrupt函数里也会调用raise_softirq_irqoff，设置HRTIMER_SOFTIRQ标记  
 所以出现问题时是 hrtimer_interrupt 中断了 cq_intr_handler  
 中断返回之后 cq_intr_handler ->… -> __raise_softirq_irqoff 恢复执行的时候把 hrtimer_interrupt 设置的 HRTIMER_SOFTIRQ 标记位冲掉了  
-导致后续所有hrtimer softirq事件全部丢失，top不刷新只是其中一种现象，还会引起其它问题，毕竟hrtimer softirq完全失效了  
-所以使用关中断接口 napi_schedule_irqoff 即可解决该问题  
+导致后续所有hrtimer softirq事件全部丢失  
+
+top不刷新只是其中一种现象，还会引起其它问题，毕竟hrtimer softirq完全失效了  
+
+使用关中断接口 napi_schedule_irqoff 即可解决该问题  
 ```
 Index: drivers/net/cq/nic/cq_pf.c
 ==================================================================
