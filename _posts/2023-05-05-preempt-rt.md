@@ -881,14 +881,14 @@ Call trace:
  2197 }
 ```  
 
-softirq需要先raise，设置percpu标记HRTIMER_SOFTIRQ  
-这样下次softirqd线程(run_ksoftirqd)执行的时候会调用相应的软中断处理函数  
+我们知道，softirq需要先raise，先设置percpu标记`HRTIMER_SOFTIRQ`  
+这样下次softirqd线程`run_ksoftirqd`执行的时候会调用相应的软中断处理函数  
 如果没有raise操作，下次run_ksoftirqd不会调用到回调 action  
 
-所以加了两处调试打印，一处是raise的地方，一处是__do_softirq里面  
-抓到的打印信息显示，最后一次置位HRTIMER_SOFTIRQ标记之后  
-__do_softirq中遍历__softirq_pending位时，HRTIMER_SOFTIRQ标记位丢失，没能调用到回调hrtimer_run_softirq  
-hrtimer_run_softirq ---> hrtimer_update_softirq_timer没能续命， 一口气吊不上来，后续所有hrtimer softirq事件全部丢失  
+所以加了两处调试打印，一处是raise的地方，一处是`__do_softirq`里面  
+抓到的打印信息显示，最后一次置位`HRTIMER_SOFTIRQ`标记之后  
+__do_softirq中遍历__softirq_pending位时，HRTIMER_SOFTIRQ标记位丢失，没能调用到回调`hrtimer_run_softirq`    
+`hrtimer_run_softirq ---> hrtimer_update_softirq_timer` 没能续命， 一口气吊不上来，后续所有hrtimer softirq事件全部丢失  
 ```
 hrtimer_interrupt
  1805         if (!ktime_before(now, cpu_base->softirq_expires_next)) {
@@ -923,9 +923,9 @@ __do_softirq
   581         }
 ```
 
-RT补丁又提高了并发程度，所以就怀疑HRTIMER_SOFTIRQ可能因为代码并发有问题被冲掉了  
+RT补丁又提高了并发程度，所以就怀疑 `HRTIMER_SOFTIRQ` 可能因为代码并发有问题被冲掉了  
 pending标记是个percpu变量，很可能是当前cpu上可能其它流程raise softirq时冲掉了标记位  
-就在置位的必经之路__raise_softirq_irqoff里面加了个trace_dump_stack，抓到如下调用栈  
+就在置位的必经之路 `__raise_softirq_irqoff` 里面加了个 `trace_dump_stack`，抓到如下调用栈  
 ```
 irq/237-eth1-rx-2042    [000] .....12    70.122246: <stack trace>  // . 标记处于中断使能上下文 
  => __raise_softirq_irqoff
@@ -986,9 +986,9 @@ Index: drivers/net/cq/nic/cq_pf.c
 ```
 ##### irqaffinity 中断亲和性不生效
 
-产品属于5G设备，为了尽最大可能降低延迟，给实时进程分配了单独的cpu，同时迁移irqs和kernel threads
-给内核传参 `isolcpus=1-5 nohz_full=1-5 irqaffinity=0` 
-反馈 给内核传参irqaffinity=0，绑定irqs到0核并没有生效，其他核还是有中断上来  
+产品属于5G设备，为了尽最大可能降低延迟，给实时进程分配了单独的cpu  
+同时迁移irqs和kernel threads，给内核传参 `isolcpus=1-5 nohz_full=1-5 irqaffinity=0`   
+但是产品同事反馈说内核传参`irqaffinity=0`绑定irqs到0核并没有生效，其他核还是有中断上来  
 
 先看下irqaffinity传参处理，入参cpu范围会设置到全局变量irq_default_affinity  
 
