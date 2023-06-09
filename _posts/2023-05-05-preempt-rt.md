@@ -1047,11 +1047,11 @@ msi_domain_set_affinity又调用了its_set_affinity
 **所以是网卡驱动结合业务逻辑考虑，覆盖了参数irqaffinity的配置**  
 这个问题留给产品去和厂家协商解决。
 ```
-[   39.623895] [its_set_affinity 1171] h3c, cpu 1, id 72
-[   39.780683] [its_set_affinity 1171] h3c, cpu 2, id 73
-[   39.937458] [its_set_affinity 1171] h3c, cpu 3, id 74
-[   40.094253] [its_set_affinity 1171] h3c, cpu 4, id 75
-[   40.251292] [its_set_affinity 1171] h3c, cpu 5, id 76
+[   39.623895] [its_set_affinity 1171] cpu 1, id 72
+[   39.780683] [its_set_affinity 1171] cpu 2, id 73
+[   39.937458] [its_set_affinity 1171] cpu 3, id 74
+[   40.094253] [its_set_affinity 1171] cpu 4, id 75
+[   40.251292] [its_set_affinity 1171] cpu 5, id 76
 
 [   48.709140] CPU: 0 PID: 1741 Comm: ifconfig Not tainted 5.4.74 #1
 [   48.715230] Hardware name: Marvell OcteonTX CNF95XX board (DT)
