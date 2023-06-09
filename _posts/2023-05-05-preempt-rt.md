@@ -1044,7 +1044,7 @@ msi_domain_set_affinity又调用了its_set_affinity
 在irq_do_set_affinity和its_set_affinity加了调试打印，抓到下面的信息  
 把不同的事件ID映射给不同的cpu，这样中断就摊开了，达到负载均衡的效果
 
-**所以是网卡驱动结合业务逻辑考虑，覆盖了参数irqaffinity的配置**  
+**所以是网卡驱动结合业务逻辑考虑，内部实现强制分派irqs到各个cpu，所以就覆盖了参数irqaffinity的配置**  
 这个问题留给产品去和厂家协商解决。
 ```
 [   39.623895] [its_set_affinity 1171] cpu 1, id 72
