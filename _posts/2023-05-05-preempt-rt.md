@@ -980,6 +980,107 @@ Index: drivers/net/cq/nic/cq_pf.c
         return IRQ_HANDLED;
 }
 ```
+##### irqaffinity 中断亲和性不生效
+
+产品反馈 给内核传参irqaffinity=0，绑定irqs到0核并没有生效，其他核还是有中断上来  
+
+1. 先看下irqaffinity传参处理，入参cpu范围会设置到全局变量irq_default_affinity  
+
+```
+static int __init irq_affinity_setup(char *str)
+{
+	alloc_bootmem_cpumask_var(&irq_default_affinity);
+	cpulist_parse(str, irq_default_affinity);
+	/*
+	 * Set at least the boot cpu. We don't want to end up with
+	 * bugreports caused by random commandline masks
+	 */
+	cpumask_set_cpu(smp_processor_id(), irq_default_affinity); // 无论传参是哪些cpu，至少要把当前boot cpu设置到irq亲合性cpu列表里
+	return 1;
+}
+__setup("irqaffinity=", irq_affinity_setup);   // 所以如果入参写成irqaffinity=0，那么等价于只指定一个boot cpu负责处理irqs
+```
+
+2. 系统初始化使用全局变量irq_default_affinity记录到每个中断对应的desc
+
+```
+static void __init init_irq_default_affinity(void)
+{
+	if (!cpumask_available(irq_default_affinity))     // 没有指定irqaffinity参数，则数值为空
+		zalloc_cpumask_var(&irq_default_affinity, GFP_NOWAIT);
+	if (cpumask_empty(irq_default_affinity))  
+		cpumask_setall(irq_default_affinity);    //  没指定，内容为空就默认所有cpu都可以处理irq
+
+}
+```
+
+```
+start_kernel  
+	early_irq_init  
+		init_irq_default_affinity      // 初始化全局变量  irq_default_affinity，默认任何irq可以在所有cpu上处理  
+		desc = alloc_desc(i, node, 0, NULL, NULL);    // 为每个中断分配对应的desc  
+			desc_set_defaults(irq, desc, node, affinity, owner);  
+				desc_smp_init(desc, node, affinity);  // 系统在desc里面跟踪记录亲和性，因为affinity为NULL，所以所有cpu均可处理  
+```
+
+3. 然后每个中断注册的时候会配置当前irq的亲和性，用的是desc里的affinity cpumask  
+irq亲和性最终是要下发给gic，这样相应中断上来的时候才会上报给指定cpu
+
+```
+request_threaded_irq
+	__setup_irq
+		irq_startup
+			irq_setup_affinity  //  使用 irq_default_affinity全局变量
+				irq_do_set_affinity
+					 chip->irq_set_affinity   //  msi_domain_set_affinity
+						parent->chip->irq_set_affinity(parent, mask, force);   //  its_set_affinity
+							its_send_movi(its_dev, target_col, id);  // irq亲和性最终是要下发给gic ，这样相应中断上来的时候才会上报给指定cpu
+```
+
+4. 在走读irq affinity相关代码的时候发现irq_do_set_affinity  
+该函数会直接调用chip->irq_set_affinity，其实就是msi_domain_set_affinity  
+msi_domain_set_affinity又调用了its_set_affinity  
+
+在irq_do_set_affinity和its_set_affinity加了调试打印，抓到下面的信息  
+把不同的事件ID映射给不同的cpu，这样中断就摊开了，达到负载均衡的效果
+
+**所以是网卡驱动结合业务逻辑考虑，覆盖了参数irqaffinity的配置**  
+这个问题留给产品去和厂家协商解决。
+```
+[   39.623895] [its_set_affinity 1171] h3c, cpu 1, id 72
+[   39.780683] [its_set_affinity 1171] h3c, cpu 2, id 73
+[   39.937458] [its_set_affinity 1171] h3c, cpu 3, id 74
+[   40.094253] [its_set_affinity 1171] h3c, cpu 4, id 75
+[   40.251292] [its_set_affinity 1171] h3c, cpu 5, id 76
+
+[   48.709140] CPU: 0 PID: 1741 Comm: ifconfig Not tainted 5.4.74 #1
+[   48.715230] Hardware name: Marvell OcteonTX CNF95XX board (DT)
+[   48.721061] Call trace:
+[   48.723591]  dump_backtrace+0x0/0x160
+[   48.727250]  show_stack+0x1c/0x28
+[   48.730562]  dump_stack+0xe8/0x168
+[   48.733962]  msi_domain_set_affinity+0xcc/0x100
+[   48.738490]  irq_do_set_affinity+0x64/0x118
+[   48.742671]  irq_set_affinity_locked+0x104/0x160
+[   48.747285]  __irq_set_affinity+0x7c/0x100
+[   48.751378]  irq_set_affinity_hint+0x70/0xa0
+[   48.755646]  otx2_set_cints_affinity+0xf8/0x210     // 网卡驱动代码初始化时强制设置亲和性，覆盖了irqaffinity配置，据厂商介绍说是为了负载均衡
+[   48.760173]  otx2_open+0x4dc/0x870
+[   48.763572]  __dev_open+0xdc/0x168
+[   48.766969]  __dev_change_flags+0x16c/0x1d0
+[   48.771149]  dev_change_flags+0x28/0x68
+[   48.774983]  devinet_ioctl+0x3f0/0x750
+[   48.778729]  inet_ioctl+0x1fc/0x378
+[   48.782213]  sock_do_ioctl+0x50/0x2c8
+[   48.785872]  sock_ioctl+0x3d8/0x500
+[   48.789358]  do_vfs_ioctl+0xc0/0xb28
+[   48.792928]  ksys_ioctl+0x80/0xb0
+[   48.796241]  __arm64_sys_ioctl+0x24/0xd8
+[   48.800161]  el0_svc_common.constprop.2+0x98/0x188
+[   48.804950]  el0_svc_handler+0x28/0x88
+[   48.808696]  el0_svc+0x8/0x22c     
+```
+	
 ## 参考索引
 <https://docs.kernel.org/locking/rt-mutex-design.html>  
 <https://lwn.net/Articles/909980/>  
