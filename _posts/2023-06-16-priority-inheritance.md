@@ -695,5 +695,5 @@ task->waiter->lock为NULL表明lock已经被释放或者没有竞争者
 ```
 
 ## 参考索引
-[Internals-of-the-RT-Patch](https://www.kernel.org/doc/ols/2007/ols2007v2-pages-161-172.pdf)  
-[RT mutext design](<https://docs.kernel.org/locking/rt-mutex-design.html)
+(https://www.kernel.org/doc/ols/2007/ols2007v2-pages-161-172.pdf)  
+(<https://docs.kernel.org/locking/rt-mutex-design.html)
