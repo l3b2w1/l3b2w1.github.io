@@ -92,6 +92,20 @@ waiter 结构体在被阻塞进程的内核栈上分配，是个本地局部变�
 ## 代码走读  
 基于linux-5.4.74-rt42  
 
+### spin_lock流程
+```
+#define spin_lock(lock)                 rt_spin_lock(lock)
+
+void __lockfunc rt_spin_lock(spinlock_t *lock)
+{
+	sleeping_lock_inc();
+	rcu_read_lock();
+	migrate_disable();
+	spin_acquire(&lock->dep_map, 0, 0, _RET_IP_);
+	rt_spin_lock_fastlock(&lock->lock, rt_spin_lock_slowlock);
+}
+```
+
 主要关注拿锁时慢速流程函数调用链
 ```
 rt_spin_lock_slowlock_locked(lock, &waiter, flags);
@@ -694,6 +708,132 @@ task->waiter->lock为NULL表明lock已经被释放或者没有竞争者
 }
 ```
 
+### spin_unlock流程
+
+释放锁的流程相对易读很多
+```
+#define spin_unlock(lock)                       rt_spin_unlock(lock)
+
+void __lockfunc rt_spin_unlock(spinlock_t *lock)
+{
+	/* NOTE: we always pass in '1' for nested, for simplicity */
+	spin_release(&lock->dep_map, 1, _RET_IP_);
+	rt_spin_lock_fastunlock(&lock->lock, rt_spin_lock_slowunlock);
+	migrate_enable();
+	rcu_read_unlock();
+	sleeping_lock_dec();
+}
+```
+
+###### rt_spin_lock_fastunlock
+```
+static inline __attribute__((__gnu_inline__)) __attribute__((__unused__)) __attribute__((__no_instrument_function__))
+void rt_spin_lock_fastunlock(struct rt_mutex *lock, void (*slowfn)(struct rt_mutex *lock))
+{
+	if (__builtin_expect(!!((({ typeof(&lock->owner) __ai_ptr = (&lock->owner);  // lock->owner是个struct task_struct *类型，再取一次地址，所以__ai_ptr是个二级指针
+	kasan_check_write(__ai_ptr, sizeof(*__ai_ptr));
+	({ __typeof__(*(__ai_ptr)) __ret;
+	__ret = (__typeof__(*(__ai_ptr))) __cmpxchg_rel((__ai_ptr), (unsigned long)(get_current()), (unsigned long)(((void *)0)), sizeof(*(__ai_ptr))); //
+	 __ret; }); })     // __ret 是lock->owner字段的值，
+		== get_current())), 1))  // 期望owner是当前进程，如果lock->owner == current，说明当前task自己就是owner，即没有任何waiters
+		return;
+	else
+		slowfn(lock);   // 如果owner不是 current 说明lock被高优先级的task偷走了steal，即有高优先级的task在等锁，而自己的优先级已经被boosted了，所以在自己释放lock之前还要走慢速流程deboost自己的优先级
+}
+```
+
+###### rt_mutex_postunlock
+```
+void rt_mutex_postunlock(struct wake_q_head *wake_q,
+		struct wake_q_head *wake_sleeper_q)
+{
+	// 先唤醒
+	wake_up_q(wake_q);  
+	wake_up_q_sleeper(wake_sleeper_q);
+
+	// 再开抢占
+	do { __asm__ __volatile__("": : :"memory"); if (__builtin_expect(!!(({ preempt_count_sub(1); should_resched(0); })), 0)) preempt_schedule(); } while (0);
+}
+```
+
+###### rt_spin_lock_slowunlock
+```
+void __attribute__((__section__(".sched.text"))) rt_spin_lock_slowunlock(struct rt_mutex *lock)
+{
+	unsigned long flags;
+	struct wake_q_head wake_q = { ((struct wake_q_node *) 0x01), &wake_q.first };
+	struct wake_q_head wake_sleeper_q = { ((struct wake_q_node *) 0x01), &wake_sleeper_q.first };
+	bool postunlock;
+
+	do { ({ unsigned long __dummy; typeof(flags) __dummy2; (void)(&__dummy == &__dummy2); 1; }); flags = _raw_spin_lock_irqsave(&lock->wait_lock); } while (0);
+	postunlock = __rt_mutex_unlock_common(lock, &wake_q, &wake_sleeper_q);
+	do { ({ unsigned long __dummy; typeof(flags) __dummy2; (void)(&__dummy == &__dummy2); 1; }); _raw_spin_unlock_irqrestore(&lock->wait_lock, flags); } while (0);
+
+	if (postunlock)
+		rt_mutex_postunlock(&wake_q, &wake_sleeper_q);
+}
+```
+
+###### __rt_mutex_unlock_common
+```
+static bool __attribute__((__section__(".sched.text"))) __rt_mutex_unlock_common(struct rt_mutex *lock,
+		struct wake_q_head *wake_q,
+		struct wake_q_head *wq_sleeper)
+{
+	do { (void)(&lock->wait_lock); } while (0);
+
+	do { } while (0);
+
+	if (!rt_mutex_has_waiters(lock)) {  // 没有waiter了
+		lock->owner = ((void *)0);
+		return false;
+	}
+
+	mark_wakeup_next_waiter(wake_q, wq_sleeper, lock);   // 存在waiters，那么需要唤醒一个进程
+
+	return true;
+}
+```
+
+###### mark_wakeup_next_waiter
+```
+// 标记需要接下来唤醒的waiter，放到唤醒队列中;同时更新current优先级
+static void mark_wakeup_next_waiter(struct wake_q_head *wake_q,
+		struct wake_q_head *wake_sleeper_q,
+		struct rt_mutex *lock)
+{
+	struct rt_mutex_waiter *waiter;
+
+	_raw_spin_lock(&get_current()->pi_lock);
+
+	waiter = rt_mutex_top_waiter(lock);   
+	rt_mutex_dequeue_pi(get_current(), waiter);  // top waiter从cureent->pi_waiters出队列
+	rt_mutex_adjust_prio(get_current());    // 调整current的优先级， 更新current->pi_top_task
+	lock->owner = (void *) RT_MUTEX_HAS_WAITERS;  // 为了防止低优先级的进程偷走锁，这里需要设置标记 RT_MUTEX_HAS_WAITERS
+
+	do { preempt_count_add(1); __asm__ __volatile__("": : :"memory"); } while (0);   // 避免出现优先级反转，即避免top waiter被抢占，所以这里先关抢占
+
+	// 加到唤醒队列，稍后rt_mutex_postunlock 会唤醒该waiter
+	if (waiter->savestate)
+		wake_q_add_sleeper(wake_sleeper_q, waiter->task);  
+	else
+		wake_q_add(wake_q, waiter->task);
+	__raw_spin_unlock(&get_current()->pi_lock);
+}
+```
+
+###### rt_mutex_wake_waiter
+```
+static void rt_mutex_wake_waiter(struct rt_mutex_waiter *waiter)
+{
+	if (waiter->savestate)
+		wake_up_lock_sleeper(waiter->task);
+	else
+		wake_up_process(waiter->task);
+}
+```
+
 ## 参考索引
-(https://www.kernel.org/doc/ols/2007/ols2007v2-pages-161-172.pdf)  
-(https://docs.kernel.org/locking/rt-mutex-design.html)
+[Internals of the RT Patch](https://www.kernel.org/doc/ols/2007/ols2007v2-pages-161-172.pdf)  
+[rt-mutex-design](https://docs.kernel.org/locking/rt-mutex-design.html)
+
