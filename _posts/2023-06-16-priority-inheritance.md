@@ -48,9 +48,9 @@ struct rt_mutex {
   ...
 };
 ```
-所有架构分配task_struct时保证该结构体地址至少两个字节对齐  
+所有架构分配 task_struct 时保证该结构体地址至少两个字节对齐  
 假如owner字段的值为0xffff000011f35500 那么最低bit位可以用来作为flag标记位  
-bit 0可用于`Has Waiters`标记，任何时候有waiter时都会被置位，这样就可以强制其它进程进入slowpatch并且在`waiter_lock`上等待。  
+bit 0可用于`Has Waiters`标记，任何时候有waiter时都会被置位，这样就可以强制其它进程进入 slowpath 并且在`waiter_lock`上等待。  
 RT-mutex利用这种方式区分快速路径和慢速路径，在锁无竞争或者没有waiters时，走快速路径，没有内部开销。
 
 **task_struct**
