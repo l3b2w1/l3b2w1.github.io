@@ -710,7 +710,7 @@ task->waiter->lock为NULL表明lock已经被释放或者没有竞争者
 
 ### spin_unlock流程
 
-释放锁的流程相对易读很多
+释放锁的流程相对易读很多，看的是预编译后的代码
 ```
 #define spin_unlock(lock)                       rt_spin_unlock(lock)
 
