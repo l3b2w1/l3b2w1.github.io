@@ -828,3 +828,6 @@ kernel_map.va_pa_offset便于pa和va之间快速转换
 #define __pa(x)         __virt_to_phys((unsigned long)(x))
 ```
 
+# 参考索引
+[vm layout](https://docs.kernel.org/riscv/vm-layout.html)  
+[linux-6.2](https://elixir.bootlin.com/linux/v6.2/source)  
