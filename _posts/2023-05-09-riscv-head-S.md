@@ -730,7 +730,9 @@ hexdump arch/riscv/boot/Image
 
 ### virtual memory layout
 
-##### RISC-V Linux Kernel SV57
+系统起来之后的虚拟内存地址空间布局
+
+##### SV57
 SV57要求地址位63-57是第56位的副本，意即  
 第56位为0时，63-57也都是0，代表用户态内存空间，起始地址为 0，结束地址为 00ffffffffffffff  
 第56位为1时，63-57也都是1，代表内核态内存空间，起始地址为ff00000000000000，结束地址为 ffffffffffffffff   
