@@ -11,7 +11,7 @@ tags:
     - qemu
 ---
 
-### 编译工具链 qemu-system-riscv64
+### 编译 qemu-system-riscv64
 ```
 git clone git@github.com:qemu/qemu.git
 cd qemu
