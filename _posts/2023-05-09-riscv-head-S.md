@@ -684,7 +684,9 @@ static void __init setup_vm_final(void)
 
 
 # qemu启动Image
-qemu启动riscv系统之后进kdb
+qemu虚拟机启动riscv内核镜像，配置4G内存，SV57
+
+qemu启动riscv系统之后进kdb查看
 ```
 起始的64字节是RISCV Image的头
 u32 code0;                /* Executable code */
@@ -725,3 +727,102 @@ hexdump arch/riscv/boot/Image
 0000020 0002 0000 0000 0000 0000 0000 0000 0000
 0000030 4952 4353 0056 0000 5352 0543 0040 0000
 ```
+
+### virtual memory layout
+
+##### RISC-V Linux Kernel SV57
+SV57要求地址位63-57是第56位的副本，意即  
+第56位为0时，63-57也都是0，代表用户态内存空间，起始地址为 0，结束地址为 00ffffffffffffff  
+第56位为1时，63-57也都是1，代表内核态内存空间，起始地址为ff00000000000000，结束地址为 ffffffffffffffff   
+
+二者之间有一个巨大的空洞 0100000000000000 - feffffffffffffff
+```
+========================================================================================================================
+     Start addr    |   Offset   |     End addr     |  Size   | VM area description
+========================================================================================================================
+                   |            |                  |         |
+  0000000000000000 |   0        | 00ffffffffffffff |   64 PB | user-space virtual memory, different per mm
+ __________________|____________|__________________|_________|___________________________________________________________
+                   |            |                  |         |
+  0100000000000000 | +64     PB | feffffffffffffff | ~16K PB | ... huge, almost 64 bits wide hole of non-canonical
+                   |            |                  |         | virtual memory addresses up to the -64 PB
+                   |            |                  |         | starting offset of kernel mappings.
+ __________________|____________|__________________|_________|___________________________________________________________
+                                                             |
+                                                             | Kernel-space virtual memory, shared between all processes:
+ ____________________________________________________________|___________________________________________________________
+                   |            |                  |         |
+  ff1bfffffee00000 | -57     PB | ff1bfffffeffffff |    2 MB | fixmap     FIXADDR_START
+  ff1bffffff000000 | -57     PB | ff1bffffffffffff |   16 MB | PCI io
+  ff1c000000000000 | -57     PB | ff1fffffffffffff |    1 PB | vmemmap
+  ff20000000000000 | -56     PB | ff5fffffffffffff |   16 PB | vmalloc/ioremap space
+  ff60000000000000 | -40     PB | ffdeffffffffffff |   32 PB | direct mapping of all physical memory，ff60000000000000对应 PAGE_OFFSET，线性映射起始地址
+  ffdf000000000000 |  -8     PB | fffffffeffffffff |    8 PB | kasan
+ __________________|____________|__________________|_________|____________________________________________________________
+                                                             |
+                                                             | Identical layout to the 39-bit one from here on:
+ ____________________________________________________________|____________________________________________________________
+                   |            |                  |         |
+  ffffffff00000000 |  -4     GB | ffffffff7fffffff |    2 GB | modules, BPF
+  ffffffff80000000 |  -2     GB | ffffffffffffffff |    2 GB | kernel     内核镜像非线性映射起始地址
+ __________________|____________|__________________|_________|____________________________________________________________
+
+```
+
+##### 内存相关全局变量
+
+|全局变量|数值|说明|
+|----|----|----|
+|kernel_map.virt_addr|0xFFFFFFFF80000000|KERNEL_LINK_ADDR|
+|kernel_map.page_offset|0xFF60000000000000|CONFIG_PAGE_OFFSET|
+|memory_limit|0x7FFFFF00000000|物理地址空间大小限制|
+|KERN_VIRT_SIZE|0x80000000000000|虚拟内存区域大小|
+|FIXADDR_START|0xff1bfffffee00000|固定映射区域大小|
+|pgtable_l4_enabled|1|四级页表使能|
+|pgtable_l5_enabled|1|五级页表使能|
+
+
+
+SV57代表启用5级页表，各级页表项管理覆盖的内存大小以512的倍数递增，即每一级页表都包含512个表项   
+
+|宏|数值|说明|
+|-----|----|----|
+|PGDIR_SIZE|0x1000000000000|256T|
+|P4D_SIZE|0x8000000000|512G|
+|PUD_SIZE|0x40000000|1G|
+|PMD_SIZE|0x200000|2M|
+
+|宏|数值|
+|-----|----|
+|PTRS_PER_PGD |512|
+|PTRS_PER_P4D	|512|
+|PTRS_PER_PUD |512|
+|PTRS_PER_PMD	|512|
+|PTRS_PER_PTE	|512|
+
+kernel_map.va_pa_offset便于pa和va之间快速转换
+```
+#define is_kernel_mapping(x)	\
+	((x) >= kernel_map.virt_addr && (x) < (kernel_map.virt_addr + kernel_map.size))
+#define is_linear_mapping(x)	\
+((x) >= PAGE_OFFSET && (!IS_ENABLED(CONFIG_64BIT) || (x) < PAGE_OFFSET + KERN_VIRT_SIZE))
+```
+
+```
+#define linear_mapping_pa_to_va(x)      ((void *)((unsigned long)(x) + kernel_map.va_pa_offset))
+#define __pa_to_va_nodebug(x)           linear_mapping_pa_to_va(x)
+#define __va(x)         ((void *)__pa_to_va_nodebug((phys_addr_t)(x)))
+```
+
+```
+#define linear_mapping_va_to_pa(x)      ((unsigned long)(x) - kernel_map.va_pa_offset)
+#define __va_to_pa_nodebug(x)	({						\
+	unsigned long _x = x;							\
+	is_linear_mapping(_x) ?							\
+		linear_mapping_va_to_pa(_x) : kernel_mapping_va_to_pa(_x);	\
+	})
+
+#define __virt_to_phys(x)       __va_to_pa_nodebug(x)
+#define __pa(x)         __virt_to_phys((unsigned long)(x))
+```
+
