@@ -13,12 +13,12 @@ tags:
 
 ### 编译 qemu-system-riscv64
 ```
-git clone git@github.com:qemu/qemu.git
+git clone https://github.com/qemu/qemu
 cd qemu
-git checkout v6.0.0
+git checkout v7.2.
 mkdir build
 cd build
-../configure --prefix=/home/linux/riscv/qemu-7.2.0-install2/ \
+../configure --prefix=/home/linux/riscv/qemu-7.2.0-install/ \
     --target-list=riscv32-softmmu,riscv64-softmmu --enable-debug-tcg \
     --enable-debug --enable-debug-info --enable-slirp \
     --enable-user && make -j && make install
