@@ -15,7 +15,7 @@ tags:
 ```
 git clone https://github.com/qemu/qemu
 cd qemu
-git checkout v7.2.
+git checkout v7.2.0
 mkdir build
 cd build
 ../configure --prefix=/home/linux/riscv/qemu-7.2.0-install/ \
