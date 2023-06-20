@@ -26,8 +26,8 @@ cd build
 
 ### riscv工具链
 
-可以下载现成的
-https://toolchains.bootlin.com/releases_riscv64.html
+可以下载现成的  
+[bootlin toolchains](https://toolchains.bootlin.com/releases_riscv64.html)
 
 也可以用buildroot自己编译  
 
