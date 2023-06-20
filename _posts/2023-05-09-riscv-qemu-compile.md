@@ -24,6 +24,13 @@ cd build
     --enable-user && make -j && make install
 ```
 
+### riscv工具链
+
+可以下载现成的
+https://toolchains.bootlin.com/releases_riscv64.html
+
+也可以用buildroot自己编译  
+
 ### 编译u-boot.bin
 下载并解压u-boot源码  
 ```
