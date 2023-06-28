@@ -102,8 +102,8 @@ qemu-system-riscv64 \
     -nographic
 ```
 ### 提取qemu自带的dtb
-qemu-system-riscv64 -M virt,dumpdtb=qemu.dtb
-qemu-system-riscv64 -machine virt -machine dumpdtb=qemu.dtb
+qemu-system-riscv64 -M virt,dumpdtb=qemu.dtb  
+qemu-system-riscv64 -machine virt -machine dumpdtb=qemu.dtb 
 
 转换成dts文件
 dtc -I dtb -O dts -o qemu-virt.dts qemu.dtb
