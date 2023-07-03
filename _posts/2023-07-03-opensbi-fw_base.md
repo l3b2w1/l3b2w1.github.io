@@ -57,6 +57,7 @@ riscv64-unknown-linux-gnu-gcc -g -Wall -nostdlib -fno-omit-frame-pointer -fno-op
     	 对内核来说该bootcold hart即为cpu 0，系统起来之后通过cat /proc/cpuinfo可以确认这一点  
 	 跳转前传递给内核引导程序的a0寄存器中存放着coldboot hartid，a1寄存器中存放着fdt地址  
 
+
 **_start_warm执行流程，所有hart都会执行到这里并且调用C函数sbi_init**  
 	1. 清零通用寄存器和`CSR_MSCRATCH`，冲刷指令缓存  
 	2. 清零`CSR_MIE`，禁止所有中断  
