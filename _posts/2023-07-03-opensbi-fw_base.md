@@ -54,7 +54,7 @@ riscv64-unknown-linux-gnu-gcc -g -Wall -nostdlib -fno-omit-frame-pointer -fno-op
 	 执行1-7阶段的hart会因为fence指令落后于其它harts执行到sbi_init  
    	 所以选中作为coldboot的hart和负责执行1-7的hart大概率不是同一个hart  
    	 但是选中作为coldboot的hart会负责特权模式切换并跳转到下一个启动阶段（比如linux内核）  
-    	 所以对内核来说该hart即为cpu 0，系统起来之后通过cat /proc/cpuinfo可以确认这一点  
+    	 对内核来说该bootcold hart即为cpu 0，系统起来之后通过cat /proc/cpuinfo可以确认这一点  
 	 跳转前传递给内核引导程序的a0寄存器中存放着coldboot hartid，a1寄存器中存放着fdt地址  
 
 **_start_warm执行流程，所有hart都会执行到这里并且调用C函数sbi_init**
