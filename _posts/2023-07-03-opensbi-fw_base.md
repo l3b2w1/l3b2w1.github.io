@@ -49,13 +49,13 @@ riscv64-unknown-linux-gnu-gcc -g -Wall -nostdlib -fno-omit-frame-pointer -fno-op
 	5. 解析dtb初始化`struct sbi_platform`，填充成员变量  
 	6. 为所有harts分配`struct sbi_scratch`空间，从hart 0开始初始化每一个cpu对应的`struct sbi_scratch`，填充各个字段  
 	7. 执行fdt重定位，把BOOT_STATUS_BOOT_HART_DONE标记写入_boot_status，通过fence内存屏障通知其它cpu，接着跳转到`_start_warm`  
-  8. 所有其它等待的cpu观察到`_boot_status`已经更新为`BOOT_STATUS_BOOT_HART_DONE后`，就跳转到`_start_warm`  
+  	8. 所有其它等待的cpu观察到`_boot_status`已经更新为`BOOT_STATUS_BOOT_HART_DONE后`，就跳转到`_start_warm`  
 
-	  执行1-7阶段的hart会因为fence指令落后于其它harts执行到sbi_init  
-    所以选中作为coldboot的hart和负责执行1-7的hart大概率不是同一个hart  
-    但是选中作为coldboot的hart会负责特权模式切换并跳转到下一个启动阶段（比如linux内核）  
-    所以对内核来说该hart即为cpu 0，系统起来之后通过cat /proc/cpuinfo可以确认这一点  
-	  跳转前传递给内核引导程序的a0寄存器中存放着coldboot hartid，a1寄存器中存放着fdt地址  
+	 执行1-7阶段的hart会因为fence指令落后于其它harts执行到sbi_init  
+   	 所以选中作为coldboot的hart和负责执行1-7的hart大概率不是同一个hart  
+   	 但是选中作为coldboot的hart会负责特权模式切换并跳转到下一个启动阶段（比如linux内核）  
+    	 所以对内核来说该hart即为cpu 0，系统起来之后通过cat /proc/cpuinfo可以确认这一点  
+	 跳转前传递给内核引导程序的a0寄存器中存放着coldboot hartid，a1寄存器中存放着fdt地址  
 
 **_start_warm执行流程，所有hart都会执行到这里并且调用C函数sbi_init**
 	1. 清零通用寄存器和`CSR_MSCRATCH`，冲刷指令缓存  
@@ -64,7 +64,7 @@ riscv64-unknown-linux-gnu-gcc -g -Wall -nostdlib -fno-omit-frame-pointer -fno-op
 	4. 找到当前cpu对应`sbi_scratch`地址后写入`CSR_MSCRATCH`  
 	5. 设置栈帧位置sp  
 	6. `_trap_handler`写入`CSR_MTVEC`  
-  7. 获取`CSR_MSCRATCH`，保存到a0，最为入参，调用`sbi_init`C函数
+  	7. 获取`CSR_MSCRATCH`，保存到a0，最为入参，调用`sbi_init`C函数
 
 **只有一个cpu成为coldboot hart，其它为warmboot harts  
 只有支持scratch->next_mode指定的特权模式的hart才可以成为coldboot hart  
