@@ -639,7 +639,7 @@ _start_warm:
 ```
 lib/sbi/sbi_init.c
 init_coldboot
-	sbi_scratch_init  //  初始化hartid_to_scratch_table指针数组，每个hartid都在table里有一个指向struct sbi_scratch的指针
+	sbi_scratch_init  //  在栈空间找到当前hart对应的scratch，把scratch地址写入hartid_to_scratch_table指针数组index所在位置，每个hartid都在table里有一个指向struct sbi_scratch的指针
 	sbi_domain_init //  root域初始化，安全相关特性
 	sbi_hsm_init     // hsm扩展初始化，按照顺序启动所有harts
 	sbi_platform_early_init   // 被RISC-V平台和SoC供应商轻松扩展以适应特定的硬件配置
