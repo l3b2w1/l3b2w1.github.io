@@ -765,3 +765,6 @@ a6、a7: 这是 RISC-V 指令集中的通用寄存器。a6 是目标地址寄存
 ##### 重定位
 编译链接后的elf的数据段没有办法做到地址无关，它可能会包含对绝对地址的引用，对于这种绝对地址的引用，必须在装载时将其重定位。  
 `__rel_dyn_start` 和 `__rel_dyn_end`之间的数据就是所有重定位表项。   
+
+## 参考
+[opensbi 源码](https://github.com/riscv-software-src/opensbi)
