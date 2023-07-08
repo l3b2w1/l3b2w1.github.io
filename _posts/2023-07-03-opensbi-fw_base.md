@@ -664,8 +664,7 @@ init_coldboot
 	wake_coldboot_harts
 	sbi_hsm_hart_start_finish(scratch, hartid);   
 		sbi_hart_switch_mode(hartid, next_arg1, next_addr, next_mode, false);  //从machine mode切换到supervisor mode
-
-__asm__ __volatile__("mret" : : "r"(a0), "r"(a1));  // a0 是coodboot hart id ;  a1是 scratch->next_arg1，即fdt地址
+			__asm__ __volatile__("mret" : : "r"(a0), "r"(a1));  // a0 是coodboot hart id ;  a1是 scratch->next_arg1，即fdt地址
 ```
 
 ##### sbi_hart_switch_mode
