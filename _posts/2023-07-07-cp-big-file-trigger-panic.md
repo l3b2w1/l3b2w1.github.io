@@ -82,8 +82,6 @@ Call trace:
  el0_svc_common.constprop.3+0x98/0x188
  el0_svc_handler+0x74/0x90
  el0_svc+0x8/0x640
-User Call trace:
-
 ```
 
 ------------------------------------------
