@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      拷贝大文件时系统异常
-subtitle:   dts内存配置不当引起的panic
+subtitle:   dts cma配置不当引起的panic
 date:       2023-07-22
 author:     icecube
 header-img: img/bluelinux.jpg
@@ -378,6 +378,6 @@ dts里添加的linux,cma指定的内存区域和kernel code内存段有部分重
 `Unable to handle kernel write to read-only memory at virtual address ffff000010080000`  
 
 
-#### 参考
+### 参考
 [linux-5.4.74](https://elixir.bootlin.com/linux/v5.4.74/source)  
 [CMA模块学习笔记](http://www.wowotech.net/memory_management/cma.html)
