@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      riscv启动
+title:      riscv内核启动
 subtitle:   riscv内核启动早期代码走读
 date:       2023-05-09
 author:     icecube
