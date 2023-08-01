@@ -242,9 +242,7 @@ arch_call_rest_init
 2. 如果dts里指定区域没有和kernel code发生重叠，但是存在其它问题，返回了EINVAL，那么这块区域应该memblock_free掉  
 进入buddy system，这样可以纳入系统内存管理
 
-人为因素导致的这种情况，逻辑处理给出明确的告警提示即可，没必要过度解读处理。
-
-于是提了个[patch](https://lkml.org/lkml/2023/7/26/937)   
+人为因素导致的这种情况，逻辑处理给出明确的告警提示即可，没必要过度解读处理。于是提了个[patch](https://lkml.org/lkml/2023/7/26/937)   
 ```
 diff --git a/kernel/dma/contiguous.c b/kernel/dma/contiguous.c
 index 6ea80ae42..dc6d2af1e 100644
