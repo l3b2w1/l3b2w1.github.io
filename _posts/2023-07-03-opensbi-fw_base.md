@@ -666,6 +666,62 @@ init_coldboot
 		sbi_hart_switch_mode(hartid, next_arg1, next_addr, next_mode, false);  //从machine mode切换到supervisor mode
 			__asm__ __volatile__("mret" : : "r"(a0), "r"(a1));  // a0 是coodboot hart id ;  a1是 scratch->next_arg1，即fdt地址
 ```
+##### delegate_traps  
+·mideleg（Machine Interrupt Delegation Register）·  
+这是一个机器级特权寄存器，用于控制异常中断的委派。   
+当异常发生时，如果相应的异常位被设置在 mideleg 中，那么异常将被委派给目标特权级处理，而不会直接在当前特权级进行处理。   
+这有助于将一些异常委派给更高特权级（如超级用户级别）来处理。  
+
+·medeleg（Machine Exception Delegation Register）·   
+与 mideleg 类似，这也是一个机器级特权寄存器，但是它用于控制异常故障的委派。  
+异常故障通常是一些非正常情况，如访问非法地址或执行非法指令。  
+如果在 medeleg 中设置了相应的位，那么异常故障将被委派给目标特权级处理。  
+
+通过使用这些寄存器，操作系统和系统软件可以更灵活地控制异常和故障的处理方式，将特定的异常委派给适当的特权级来处理，以提高系统的可维护性和安全性。
+
+```
+static int delegate_traps(struct sbi_scratch *scratch)
+{
+	const struct sbi_platform *plat = sbi_platform_ptr(scratch);
+	unsigned long interrupts, exceptions;
+
+	if (!misa_extension('S'))
+		/* No delegation possible as mideleg does not exist */
+		return 0;
+
+	/* Send M-mode interrupts and most exceptions to S-mode */
+	interrupts = MIP_SSIP | MIP_STIP | MIP_SEIP;   // 中断委托 软件中断、定时器中断、外部中断
+	interrupts |= sbi_pmu_irq_bit();  // PMU计数器溢出中断。溢出中断属于HART本地中断。
+					// "sscofpmf" 扩展允许对可编程计数器进行溢出和过滤。启用性能驱动程序来处理溢出中断。
+					// https://lkml.org/lkml/2022/2/18/1133
+	exceptions = (1U << CAUSE_MISALIGNED_FETCH) | (1U << CAUSE_BREAKPOINT) | // 异常委托 未对齐、断点异常、系统调用异常
+		     (1U << CAUSE_USER_ECALL);
+	if (sbi_platform_has_mfaults_delegation(plat))   // 具体平台异常
+		exceptions |= (1U << CAUSE_FETCH_PAGE_FAULT) |  // 获取页故障
+			      (1U << CAUSE_LOAD_PAGE_FAULT) |	//  页加载故障 
+			      (1U << CAUSE_STORE_PAGE_FAULT);	// 页存储故障
+
+	/*
+	 * If hypervisor extension available then we only handle hypervisor
+	 * calls (i.e. ecalls from HS-mode) in M-mode.
+	 *
+	 * The HS-mode will additionally handle supervisor calls (i.e. ecalls
+	 * from VS-mode), Guest page faults and Virtual interrupts.
+	 */
+	if (misa_extension('H')) {   // 支持虚拟化扩展的各种异常
+		exceptions |= (1U << CAUSE_VIRTUAL_SUPERVISOR_ECALL);  
+		exceptions |= (1U << CAUSE_FETCH_GUEST_PAGE_FAULT);
+		exceptions |= (1U << CAUSE_LOAD_GUEST_PAGE_FAULT);
+		exceptions |= (1U << CAUSE_VIRTUAL_INST_FAULT);
+		exceptions |= (1U << CAUSE_STORE_GUEST_PAGE_FAULT);
+	}
+
+	csr_write(CSR_MIDELEG, interrupts);   	// 写入mideleg中断委托寄存器
+	csr_write(CSR_MEDELEG, exceptions);	// 写入medeleg异常委托寄存器
+
+	return 0;
+}
+```
 
 ##### sbi_hart_switch_mode
 ```
