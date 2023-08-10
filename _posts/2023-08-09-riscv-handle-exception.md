@@ -222,7 +222,7 @@ asmlinkage void noinstr generic_handle_arch_irq(struct pt_regs *regs)
 
 ```
 
-### handle_exception 汇编代码分析
+### handle_exception 代码分析
 ```
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
