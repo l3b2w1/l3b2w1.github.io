@@ -188,7 +188,7 @@ start_kernel
   	irqchip_init  
   		of_irq_init
   			riscv_intc_init
-                 set_handle_irq(&riscv_intc_irq);   // handle_arch_irq == riscv_intc_irq
+                 		set_handle_irq(&riscv_intc_irq);   // handle_arch_irq == riscv_intc_irq
 ```
 
 kernel/irq/handle.c
