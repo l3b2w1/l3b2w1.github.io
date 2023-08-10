@@ -485,9 +485,9 @@ SYM_CODE_START_NOALIGN(ret_from_exception)   // 异常处理完毕返回
 	li t0, SR_MPP
 	and s0, s0, t0
 #else
-	andi s0, s0, SR_SPP   // 检测sstatus.SPP比特位，为1表示中断前的特权模式为S模式，为0表示U模式
+	andi s0, s0, SR_SPP   // 检测sstatus.SPP比特位，为1表示异常发生前的特权模式为S模式，为0表示U模式
 #endif
-	bnez s0, resume_kernel // 如果不为0，中断前的特权模式为S模式，跳转到resume_kernel
+	bnez s0, resume_kernel // 如果不为0，异常发生前的特权模式为S模式，跳转到resume_kernel
 SYM_CODE_END(ret_from_exception)
 
 	// 异常前的特权模式为U模式
