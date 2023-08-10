@@ -75,7 +75,7 @@ sret指令会把sstatus.SPIE字段设置到sstatus.SIE字段，恢复异常触�
 当触发硬件断点，或发生指令获取、加载、存储访问或页故障异常，或发生指令获取或AMO（原子内存操作）地址不对齐异常时，  
 stval寄存器将被写入导致异常的地址。对于其他异常，stval将被设置为零，但未来的标准可能会重新定义stval在其他异常情况下的设置。
 
-![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-08-09-stvec.png)
+![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-08-09-stval.png)
 
 ##### sepc
 > sepc 是一个 XLEN 位的读/写寄存器，格式如图 4.8 所示。  
