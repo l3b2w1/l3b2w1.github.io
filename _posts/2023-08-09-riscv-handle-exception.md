@@ -292,7 +292,7 @@ _restore_kernel_tpsp:
 	REG_L sp, TASK_TI_KERNEL_SP(tp)
 #endif
 
-_save_context:  // 保存中断上下文
+_save_context:  // 保存异常上下文
 	REG_S sp, TASK_TI_USER_SP(tp) // 保存tp寄存器的值到 thread_info.user_sp
 	REG_L sp, TASK_TI_KERNEL_SP(tp) // 重新获取前面保存的sp的值
 	addi sp, sp, -(PT_SIZE_ON_STACK) // 为异常上下文保留栈空间，保存各个寄存器的值
