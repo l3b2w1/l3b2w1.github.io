@@ -189,12 +189,7 @@ start_kernel
   		of_irq_init
   			riscv_intc_init
                  		set_handle_irq(&riscv_intc_irq);   // handle_arch_irq == riscv_intc_irq
-```
 
-kernel/irq/handle.c
-generic_handle_arch_irq是中断响应总的入口，具体中断类型会在riscv_intc_irq中做区分
-```
-#ifdef CONFIG_GENERIC_IRQ_MULTI_HANDLER
 int __init set_handle_irq(void (*handle_irq)(struct pt_regs *))
 {
 	if (handle_arch_irq)
@@ -203,6 +198,12 @@ int __init set_handle_irq(void (*handle_irq)(struct pt_regs *))
 	handle_arch_irq = handle_irq;
 	return 0;
 }
+```
+
+### generic_handle_arch_irq
+generic_handle_arch_irq是中断响应总的入口，具体中断类型会在riscv_intc_irq中做区分
+```
+kernel/irq/handle.c
 
 /**
  * generic_handle_arch_irq - root irq handler for architectures which do no
@@ -215,12 +216,37 @@ asmlinkage void noinstr generic_handle_arch_irq(struct pt_regs *regs)
 
 	irq_enter();
 	old_regs = set_irq_regs(regs);
-	handle_arch_irq(regs);
+	handle_arch_irq(regs);    // riscv_intc_irq
 	set_irq_regs(old_regs);
 	irq_exit();
 }
-#endif
+```
 
+### riscv_intc_irq
+IPI和其它中断分开处理 
+```
+static asmlinkage void riscv_intc_irq(struct pt_regs *regs)
+{
+	unsigned long cause = regs->cause & ~CAUSE_IRQ_FLAG;
+
+	if (unlikely(cause >= BITS_PER_LONG))
+		panic("unexpected interrupt cause");
+
+	switch (cause) {
+#ifdef CONFIG_SMP
+	case RV_IRQ_SOFT:  // riscv架构IPI中断属于软件中断
+		/*
+		 * We only use software interrupts to pass IPIs, so if a
+		 * non-SMP system gets one, then we don't know what to do.
+		 */
+		handle_IPI(regs);
+		break;
+#endif
+	default:
+		generic_handle_domain_irq(intc_domain, cause);
+		break;
+	}
+}
 ```
 
 ### handle_exception 代码分析
