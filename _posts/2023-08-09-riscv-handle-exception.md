@@ -149,7 +149,7 @@ pending的用户级别软件中断可以通过将sip中的USIP位写入0来清�
 
 ### setup_trap_vector
 内核_start开始初始化的时候会设置异常向量寄存器  
-下面代码并没有显式设置跳转模式，可能是因为`ENTRY(handle_exception)`定义至少4字节自动对齐  
+下面代码并没有显式设置跳转模式，可能是因为`ENTRY(handle_exception)`定义至少4字节对齐  
 所以函数地址低两位为0，就相当于配置为直接跳转模式  
 ```
 arch/riscv/kernel/head.S
@@ -192,6 +192,7 @@ start_kernel
 ```
 
 kernel/irq/handle.c
+generic_handle_arch_irq是中断响应总的入口，具体中断类型会在riscv_intc_irq中做区分
 ```
 #ifdef CONFIG_GENERIC_IRQ_MULTI_HANDLER
 int __init set_handle_irq(void (*handle_irq)(struct pt_regs *))
