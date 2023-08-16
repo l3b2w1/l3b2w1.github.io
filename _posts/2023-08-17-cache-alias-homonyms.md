@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      高速缓存的别名和同名
+title:      高速缓存的别名和同名问题
 subtitle:   cache alias and homonyms
 date:       2023-08-17
 author:     icecube
