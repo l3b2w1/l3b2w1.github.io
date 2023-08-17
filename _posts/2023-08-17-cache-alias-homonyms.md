@@ -74,7 +74,7 @@ tags:
 一路cache可以缓存2个PAGE的数据  
 
 采用虚拟索引的匹配方式，两个不同的虚拟地址有可能映射到同一个物理地址  
-索引最大偏移数13bit超过了页内偏移数12bit  
+索引最大偏移13bit超过了页内偏移12bit  
 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-08-17-virtual-index.png)
 
