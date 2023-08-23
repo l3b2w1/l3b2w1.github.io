@@ -103,7 +103,7 @@ PLIC硬件仅支持中断的多播，这意味着所有已启用的目标将为�
 PLIC内存映射的基地址是特定于平台实现的。  
 本章中指定的内存映射寄存器宽度为32位。这些位可以通过LW和SW指令进行原子访问。  
 
-如果满规格实现的话，寄存器地址范围如下图所示。
+如果PLIC满规格实现1023个中断和15872个上下文，寄存器地址范围如下图所示:
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-08-23-plic-register-layout.PNG)
 
 ## 中断优先级
