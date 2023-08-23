@@ -835,5 +835,6 @@ static void rt_mutex_wake_waiter(struct rt_mutex_waiter *waiter)
 
 ## 参考索引
 [Internals of the RT Patch](https://www.kernel.org/doc/ols/2007/ols2007v2-pages-161-172.pdf)  
-[rt-mutex-design](https://docs.kernel.org/locking/rt-mutex-design.html)
+[rt-mutex-design](https://docs.kernel.org/locking/rt-mutex-design.html)  
+[linux-5.4.74](https://elixir.bootlin.com/linux/v5.4.74/source)  
 
