@@ -376,7 +376,7 @@ out_free_priv:
 #### plic_handle_irq
 `plic_handle_irq`是所有外设中断的处理入口，它根据hwirq（中断ID）和irqdomain找到具体类型的中断处理函数。    
 从claim寄存器读取中断ID，就是硬件中断号，调用具体中断处理函数，写回ID到claim寄存器，本次中断就处理完了。  
-没有实现plic协议中所说的complete寄存器。  
+认领中断claim和结束中断complete针对的寄存器是同一个，地址一样。  
 ```
 /*
  * Handling an interrupt is a two-step process: first you claim the interrupt
