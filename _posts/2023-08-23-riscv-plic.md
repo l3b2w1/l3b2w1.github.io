@@ -57,7 +57,7 @@ PLIC独立处理每个中断目标，不考虑包含多个中断目标的组件�
 #### 中断通知
 每个中断目标在PLIC核心中都有一个外部中断待处理（EIP）位，该位指示对应的目标有一个待处理中断等待服务。  
 EIP中的值可能会因为PLIC核心中的状态变化而改变，这些变化是由中断源、中断目标或其他代理操作PLIC中的寄存器值引起的。  
-EIP中的值被作为中断通知传递给目标目标。如果目标是RISC-V hart上下文，中断通知将根据hart上下文的特权级别在meip/seip位上到达。  
+EIP中的值被作为中断通知传递给目标。如果目标是RISC-V hart上下文，中断通知将根据hart上下文的特权级别在meip/seip位上到达。  
 
 （在简单的系统中，中断通知将是连接到实现hart的处理器的简单线路。在更复杂的平台上，这些通知可能会作为消息通过系统互连路由。）  
 
@@ -336,7 +336,7 @@ done:
 		for (hwirq = 1; hwirq <= nr_irqs; hwirq++) {
 			plic_toggle(handler, hwirq, 0); // 初始化为关中断
 			writel(1, priv->regs + PRIORITY_BASE +
-				  hwirq * PRIORITY_PER_ID);// 中断优先级固定为1
+				  hwirq * PRIORITY_PER_ID);// 中断优先级固定为最低优先级1
 		}
 		nr_handlers++;
 	}
