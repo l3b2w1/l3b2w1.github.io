@@ -153,7 +153,25 @@ pending的用户级别软件中断可以通过将sip中的USIP位写入0来清�
 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2023-08-09-sip-sie.png)
 
-### setup_trap_vector
+### 异常处理相关代码
+如下是qemu上一次串口中断的调用栈示例
+```
+[    5.460197] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 6.4.7-g078c0f7c1536-dirty #22
+[    5.462092] Hardware name: riscv-virtio,qemu (DT)
+[    5.462991] Call Trace:
+[    5.463427] [<ffffffff8000548e>] dump_backtrace+0x1c/0x24
+[    5.464248] [<ffffffff8082ff6c>] show_stack+0x2c/0x38
+[    5.465000] [<ffffffff8083b126>] dump_stack_lvl+0x3c/0x54
+[    5.465802] [<ffffffff8083b152>] dump_stack+0x14/0x1c 
+[    5.466537] [<ffffffff8044b4c2>] plic_handle_irq+0x54/0x11e  // 经由plic上报给cpu，全局中断
+[    5.467369] [<ffffffff8005f82e>] generic_handle_domain_irq+0x1c/0x2a
+[    5.468244] [<ffffffff8044b2d8>] riscv_intc_irq+0x2e/0x46    // 中断处理总入口
+[    5.469018] [<ffffffff8083bc02>] do_irq+0x50/0x84
+[    5.469730] [<ffffffff80003660>] ret_from_exception+0x0/0x64    // 广义上的异常处理入口
+[    5.470575] [<ffffffff8083c4da>] default_idle_call+0x26/0x34ootfs+0x0/0x68 
+```
+
+##### setup_trap_vector
 内核_start开始初始化的时候会设置异常向量寄存器  
 下面代码并没有显式设置跳转模式，可能是因为`ENTRY(handle_exception)`定义至少4字节对齐  
 所以函数地址低两位为0，就相当于配置为直接跳转模式  
@@ -187,7 +205,7 @@ arch/riscv/kernel/head.S
 
 ```
 
-### set_handle_irq
+##### set_handle_irq
 ```
 start_kernel
   init_IRQ
@@ -206,7 +224,7 @@ int __init set_handle_irq(void (*handle_irq)(struct pt_regs *))
 }
 ```
 
-### generic_handle_arch_irq
+##### generic_handle_arch_irq
 generic_handle_arch_irq是中断响应总的入口，具体中断类型会在riscv_intc_irq中做区分
 ```
 kernel/irq/handle.c
@@ -228,7 +246,7 @@ asmlinkage void noinstr generic_handle_arch_irq(struct pt_regs *regs)
 }
 ```
 
-### riscv_intc_irq
+##### riscv_intc_irq
 IPI和其它中断分开处理 
 ```
 static asmlinkage void riscv_intc_irq(struct pt_regs *regs)
@@ -255,7 +273,7 @@ static asmlinkage void riscv_intc_irq(struct pt_regs *regs)
 }
 ```
 
-### handle_exception 代码分析
+##### handle_exception 代码分析
 ```
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
