@@ -156,7 +156,6 @@ pending的用户级别软件中断可以通过将sip中的USIP位写入0来清�
 ### 异常处理相关代码
 如下是qemu上一次串口中断的调用栈示例
 ```
-[    5.460197] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 6.4.7-g078c0f7c1536-dirty #22
 [    5.462092] Hardware name: riscv-virtio,qemu (DT)
 [    5.462991] Call Trace:
 [    5.463427] [<ffffffff8000548e>] dump_backtrace+0x1c/0x24
@@ -273,7 +272,7 @@ static asmlinkage void riscv_intc_irq(struct pt_regs *regs)
 }
 ```
 
-##### handle_exception 代码分析
+##### handle_exception
 ```
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
