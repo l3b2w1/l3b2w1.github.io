@@ -12,7 +12,7 @@ tags:
 
 # arch/riscv/kernel/head.S
 
-arch/riscv/kernel/head.S 是 RISC-V架构Linux内核的一个汇编语言源文件，其作用是初始化内核和启动CPU。  
+arch/riscv/kernel/head.S 是 RISC-V架构Linux内核的一个汇编语言源文件，其作用是初始化内核和启动CPU。
 
 具体来说，head.S包含了以下几个主要的功能：
 
@@ -24,7 +24,7 @@ arch/riscv/kernel/head.S 是 RISC-V架构Linux内核的一个汇编语言源文�
 
 4. 启动CPU。head.S最后调用start_kernel函数启动内核。
 
-基于内核版本v6.2  
+基于内核版本v6.2
 https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/?h=v6.2
 
 ```
@@ -105,7 +105,7 @@ relocate_enable_mmu:
 	/* Relocate return address */
 	la a1, kernel_map                             // kernel_map全局变量的地址加载到a1
 	XIP_FIXUP_OFFSET a1
-	REG_L a1, KERNEL_MAP_VIRT_ADDR(a1)         // kernel_map.virt_addr 虚拟地址 KERNEL_LINK_ADDR加载到a1  
+	REG_L a1, KERNEL_MAP_VIRT_ADDR(a1)         // kernel_map.virt_addr 虚拟地址 KERNEL_LINK_ADDR加载到a1
 	la a2, _start                              // _start的物理地址加载到a2
 	sub a1, a1, a2                          // a1 = a1 - a2      获取相对偏移
 	add ra, ra, a1                           // ra = ra + a1     ra 虚拟地址 mmu使能之后要求ra为虚拟地址
@@ -119,7 +119,7 @@ relocate_enable_mmu:
 	srl a2, a0, PAGE_SHIFT         //   a2 = a0 >> PAGE_SHIFT    a2就是early_pg_dir 的PPN
 	la a1, satp_mode                //   satp_mode内存地址加载到 a1
 	REG_L a1, 0(a1)                  // satp_mode的值加载到a1
-	or a2, a2, a1                      // a2= a2 | a1    PPN或上satp mode组装成完整字段  
+	or a2, a2, a1                      // a2= a2 | a1    PPN或上satp mode组装成完整字段
 
 	/*
 	 * Load trampoline page directory, which will cause us to trap to
@@ -132,7 +132,9 @@ relocate_enable_mmu:
 	srl a0, a0, PAGE_SHIFT   // 逻辑右移后a0里就是PPN
 	or a0, a0, a1                 // a0 = a0 | a1  PPN或上satp mode组装成完整字段
 	sfence.vma                // 刷新cache，写回内存
-	csrw CSR_SATP, a0     // a0写入CSR_SATP，开启分页，触发异常；1f的虚拟地址已经写入了STVEC，所以触发异常直接跳转到1f虚拟地址，相当于从1f地址处的指令开始 PC 指向的就是虚拟地址了；切换到trampoline_pg_dir软件模拟的mmu
+	csrw CSR_SATP, a0     // a0写入CSR_SATP，开启分页，触发异常；
+				// 1f的虚拟地址已经写入了STVEC，所以触发异常直接跳转到1f虚拟地址，
+				// 相当于从1f地址处的指令开始 PC 指向的就是虚拟地址了；切换到trampoline_pg_dir软件模拟的mmu
 .align 2           // 2^2 4字节对齐
 1:
 	/* Set trap vector to spin forever to help debug */  // 以虚拟地址执行，MMU通过trampoline_pg_dir转换地址
@@ -237,8 +239,8 @@ ENTRY(_start_kernel)
 	/*
 	 * Disable FPU to detect illegal usage of
 	 * floating point in kernel space    // 清零CSR_STATUS的浮点位，禁浮点，也就是t0中标记1的位
-	 */   
-	li t0, SR_FS                            //   _AC(0x00006000, UL)     
+	 */
+	li t0, SR_FS                            //   _AC(0x00006000, UL)
 	csrc CSR_STATUS, t0              // /* Floating-point Status，就是 CSR_SSTATUS */
 #ifdef CONFIG_RISCV_BOOT_SPINWAIT   // 一般不会开启该配置项，所以boot会把启动核id号放到a0寄存器
 	li t0, CONFIG_NR_CPUS
@@ -338,7 +340,7 @@ END(_start_kernel)
 ```
 
 # setup_vm
-setup_vm 负责创建临时页表  
+setup_vm 负责创建临时页表
 ```
 static void __init create_kernel_page_table(pgd_t *pgdir, bool early)
 {
@@ -733,9 +735,9 @@ hexdump arch/riscv/boot/Image
 系统起来之后的虚拟内存地址空间布局
 
 ##### SV57
-SV57要求地址位63-57是第56位的副本，意即  
-第56位为0时，63-57也都是0，代表用户态内存空间，起始地址为 0，结束地址为 00ffffffffffffff  
-第56位为1时，63-57也都是1，代表内核态内存空间，起始地址为ff00000000000000，结束地址为 ffffffffffffffff   
+SV57要求地址位63-57是第56位的副本，意即
+第56位为0时，63-57也都是0，代表用户态内存空间，起始地址为 0，结束地址为 00ffffffffffffff
+第56位为1时，63-57也都是1，代表内核态内存空间，起始地址为ff00000000000000，结束地址为 ffffffffffffffff
 
 二者之间有一个巨大的空洞 0100000000000000 - feffffffffffffff
 ```
@@ -785,7 +787,7 @@ SV57要求地址位63-57是第56位的副本，意即
 
 
 
-SV57代表启用5级页表，各级页表项管理覆盖的内存大小以512的倍数递增，即每一级页表都包含512个表项   
+SV57代表启用5级页表，各级页表项管理覆盖的内存大小以512的倍数递增，即每一级页表都包含512个表项
 
 |宏|数值|说明|
 |-----|----|----|
@@ -829,5 +831,5 @@ kernel_map.va_pa_offset便于pa和va之间快速转换
 ```
 
 # 参考索引
-[vm layout](https://docs.kernel.org/riscv/vm-layout.html)  
-[linux-6.2](https://elixir.bootlin.com/linux/v6.2/source)  
+[vm layout](https://docs.kernel.org/riscv/vm-layout.html)
+[linux-6.2](https://elixir.bootlin.com/linux/v6.2/source)
