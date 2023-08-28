@@ -116,6 +116,8 @@ aq 标志位会限制所有后面内存访问指令，rl 标志位会限制所�
 
 ### spin_lock 实现
 `spin_lock`就利用了amo指令用于多核同步。
+
+`amoadd.w.aqrl   a5,a5,(s1)` 原子指令同时叠加了内存屏障的效果，aqrl限制了amo指令前后的访存指令排序
 ```
 typedef struct {
         int counter;
