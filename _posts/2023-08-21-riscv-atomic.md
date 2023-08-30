@@ -99,6 +99,8 @@ RISC-V 有一个 FENCE 指令，可以用来显式添加内存顺序限制。
 LR/SC 和 AMO 指令，每个指令后面都带有一个 “aqrl” 的可选后缀。aq 是 acquire 的缩写，rl 是 release 的缩写。  
 LR/SC 和 AMO 指令就是通过这两个后缀来添加额外的内存顺序限制。
 
+RISC-V体系结构仅支持在LR/SC和AMO指令中内嵌获取和释放屏障原语。  
+
 |Acquire|Release |含义|
 |:-----:| :----: |----|
 | 0 | 0 | 没有顺序限制 |
