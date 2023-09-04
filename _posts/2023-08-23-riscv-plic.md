@@ -415,6 +415,34 @@ static void plic_handle_irq(struct irq_desc *desc)
 }
 ```
 
+#### 串口中断栈示例
+qemu虚拟机串口中断栈  
+```
+[    9.465613] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 6.4.7-g078c0f7c1536-dirty #37
+[    9.466334] Hardware name: riscv-virtio,qemu (DT)
+[    9.466692] Call Trace:
+[    9.466921] [<ffffffff8000548e>] dump_backtrace+0x1c/0x24
+[    9.467377] [<ffffffff80830010>] show_stack+0x2c/0x38
+[    9.467811] [<ffffffff8083b1ca>] dump_stack_lvl+0x3c/0x54
+[    9.468223] [<ffffffff8083b1f6>] dump_stack+0x14/0x1c
+[    9.468603] [<ffffffff804e6708>] serial8250_interrupt+0xa6/0xae    //串口中断处理函数
+[    9.469319] [<ffffffff80060456>] __handle_irq_event_percpu+0x54/0x142
+[    9.470232] [<ffffffff800605d0>] handle_irq_event+0x3c/0x88
+[    9.471057] [<ffffffff80064106>] handle_fasteoi_irq+0x9c/0x19a 
+[    9.471973] [<ffffffff8005f82e>] generic_handle_domain_irq+0x1c/0x2a
+[    9.472969] [<ffffffff8044b6d0>] plic_handle_irq+0x8a/0xf0     // plic中断总入口
+[    9.473783] [<ffffffff8005f82e>] generic_handle_domain_irq+0x1c/0x2a
+[    9.474675] [<ffffffff8044b318>] riscv_intc_irq+0x2e/0x46
+[    9.475407] [<ffffffff8083bca6>] do_irq+0x50/0x84
+[    9.475988] [<ffffffff80003660>] ret_from_exception+0x0/0x64   // 所有广义的异常(中断和异常)入口
+[    9.476593] [<ffffffff8083c57e>] default_idle_call+0x26/0x34
+[    9.477368] [<ffffffff8004a096>] do_idle+0x204/0x224 
+[    9.478087] [<ffffffff8004a210>] cpu_startup_entry+0x1a/0x1c
+[    9.478874] [<ffffffff8083c8d0>] kernel_init+0x0/0x10a
+[    9.479617] [<ffffffff80a00672>] arch_post_acpi_subsys_init+0x0/0x18
+[    9.480129] [<ffffffff80a010cc>] console_on_rootfs+0x0/0x68 
+```
+
 
 ## 参考
 [linux-6.4.7](https://elixir.bootlin.com/linux/v6.4.7/source)  
