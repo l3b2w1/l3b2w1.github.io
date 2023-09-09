@@ -415,6 +415,65 @@ static void plic_handle_irq(struct irq_desc *desc)
 }
 ```
 
+#### plic_set_affinity
+亲和性相关的两个结构体字段  
+```
+struct irq_common_data {
+	......
+	cpumask_var_t 	smp_affinity    // IRQ affinity on SMP. If this is an IPI related irq, then this is the mask of the CPUs to which an IPI can be sent.
+	cpumask_var_t	effective_affinity  // The effective IRQ affinity on SMP as some irq chips do not allow multi CPU destinations. A subset of affinity.
+	.......
+}
+```
+`affinity`  多处理器系统上的中断请求亲和性。如果这是与IPI相关的中断请求，那么这是可以发送IPI的CPU的掩码。  
+`effective_affinity` 有效的多处理器系统中断请求亲和性，因为某些中断控制器不允许多个CPU作为目标。这是亲和性的一个子集。   
+
+该函数为PLIC设置中断亲和性，因为effective_affinity掩码集合中只有一个cpu   
+所以具体某个外设中断只会亲和到某一个固定cpu上，而不会出现多个cpu都可以响应该中断，争着claim的情况   
+```
+static int plic_set_affinity(struct irq_data *d,
+			     const struct cpumask *mask_val, bool force)
+{
+	unsigned int cpu;
+	struct cpumask amask;
+	struct plic_priv *priv = irq_data_get_irq_chip_data(d);
+
+	cpumask_and(&amask, &priv->lmask, mask_val); // amask为参数指定的cpu集合和plic支持处理该中断的cpu集合的交集
+
+	// 这里可以看到有效掩码中只会包含一个固定cpu
+	if (force)
+		cpu = cpumask_first(&amask);
+	else
+		cpu = cpumask_any_and(&amask, cpu_online_mask);
+
+	if (cpu >= nr_cpu_ids)
+		return -EINVAL;
+
+	plic_irq_disable(d);   // 关闭旧的有效掩码的cpu对应的irq中断
+
+	irq_data_update_effective_affinity(d, cpumask_of(cpu)); // 更新有效掩码
+
+	if (!irqd_irq_disabled(d))  // 如果cpu侧没有禁止该中断
+		plic_irq_enable(d);  // 打开新的有效掩码的cpu对应的irq中断
+
+	return IRQ_SET_MASK_OK_DONE;
+}
+```
+`plic_irq_disable`和`plic_irq_enable`都是操作context enable寄存器中irq对应的的bit位   
+disable清零，enable置1  
+```
+static void __plic_toggle(void __iomem *enable_base, int hwirq, int enable)
+{
+	u32 __iomem *reg = enable_base + (hwirq / 32) * sizeof(u32);  // 使能
+	u32 hwirq_mask = 1 << (hwirq % 32);
+
+	if (enable)
+		writel(readl(reg) | hwirq_mask, reg);
+	else
+		writel(readl(reg) & ~hwirq_mask, reg);
+}
+```
+
 #### 串口中断栈示例
 qemu虚拟机串口中断栈  
 ```
