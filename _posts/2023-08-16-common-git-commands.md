@@ -23,11 +23,13 @@ git branch test //创建新分支，但是并不切换过去
 
 git branch  //查看所有分支，以及当前所在分支
 
-git checkout master // 切回master分支
+git checkout master // 切回master分支  
 
 git pull    // 拉取最新提交
 
 git branch -D develop2   // -d 删除分支develop ; -D 强制删除分支develop2
+
+git remote -v    // 查询远程仓库URL  
 
 ### 查看历史改动
 git log --oneline arch/riscv       // 查看riscv相关历史改动，
