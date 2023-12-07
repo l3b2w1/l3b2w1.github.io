@@ -31,8 +31,16 @@ git branch -D develop2   // -d 删除分支develop ; -D 强制删除分支develo
 
 git remote -v    // 查询远程仓库URL  
 
+git branch -m old-branch new-branch  // 重命名分支，当前位于old-branch
+
+git tag -a tagName -m "comment"   // 打标签
+git tag -d tagName                // 删标签
+
 ### 查看历史改动
+git status --untracked-files=no   // 不显示未跟踪的文件
+
 git log --oneline arch/riscv       // 查看riscv相关历史改动，
+
 
 查看riscv架构ftrace功能相关的提交，指定范围 `76d2a0493a17^..v6.4.9`  
 ```
@@ -60,10 +68,14 @@ git reset --hard HEAD^     // 撤销最近的一次提交
 
 git reflog      // 查看所有提交
 
-恢复误删的文件  
-git reset HEAD arch/arm64/include/asm/memory.h  
-git checkout arch/arm64/include/asm/memory.h
 
+git reset HEAD Makefile    // 恢复误删的文件    
+git checkout Makefile
+
+git reset --mixed // 回退git add 操作，add文件退出暂存区，保留本地修改
+git retore arch // 放弃跟踪误提交的arch下中间文件
+
+基于当前分支的某次提交ID 200d35d6 创![image](https://github.com/l3b2w1/l3b2w1.github.io/assets/3747967/dfc1cd03-c7aa-4d1a-ada0-2a469951ddf1)
 
 ### 给内核提交patch
 git status   // 查看修改文件
