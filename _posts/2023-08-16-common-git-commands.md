@@ -1,4 +1,4 @@
-![image](https://github.com/l3b2w1/l3b2w1.github.io/assets/3747967/40f3fb81-ee71-4c7b-8cce-3a8eba9202b1)---
+---
 layout:     post
 title:      git常用命令
 subtitle:   Common Git Commands
