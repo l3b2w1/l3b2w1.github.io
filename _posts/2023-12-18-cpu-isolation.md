@@ -22,7 +22,7 @@ cpu隔离是个很有用的特性。目的是最小化指定cpu上的内核活�
 严重影响业务正常运行。
 
 ## housekeeping
-系统上大致有以下几种系统活动
+大致有以下几种系统活动
 * timer
 * irq/softirq
 * scheduler tick
