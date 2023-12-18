@@ -2,7 +2,7 @@
 layout:     post
 title:      CPU Isolation
 subtitle:   CPU隔离
-date:       2023-06-06
+date:       2023-12-18
 author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
