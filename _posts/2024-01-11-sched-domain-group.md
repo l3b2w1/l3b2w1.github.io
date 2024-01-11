@@ -54,14 +54,8 @@ struct sched_domain 必须是per-cpu类型的数据，可以无锁更新。
 
 group的load等于组内所有cpu的load总和。  只有当一个group的负载失衡时才会在group之间迁移任务。  
 
-```
-sched_init_domains
-	cpumask_and(doms_cur[0], cpu_map, housekeeping_cpumask(HK_TYPE_DOMAIN)); // isolcpus=指定的隔离cpu集合需要从调度域中剔除掉
-	err = build_sched_domains(doms_cur[0], NULL);
-```
-
 #### isolcpus参数
-构建调度域层级的时候，会要把`isolcpus`隔离的 cpus 从调度域内剔除  
+构建调度域层级的时候，会把`isolcpus`参数指定的 cpus 从调度域内剔除  
 系统上除了内核态几个percpu类型的内核线程，其它内核线程以及用户态进程不会调度到isolcpus指定的cpu上  
 ```
 int __init sched_init_domains(const struct cpumask *cpu_map)
@@ -153,7 +147,7 @@ SMT  [     ] [     ] [     ] [     ]	domain-0
  - or -
 
 PKG  0-7 0-7 0-7 0-7 0-7 0-7 0-7 0-7	domain-2
-MC	 0-3 0-3 0-3 0-3 4-7 4-7 4-7 4-7	domain-1
+MC   0-3 0-3 0-3 0-3 4-7 4-7 4-7 4-7	domain-1
 SMT  0-1 0-1 2-3 2-3 4-5 4-5 6-7 6-7	domain-0
 
 CPU   0   1   2   3   4   5   6   7
