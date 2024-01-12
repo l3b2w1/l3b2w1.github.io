@@ -73,8 +73,8 @@ int __init sched_init_domains(const struct cpumask *cpu_map)
 ```
 
 ## 调度选核
-CFS调度类选核的时候都会调用到`select_task_rq_fair`，该函数有三条路径，无论走哪条都会从所在调度域层级内选择某个核。   
-会使用sched_domain_span(domain)获取合法cpu集合范围。
+CFS调度类为进程选核的时候都会调用到`select_task_rq_fair`，该函数有三条路径，无论走哪条都会从所在调度域层级内选择某个核。   
+会调用sched_domain_span(domain)函数获取合法cpu集合范围，从中选一个核。  
 ```
 select_task_rq_fair
 	find_energy_efficient_cpu
