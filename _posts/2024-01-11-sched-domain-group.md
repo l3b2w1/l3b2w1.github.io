@@ -22,7 +22,10 @@ Linux内核引入调度域（sched domain）和调度组（sched group）的目�
 * Multi-Core Cache (MC)   
 * Simultaneous multithreading  (SMT)
 
-如图所示  
+一个socket只可以安装一个package    
+一个package里可以封装一个或者多个die
+一个die上可以安装一个core或者多个core(MC)
+ 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2020-06-20-cpu-7.jpeg)
 
 ## domain & group
