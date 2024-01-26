@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      memory bit flip
+title:      synchronous abort
 subtitle:   内存硬件错误
 date:       2024-01-26
 author:     icecube
