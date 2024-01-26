@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      synchronous abort
-subtitle:   内存硬件错误
+subtitle:   内存硬件错误触发的系统异常
 date:       2024-01-26
 author:     icecube
 header-img: img/bluelinux.jpg
