@@ -18,7 +18,7 @@ slub kmem cache创建过程中需要根据object_size计算分配的page的阶�
 `PAGE_ALLOC_COSTLY_ORDER` 表示当根据 object_size 创建kmem cache时，  
 由此申请的内存小于或等于2^3 个pages，cache更容易创建成功，否则，如果大于8个page，那就是"costly"。  
 
-所以object_size最好不要太大，如果太大，比如512K，那么系统创建的slub cache中只会包含一个object。
+所以object_size最好不要太大，如果太大，那么系统创建的slub cache中只会包含一个object。
 ```
 /*
  * PAGE_ALLOC_COSTLY_ORDER is the order at which allocations are deemed
