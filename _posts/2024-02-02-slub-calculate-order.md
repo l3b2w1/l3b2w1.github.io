@@ -120,3 +120,7 @@ static inline unsigned int slab_order(unsigned int size,
 	return order;
 }
 ```
+
+
+## 参考
+[linux-5.4.74](https://elixir.bootlin.com/linux/v5.4.74/source/mm/slub.c)
