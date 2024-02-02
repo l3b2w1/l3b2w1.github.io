@@ -30,10 +30,10 @@ slub kmem cache创建过程中需要根据object_size计算分配的page的阶�
 ```
 
 ## calculate_order
-calculate_order 尝试找到最佳的 slab 配置。首先尝试生成具有最佳配置的布局，并逐渐减少order再次尝试。
+calculate_order 尝试找到最佳的 slab 配置。  
 
-slub_max_order即`PAGE_ALLOC_COSTLY_ORDER`, 是一个分水岭，如果达到 slub_max_order，则尽量保持页面阶数尽量低。  
-因此，接受更多的空间浪费，以换取较小的页面阶数。
+slub_max_order即`PAGE_ALLOC_COSTLY_ORDER`, 是一个分水岭。  
+如果达到 slub_max_order，则尽量保持页面阶数尽量低。因此，接受更多的空间浪费，以换取较小的页面阶数。
 
 1. 对于较小的object size， 首选阶数 0 的分配，因为阶数 0 不会导致页面分配器中的碎片。  
 但是较大的对象放入阶数 0 的 slab，因为可能会有太多未使用的空间。  
@@ -61,7 +61,7 @@ static inline int calculate_order(unsigned int size)
 	max_objects = order_objects(slub_max_order, size);
 	min_objects = min(min_objects, max_objects);
 
-	while (min_objects > 1) {      // -------------------------------------- 1
+	while (min_objects > 1) {      // --------------------- 1
 		unsigned int fraction;
 
 		fraction = 16;  // 尝试碎片比例依次为1/16  1/8  1/4
@@ -80,7 +80,7 @@ static inline int calculate_order(unsigned int size)
 	 * lets see if we can place a single object there.
 	 */
 	 // 尝试一个slab中只包含一个object，由此分配的page order不超过slub_max_order(3)
-	order = slab_order(size, 1, slub_max_order, 1);  // -------------------------------------- 2
+	order = slab_order(size, 1, slub_max_order, 1);  // --------------------- 2
 	if (order <= slub_max_order)
 		return order;
 
@@ -89,7 +89,7 @@ static inline int calculate_order(unsigned int size)
 	 */
 	 // object_size 比较大，比如64k
 	 // 尝试一个slab只包含一个object，可以使用更大的order，但是不能超过MAX_ORDER
-	order = slab_order(size, 1, MAX_ORDER, 1);   // -------------------------------------- 3
+	order = slab_order(size, 1, MAX_ORDER, 1);   // --------------------- 3
 	if (order < MAX_ORDER)
 		return order;
 	return -ENOSYS;
