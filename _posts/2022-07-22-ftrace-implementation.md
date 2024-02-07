@@ -80,9 +80,9 @@ start_kernel
 ```
 
 ## 动态跟踪 function tracer
-   1. kernel/trace/ftrace.c|4403| <<register_ftrace_function_probe>> ret = ftrace_startup(&probe->ops, 0);                                                      
-   2. kernel/trace/ftrace.c|6723| <<register_ftrace_function>> ret = ftrace_startup(ops, 0);  
-   3. kernel/trace/ftrace.c|7035| <<register_ftrace_graph>> ret = ftrace_startup(&graph_ops, FTRACE_START_FUNC_RET);
+1. kernel/trace/ftrace.c 4403 register_ftrace_function_probe ret = ftrace_startup(&probe->ops, 0);  
+2. kernel/trace/ftrace.c 6723 register_ftrace_function ret = ftrace_startup(ops, 0);  
+3. kernel/trace/ftrace.c 7035 register_ftrace_graph ret = ftrace_startup(&graph_ops, FTRACE_START_FUNC_RET);  
 ```
 ftrace_startup  
   __register_ftrace_function
