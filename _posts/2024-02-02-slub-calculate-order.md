@@ -12,12 +12,12 @@ tags:
 ---
 
 ## 简介
-slub kmem cache创建过程中需要根据object_size计算分配的page的阶数order。
+slub kmem cache创建过程中需要根据object_size计算分配的page的阶数order。  
 分配的阶数对性能和其他系统组件会有重要影响。
 
-`PAGE_ALLOC_COSTLY_ORDER` 表示当根据 object_size 创建kmem cache时，  
-由此申请的内存小于或等于2^3 个pages，内存更容易申请下来，cache更容易创建成功，否则，如果大于8个page，那就是"costly"。  
-
+`PAGE_ALLOC_COSTLY_ORDER` 是内存分配场合的一个概念，  
+如果申请的内存 `order > PAGE_ALLOC_COSTLY_ORDER`时就认为本次分配是昂贵的，    
+`order <= PAGE_ALLOC_COSTLY_ORDER` 的申请更容易得到满足。
 ```
 /*
  * PAGE_ALLOC_COSTLY_ORDER is the order at which allocations are deemed
@@ -28,7 +28,7 @@ slub kmem cache创建过程中需要根据object_size计算分配的page的阶�
 #define PAGE_ALLOC_COSTLY_ORDER 3
 ```
 
-申请超过8个page会被认为是costly，除非提供了`__GFP_RETRY_MAYFAIL`标记，否则返回失败  
+内存申请慢速路径上申请超过8个page会被认为是costly，除非提供了`__GFP_RETRY_MAYFAIL`标记，否则返回失败  
 ```
 static inline struct page *
 __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
