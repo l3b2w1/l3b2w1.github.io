@@ -142,12 +142,12 @@ Drv_OHPk-1828    0d..2 358527991us : touchdog2: [93] ocpu 0, dog lkcnt 0xa520a51
 Drv_OHPk-1828    0d..2 358527992us : __schedule: [2842] ocpu 0, prev Drv_OHPktThread, next bRX1, lkcnt 0xa520a51f
   bRX1-799     0d..2 358527993us : finish_task_switch: [2706] ocpu 0, prev Drv_OHPktThread, curr bRX1, lkcnt 0xa520a51f
   bRX1-799     0...1 358527994us+: finish_task_switch: [2712] ocpu -1, prev Drv_OHPktThread, curr bRX1, lkcnt 0xa520a520
-  bRX1-799     0d..2 358528005us : touchdog2: [87] ocpu 0, dog lkcnt 0xa521a520                                                                                                                                             
+  bRX1-799     0d..2 358528005us : touchdog2: [87] ocpu 0, dog lkcnt 0xa521a520
 [3]kdb>
 [3]kdb> cpus
 Currently on cpu  3
-Available cpus: 0(D), 1(I), 2(D), 3   // cpu 0 和 cpu 2 都挂死了
-[3]kdb>  
+Available cpus: 0(D), 1(I), 2(D), 3  // cpu 0 和 cpu 2 都挂死了
+[3]kdb>
 ```
 
 `lockcnt 0xa521a520` 就是序号锁的数值， `0xa520`表示0核确实没有释放队列锁  
