@@ -146,7 +146,7 @@ Drv_OHPk-1828    0d..2 358527992us : __schedule: [2842] ocpu 0, prev Drv_OHPktTh
 [3]kdb>
 [3]kdb> cpus
 Currently on cpu  3
-Available cpus: 0(D), 1(I), 2(D),   // cpu 0 和 cpu 2 都挂死了 3
+Available cpus: 0(D), 1(I), 2(D), 3   // cpu 0 和 cpu 2 都挂死了
 [3]kdb>  
 ```
 
