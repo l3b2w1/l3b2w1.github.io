@@ -106,11 +106,11 @@ __schedule
 
 3. 所以就怀疑喂狗有问题，把喂狗的函数直接注释掉之后，问题果然不再复现。  
 
-3. 然后加了些调试打印，在`spin_dump`里直接把`rq->lock`的数值打了出来，  
+4. 然后加了些调试打印，在`spin_dump`里直接把`rq->lock`的数值打了出来，  
 同时修改喂狗函数，喂狗前后都加了`trace_printk`打印，也把锁数值打印出来  
 `lockcnt 0xa521a520` 就是序号锁的数值， `0xa520`表示0核确实没有释放队列锁  
 另外缓冲区里的打印也截止到喂狗前的打印，喂狗后的调试信息没有打印出来  
-显然cpu 0直接挂死在这个喂狗指令上了。  
+显然cpu 0直接挂死在这个喂狗指令上了。    
 ```
 [ 3754.415643] BUG: spinlock lockup suspected on CPU#3, kdrvfwdd3/864, lockcnt 0xa521a520
 [ 3754.510456]  lock: 0xffffffe0fff28500, .magic: dead4ead, .owner: bRX1/799, .owner_cpu: 0
@@ -136,7 +136,6 @@ Entering kdb (current=0xffffffdfbe6f3a00, pid 864) on processor 3 due to Keyboar
 [3]kdb>
 [3]kdb>
 [3]kdb>ftdump 72800 0  // 跳过前面的大量打印
-.....
 <idle>-0       0d..2 358527981us : __schedule: [2842] ocpu 0, prev swapper/0, next Drv_OHPktThread, lkcnt 0xa51fa51e
 Drv_OHPk-1828    0d..2 358527982us : finish_task_switch: [2706] ocpu 0, prev swapper/0, curr Drv_OHPktThread, lkcnt 0xa51fa51e
 Drv_OHPk-1828    0...1 358527983us : finish_task_switch: [2712] ocpu -1, prev swapper/0, curr Drv_OHPktThread, lkcnt 0xa51fa51f
