@@ -37,8 +37,8 @@ cpu必须能够检测到这些指令的执行，然后通知hypervisor代表虚�
 
 ## 三种虚拟化方式
 * 完全虚拟化 full virtualization  
-依赖于二进制转换技术binary translation  
-陷入并模拟敏感指令的执行 存在性能问题  
+依赖于二进制转换技术binary translation，陷入并模拟敏感指令的执行  
+无需修改客户机操作系统代码，存在性能问题  
 客户机运行在ring 1；vmm运行在ring 0
 
 * 类虚拟化 paravirtualization  
