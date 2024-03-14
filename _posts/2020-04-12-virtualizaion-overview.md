@@ -162,7 +162,8 @@ QEMU/KVM架构
 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2020-04-12-virt-kvm-5.jpeg)
 
-[参考]  
-Kernel-based Virtual Machine Technology  
-mastering kvm virtualization  
-系统虚拟化－原理与实现  
+## 参考索引  
+《系统虚拟化－原理与实现》  
+《mastering kvm virtualization》  
+[Kernel-based Virtual Machine Technology](https://www.fujitsu.com/global/documents/about/resources/publications/fstj/archives/vol47-3/paper18.pdf)   
+
