@@ -52,8 +52,8 @@ calculate_order 尝试找到最佳的 slab 配置。
 slub_max_order即`PAGE_ALLOC_COSTLY_ORDER`, 是一个分水岭。  
 如果达到 slub_max_order，则尽量保持页面阶数尽量低。因此，接受更多的空间浪费，以换取较小的页面阶数。
 
-1. 对于较小的object size， 首选阶数 0 的分配，因为阶数 0 不会导致页面分配器中的碎片。  
-但是较大的对象放入阶数 0 的 slab，因为可能会有太多未使用的空间。  
+1. 对于较小的object size（<=4k）， 首选阶数 0 的分配，因为阶数 0 不会导致页面分配器中的碎片。  
+较大的对象放入阶数 0 的 slab，可能会有太多未使用的空间。  
 所以为了满足小于既定比例的浪费空间，循环尝试:   
 a. 增大阶数，但是最大阶数不超过slub_max_order。    
 b. 降低slub可以容纳的object的最小个数，但是至少要包含一个object。  
@@ -61,7 +61,7 @@ b. 降低slub可以容纳的object的最小个数，但是至少要包含一个o
 
 2. 对于稍大的object size，order不超过slub_max_order，一个slub里只会放一个object。
 
-3. 对于更大的object size, 允许order不大于MAX_ORDER，一个slub里只会放一个object。
+3. 对于更大的object size(>=16k), 允许order不大于MAX_ORDER，一个slub里只会放一个object。
 
 
 这里的入参size其实已经已经是object_size经过各种配置和条件对齐之后的大小(比如打开slub_debug开关等)
