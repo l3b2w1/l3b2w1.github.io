@@ -59,8 +59,40 @@ telnet端口没有命令交互的话，几十秒md5值不会变化，但是之�
 写一个测试模块，根据pfn号找到对应的pte表项，设置为只读。  
 一旦telnet命令交互产生网络数据，如果写到pagecache的这两个页面，那理应抓得到。
 
-执行命令`insmod pgrdonly.ko pfn=2238397`之后，telnet端口随便执行一些命令，
-系统随即触发了保护异常， `0xffff0001e27aa6a6`就位于`pfn = 2238397`的页面内部，  
+加载两次ko模块 `insmod pgrdonly.ko pfn=2238333`和`insmod pgrdonly.ko pfn=2238378`，打印如下
+```
+<3>[  765.828961] [pg_init 152] pc, init_mm addr 0xffff800028df1ae8
+<3>[  765.829906] [set_page_rdonly 104] pc, pfn 2238333
+<3>[  765.830630] [set_page_rdonly 111] pc, page 0xfffffc00094c5710
+<3>[  765.831526] [set_page_rdonly 114] pc, page address 0xffff0001e277d000
+<3>[  765.832539] [get_pte 42] pc, init_mm 0xffff800028df1ae8, page addr 0xffff0001e277d000
+<3>[  765.833791] [ffff0001e277d000] pgd=000000023fff8003
+<3>[  765.834489] pud=000000023f044003
+<3>[  765.834991] pmd=000000023ef30003
+<3>[  765.835457] pte=006800022277d713
+<3>[  765.835993] [set_page_rdonly 117] pc, ptep 0xffff0001fef30be8
+<3>[  765.836878] [set_pte_rdonly 84] pc, pte value 0x6800022277d713 before set rdonly
+<3>[  765.838016] [set_pte_rdonly 86] pc, pte value 0xe000022277d793 construct wrprotect
+<3>[  765.839166] [set_pte_rdonly 88] pc, pte value 0xe000022277d793 after set
+<3>[  781.939330] Exiting set page readlony module
+<3>[  784.383368] [pg_init 152] pc, init_mm addr 0xffff800028df1ae8
+<3>[  784.384348] [set_page_rdonly 104] pc, pfn 2238378
+<3>[  784.385135] [set_page_rdonly 111] pc, page 0xfffffc00094c6520
+<3>[  784.386075] [set_page_rdonly 114] pc, page address 0xffff0001e27aa000
+<3>[  784.387110] [get_pte 42] pc, init_mm 0xffff800028df1ae8, page addr 0xffff0001e27aa000
+<3>[  784.388377] [ffff0001e27aa000] pgd=000000023fff8003
+<3>[  784.389155] pud=000000023f044003
+<3>[  784.389657] pmd=000000023ef30003
+<3>[  784.390169] pte=00680002227aa713
+<3>[  784.390676] [set_page_rdonly 117] pc, ptep 0xffff0001fef30d50
+<3>[  784.391588] [set_pte_rdonly 84] pc, pte value 0x680002227aa713 before set rdonly
+<3>[  784.392805] [set_pte_rdonly 86] pc, pte value 0xe00002227aa793 construct wrprotect
+<3>[  784.394074] [set_pte_rdonly 88] pc, pte value 0xe00002227aa793 after set
+<3>[  787.310472] Exiting set page readlony module
+```
+
+然后telnet端口随便执行一些命令，系统随即触发了保护异常。
+`0xffff0001e27aa6a6`就位于`pfn = 2238378`的页面内部，  
 `0x6a6`的页内偏移也和页面数据对比中的偏移一致，可以看到是模块`wan`协议栈代码写越界。  
 ```
 <1>[  796.021377] Unable to handle kernel write to read-only memory at virtual address ffff0001e27aa6a6
