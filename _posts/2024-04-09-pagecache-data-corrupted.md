@@ -50,6 +50,9 @@ telnet端口没有命令交互的话，几十秒md5值不会变化，但是之�
 再写一个测试模块，根据指定pfn号，打印出这两个页面数据，然后多次数据记录做对比。  
 确实这两个page里固定偏移处的一两个字节在变。
 
+下图中页面数据基本为0，只有固定偏移`0x6a6`处连续两个字节非0，  
+是因为系统刚起来，只打开一个telnet口，pagecahe里并没有多少东西。
+可见telnet嫌疑之重。  
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2024-04-09-pagecache-data-corrupted-1.png)
 
 #### 设置页面写保护
