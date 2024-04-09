@@ -27,40 +27,41 @@ drop_cache之后计算版本文件的md5值是正确的，后续计算的MD5值�
 和正常版本文件对比发现，固定偏移处总有两处几个字节的变化，不像是单个bit位跳变，没有规律。
 
 flash上的版本文件是没有改动的。因为清缓存后重新计算版本文件的MD5值是正确的。  
-既然没有造成page dirty，同一个页面也不太可能分配给两个不同的进程，所以不倾向于pagecache机制问题，不倾向于内存分配问题。
+既然没有造成page dirty，同一个页面也不太可能分配给两个不同的进程，  
+所以不倾向于pagecache机制问题，不倾向于内存分配问题。
 
-测试偶然发现和配置telnet连接有关，不配置telnet，串口执行md5 ipe不会变化；开启关闭一个telnet口，md5 ipe值也可能会变化。  
-telnet端口没有命令交互的话，大概几十秒左右md5值不会变化，但是几十秒之后会变，猜测可能和网络保活有关。  
+测试偶然发现和配置telnet连接有关，不配置telnet，串口执行md5 ipe不会变化；  
+开启关闭一个telnet口，md5 ipe值也可能会变化。  
+telnet端口没有命令交互的话，几十秒md5值不会变化，但是之后会变，猜测可能和网络保活有关。  
 
 虚机镜像系统内核不支持硬件断点，启用了kasan的版本也没跑出来什么东西。
 
-#### 查找被修改的page
+#### 查找修改页面
 先看看pagecache里的数据到底哪里被改了
 
 写了个测试模块，遍历文件在pagecache中的所有的page，计算page页面数据的MD5值。  
-
 然后输出pfn、virtual address、physical address，以及md5值到trace缓冲区。  
 
 每次在MD5值出现变化后执行insmod ko 然后rmmod ko，拿到多次打印记录做对比。   
 两个page的MD5值一直在变，其它page数据MD5都是一样的。  
 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2024-04-09-pagecache-data-corrupted-0.png)
-#### 打印page内容
+#### 打印页面数据
 再写一个测试模块，根据指定pfn号，打印出这两个页面数据，然后多次数据记录做对比。  
 确实这两个page里固定偏移处的一两个字节在变。
 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2024-04-09-pagecache-data-corrupted-1.png)
 
 #### 设置页面写保护
-之前遇到过只读页面写入数据时触发保护异常的情况，既然出问题的page pfn固定，就想着能不能利用这种方式抓下。  
+之前遇到过只读页面写入数据触发保护异常的情况，  
+既然出问题的pfn固定，就想着能不能利用这种方式抓下，看看能不能抓得到。
 
-写一个测试模块，根据pfn号，找到对应的pte表项，修改为只读权限。希望可以抓到写越界的罪魁祸首。
-
+写一个测试模块，根据pfn号找到对应的pte表项，设置为只读。  
 一旦telnet命令交互产生网络数据，如果写到pagecache的这两个页面，那理应抓得到。
 
-执行命令`insmod pgrdonly.ko pfn=2238397`之后，telnet端口随便执行一些命令，系统随即触发了保护异常。  
-`0xffff0001e27aa6a6`就位于`pfn = 2238397`的页面内部，`0x6a6`的页内偏移也和页面数据对比中的偏移一致。  
-可以看到是模块`wan`协议栈代码写越界。  
+执行命令`insmod pgrdonly.ko pfn=2238397`之后，telnet端口随便执行一些命令，
+系统随即触发了保护异常， `0xffff0001e27aa6a6`就位于`pfn = 2238397`的页面内部，  
+`0x6a6`的页内偏移也和页面数据对比中的偏移一致，可以看到是模块`wan`协议栈代码写越界。  
 ```
 <1>[  796.021377] Unable to handle kernel write to read-only memory at virtual address ffff0001e27aa6a6
 <1>[  796.022942] Mem abort info:
