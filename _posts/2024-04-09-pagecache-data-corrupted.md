@@ -356,7 +356,7 @@ static void print_page(unsigned long pfn)
 
 static int __init pc_init(void)
 {
-	pr_err("[%s %d] h3c, hello print page content pfn 2238334,2238397,2238000\n", __func__, __LINE__);
+	pr_err("[%s %d] pc, hello print page content pfn 2238334,2238397,2238000\n", __func__, __LINE__);
 	print_page(2238334);
 	print_page(2238397);
 	print_page(2238000);
