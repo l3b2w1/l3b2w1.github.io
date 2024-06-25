@@ -75,6 +75,8 @@ git retore arch // 放弃跟踪误提交的arch下中间文件
 
 git checkout -b crop  200d35d6 // 基于当前分支的某次提交ID 200d35d6创建新分支  
 
+git checkout new-branch && git merge --squash many-commits-branch // 从包含多次提交的分支squash并merge到新分支
+
 ### 给内核提交patch
 git status   // 查看修改文件
 
