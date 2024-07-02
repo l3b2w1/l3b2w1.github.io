@@ -328,7 +328,7 @@ static bool mem_attr_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 }
 ```
 
-guest page fault打印如下
+host拦截并注入page fault， guest 触发 page fault打印如下:
 ```
 <6>[    5.142523][    T1] heki-guest: Trying memory write
 <1>[    8.681539][    T1] BUG: kernel NULL pointer dereference, address: 000000000000010e
@@ -358,6 +358,60 @@ guest page fault打印如下
 <4>[    8.731716][    T1] Modules linked in:
 ```
 
+### test non-exec page
+给虚拟机传递内核参数heki_test=4，让guest cpu执行不可执行权限页面上的指令数据。  
+```
+qemu-system-x86_64 -m 4096m -smp 8 \
+        -cpu host,smep=on \
+        -kernel arch/x86/boot/bzImage \
+        -append "rdinit=/bin/sh console=ttyS0 kgdboc=ttyS0,15200 heki_test=4" \
+        -nographic --enable-kvm -initrd rootfs.cpio.gz
+```
+
+host拦截并注入page fault， guest 触发 page fault打印如下:
+```
+<4>[    4.713765] heki-guest: Failed to set memory permission
+<4>[    4.714976]     # heki_test_exec: Trying to execute data (ROP) in (initially) non-executable memory
+<4>[    4.718756] CPU: 5 PID: 96 Comm: kunit_try_catch Tainted: G                 N 6.6.0-rc5-ge95273a46ce1-dirty #189
+<4>[    4.720818] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.16.1-0-g3208b098f51a-prebuilt.qemu.org 04/01/2014
+<1>[    4.749726] BUG: kernel NULL pointer dereference, address: 0000000000000001
+<1>[    4.751133] #PF: supervisor instruction fetch in kernel mode
+<1>[    4.752292] #PF: error_code(0x0011) - permissions violation
+<6>[    4.753423] PGD 0 P4D 0
+<4>[    4.753955] Oops: 0011 [#1] PREEMPT SMP PTI
+<4>[    4.754814] CPU: 5 PID: 96 Comm: kunit_try_catch Tainted: G                 N 6.6.0-rc5-ge95273a46ce1-dirty #189
+<4>[    4.756857] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.16.1-0-g3208b098f51a-prebuilt.qemu.org 04/01/2014
+<4>[    4.759152] RIP: 0010:heki_test_exec_data+0x0/0xf
+<4>[    4.763843] RSP: 0000:ffffc9000038feb0 EFLAGS: 00010282
+<4>[    4.764908] RAX: 0000000000000000 RBX: ffffc90000013a40 RCX: 00000000ffffdfff
+<4>[    4.766351] RDX: ffffffff824421a2 RSI: ffffffff824b5190 RDI: 0000000000000003
+<4>[    4.767784] RBP: ffffc90000013a28 R08: ffffffff82743208 R09: 0000000000009ffb
+<4>[    4.769230] R10: 00000000000001ad R11: ffffffff82713220 R12: ffffffff82107000
+<4>[    4.770669] R13: ffff888106f5c100 R14: ffffffff814badf0 R15: ffffc90000013a40
+<4>[    4.772126] FS:  0000000000000000(0000) GS:ffff88813bd40000(0000) knlGS:0000000000000000
+<4>[    4.773754] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+<4>[    4.774914] CR2: 0000000000000001 CR3: 000000000262e001 CR4: 0000000000770ee0
+<4>[    4.776355] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+<4>[    4.777791] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
+<4>[    4.779234] PKRU: 55555554
+<4>[    4.779793] Call Trace:
+<4>[    4.780309]  <TASK>
+<4>[    4.780755]  ? __die+0x24/0x70
+<4>[    4.781397]  ? page_fault_oops+0x17b/0x450
+<4>[    4.782237]  ? exc_page_fault+0x7d/0x170
+<4>[    4.783038]  ? asm_exc_page_fault+0x26/0x30
+<4>[    4.783894]  ? __pfx_kunit_generic_run_threadfn_adapter+0x10/0x10
+<4>[    4.785140]  ? heki_test_exec+0xcf/0x1a0
+<4>[    4.785940]  ? __pfx_kunit_generic_run_threadfn_adapter+0x10/0x10
+<4>[    4.787177]  ? kunit_generic_run_threadfn_adapter+0x17/0x30
+<4>[    4.788306]  ? kthread+0xe3/0x120
+<4>[    4.788990]  ? __pfx_kthread+0x10/0x10
+<4>[    4.789764]  ? ret_from_fork+0x31/0x50
+<4>[    4.790538]  ? __pfx_kthread+0x10/0x10
+<4>[    4.791313]  ? ret_from_fork_asm+0x1b/0x30
+<4>[    4.792153]  </TASK>
+<4>[    4.792612] Modules linked in:
+```
 # 参考
 [heki github](https://github.com/heki-linux)  
 [heki patches](https://lore.kernel.org/lkml/20231113022326.24388-1-mic@digikod.net/)  
