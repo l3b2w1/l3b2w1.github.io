@@ -413,6 +413,7 @@ host拦截并注入page fault， guest 触发 page fault打印如下:
 <4>[    4.792612] Modules linked in:
 ```
 # 参考
+[linux-5.10](https://elixir.bootlin.com/linux/v5.10/source)  
 [heki github](https://github.com/heki-linux)  
 [heki patches](https://lore.kernel.org/lkml/20231113022326.24388-1-mic@digikod.net/)  
 [per-page memory attributes](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/commit/virt/kvm/kvm_main.c?id=5a475554db1e476a14216e742ea2bdb77362d5d5)  
