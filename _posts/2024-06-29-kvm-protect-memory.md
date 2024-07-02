@@ -30,11 +30,8 @@ heki引入了两个hypercall：
 `KVM_HC_PROTECT_MEMORY`，使guest内核能够使用 NOWRITE 或 EXEC 属性锁定内存页范围，管理内存权限。  
 
 这两个hypercall都是在guest系统启动阶段下发给host，然后在guest整个生命周期都不可以改动，  
-既不能改动控制寄存器保护的标记位，也不能动态更改已经处于保护下的per-page 页面属性。
-
-即使改动也会因为被host heki拦截而导致失败，  
-要么guest系统异常，要么修改失败但是guest系统还可以继续运行，  
-违规访存的表现形式就看具体怎么实现了。
+既不能改动控制寄存器保护的标记位，也不能动态更改已经处于保护下的per-page 页面属性。  
+即使改动也会因为被host heki拦截而导致失败， guest系统异常。
 
 ### mbec
 Mode-based execute control 基于模式的执行控制
