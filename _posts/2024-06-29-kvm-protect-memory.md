@@ -13,8 +13,8 @@ tags:
     - security
 ---
 # 简介
-per-page memory attributes已经合入主线，但是最新qemu还没有利用起来。  
-heki这个项目没有合入主线内核，但是利用到了per-page memory attributes。  
+per-page memory attributes已经合入主线内核，但是最新qemu还没有利用起来。  
+heki这个项目没有合入主线内核，但是用到了per-page memory attributes。  
 刚好可以用来熟悉、了解和调试虚拟化内存页保护。  
 
 ### heki
