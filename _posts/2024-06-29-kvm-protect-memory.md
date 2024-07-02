@@ -1,4 +1,4 @@
-![image](https://github.com/l3b2w1/l3b2w1.github.io/assets/3747967/909b01cd-7b4b-448c-895b-da3fe12f544a)---
+---
 layout:     post
 title:      protect guest memory
 subtitle:   kvm保护虚拟机内存
@@ -237,8 +237,17 @@ qemu-system-x86-10211   [004] .N..   276.646160: <stack trace>
 => entry_SYSCALL_64_after_hwframe
 ```
 
-## test write read-only page
+### test write read-only page
+
 给虚拟机传递内核参数heki_test=3，进行写只读页的测试。  
+```
+qemu-system-x86_64 -m 4096m -smp 8 \
+        -cpu host,smep=on \
+        -kernel arch/x86/boot/bzImage \
+        -append "rdinit=/bin/sh console=ttyS0 kgdboc=ttyS0,15200 heki_test=3" \
+        -nographic --enable-kvm -initrd rootfs.cpio.gz
+```
+
 host ept violation处理流程中的 `mem_attr_fault` 会获取guest 产生page fault的原因， 
 写权限违规会被识别到，host 构造并注入page fault，guest 会触发异常。  
 ```
