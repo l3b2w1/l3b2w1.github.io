@@ -39,13 +39,14 @@ heki引入了两个hypercall：
 ### mbec
 Mode-based execute control 基于模式的执行控制
 
-mbec 是 Intel 处理器虚拟化技术中的一个特性，  
+mbec 是 Intel 处理器虚拟化技术中的一个特性，有助于提高虚拟机的安全性。    
 具体来说就是位于处理器控制寄存器中的一个标志位，用于启用或禁用基于EPT的模式执行控制。  
 当启用时，处理器将在 EPT 表中查找内存访问权限，以确定虚拟机是否可以执行指定的内存操作。
 
 MBEC提供了更细粒度的执行权限控制，可以保护guest系统的完整性，免受恶意更改。  
 通过将扩展页表中的执行启用（X）权限位转换为两个选项来提供额外的细化：针对用户页面的 XU 和针对监管者页面的 XS。  
-这一特性的好处在于，hypervisor可以更可靠地验证和强制执行内核代码级别的完整性。有助于提高虚拟机的安全性。
+
+这一特性的好处在于，hypervisor可以更可靠地验证和强制执行内核代码级别的完整性。  
 
 首先查看host cpu是否支持mbec  
 `grep ept_mode_based_exec /proc/cpuinfo`
@@ -91,8 +92,9 @@ static __init int setup_vmcs_config(struct vmcs_config *vmcs_conf,
 
 guest主要收集直接映射区域内存页面权限属性，收集完之后就调用hypercall，通知到host。
 
-收集每页属性时用到两个结构体，struct heki_page_list和struct heki_pages
-一个页开头位置存储`struct heki_page_list` 结构体信息，紧接着数组形式存放多个 `struct heki_pages`
+收集每页属性时用到两个结构体，struct heki_page_list和struct heki_pages。    
+页开头位置存储`struct heki_page_list` 结构体信息，紧接着数组形式存放多个 `struct heki_pages`，  
+因为页面数量较大，可能分配多个page存储`struct heki_pages`。
 
 ```
 start_kernel
