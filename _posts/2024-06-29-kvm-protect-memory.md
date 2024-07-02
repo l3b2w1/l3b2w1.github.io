@@ -112,7 +112,7 @@ start_kernel
 guest 启动初始化阶段先收集直接映射区域范围内的所有页面权限属性。  
 遍历页表的时候，只有建立好了映射，即存在对应的页表条目，才会收集该page的页面权限属性。  
 
-针对直接映射区域，收集时分配一个(或者多个)page，第一个page入口处存储结构体`struct heki_page_list`，  
+针对直接映射区域，收集时分配一个(或者多个)page，page入口处存储结构体`struct heki_page_list`，  
 紧接着存放多个结构体`struct heki_pages`，用于存放每个页面的权限属性值。
 
 具体是在`heki_protect`中完成的。代码流程如下。
