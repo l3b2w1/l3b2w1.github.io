@@ -248,7 +248,7 @@ qemu-system-x86_64 -m 4096m -smp 8 \
         -nographic --enable-kvm -initrd rootfs.cpio.gz
 ```
 
-host ept violation处理流程中的 `mem_attr_fault` 会获取guest 产生page fault的原因， 
+host ept violation处理流程中的 `mem_attr_fault` 会获取guest 产生page fault的原因，   
 写权限违规会被识别到，host 构造并注入page fault，guest 会触发异常。  
 ```
 handle_ept_violation
