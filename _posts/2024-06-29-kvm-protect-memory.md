@@ -1,4 +1,4 @@
----
+![image](https://github.com/l3b2w1/l3b2w1.github.io/assets/3747967/909b01cd-7b4b-448c-895b-da3fe12f544a)---
 layout:     post
 title:      protect guest memory
 subtitle:   kvm保护虚拟机内存
@@ -236,7 +236,121 @@ qemu-system-x86-10211   [004] .N..   276.646160: <stack trace>
 => do_syscall_64
 => entry_SYSCALL_64_after_hwframe
 ```
-## EPT页表建立流程
+
+## test write read-only page
+给虚拟机传递内核参数heki_test=3，进行写只读页的测试。  
+host ept violation处理流程中的 `mem_attr_fault` 会获取guest 产生page fault的原因， 
+写权限违规会被识别到，host 构造并注入page fault，guest 会触发异常。  
+```
+handle_ept_violation
+	kvm_mmu_page_fault
+		kvm_mmu_do_page_fault
+			kvm_tdp_page_fault(vcpu, cr2_or_gpa, err, prefault);
+				direct_page_fault
+					mem_attr_fault	
+```
+
+`mem_attr_fault`识别并拦截guest违规操作。  
+```
+static bool mem_attr_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
+{
+	unsigned long perm;
+	bool noexec, nowrite;
+
+	if (unlikely(fault->rsvd))
+		return false;
+
+	if (!fault->present)
+		return false;
+
+	perm = kvm_permissions_get(vcpu->kvm, fault->gfn);
+	noexec = !(perm & MEM_ATTR_EXEC);
+	nowrite = !(perm & MEM_ATTR_WRITE);
+
+	if (fault->exec && noexec) {
+		struct x86_exception exception = {
+			.vector = PF_VECTOR,
+			.error_code_valid = true,
+			.error_code = fault->error_code,
+			.nested_page_fault = false,
+			/*
+			 * TODO: This kind of kernel page fault needs to be
+			 * handled by the guest, which is not currently the
+			 * case, making it try again and again.
+			 *
+			 * You may want to test with cr2_or_gva to see the page
+			 * fault caught by the guest kernel (thinking it is a
+			 * user space fault).
+			 */
+			.address = static_call(kvm_x86_fault_gva)(vcpu),
+			.async_page_fault = false,
+		};
+
+		pr_warn_ratelimited(
+			"heki: Creating fetch #PF at 0x%016llx GFN=%llx\n",
+			exception.address, fault->gfn);
+		kvm_inject_page_fault(vcpu, &exception);
+		return true;
+	}
+
+	if (fault->write && nowrite) {
+		struct x86_exception exception = {
+			.vector = PF_VECTOR,
+			.error_code_valid = true,
+			.error_code = fault->error_code,
+			.nested_page_fault = false,
+			/*
+			 * TODO: This kind of kernel page fault needs to be
+			 * handled by the guest, which is not currently the
+			 * case, making it try again and again.
+			 *
+			 * You may want to test with cr2_or_gva to see the page
+			 * fault caught by the guest kernel (thinking it is a
+			 * user space fault).
+			 */
+			.address = static_call(kvm_x86_fault_gva)(vcpu),
+			.async_page_fault = false,
+		};
+
+		pr_warn_ratelimited(
+			"heki: Creating write #PF at 0x%016llx GFN=%llx\n",
+			exception.address, fault->gfn);
+		kvm_inject_page_fault(vcpu, &exception);
+		return true;
+	}
+	return false;
+}
+```
+
+guest page fault打印如下
+```
+<6>[    5.142523][    T1] heki-guest: Trying memory write
+<1>[    8.681539][    T1] BUG: kernel NULL pointer dereference, address: 000000000000010e
+<1>[    8.686793][    T1] #PF: supervisor write access in kernel mode
+<1>[    8.688368][    T1] #PF: error_code(0x0002) - not-present page
+<6>[    8.689909][    T1] PGD 0 P4D 0
+<4>[    8.690797][    T1] Oops: 0002 [#1] SMP PTI
+<4>[    8.691928][    T1] CPU: 3 PID: 1 Comm: swapper/0 Not tainted 5.10.0-136.12.0.86.c.heki.x86_64 #22
+<4>[    8.694297][    T1] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.16.1-0-g3208b098f51a-prebuilt.qemu.org 04/01/2014
+<4>[    8.697529][    T1] RIP: 0010:heki_test_write_to_rodata.cold+0x81/0xb8
+<4>[    8.704366][    T1] RSP: 0000:ffffc90000013f20 EFLAGS: 00010246
+<4>[    8.705941][    T1] RAX: 000000000000001f RBX: ffffffff82b3aec0 RCX: ffffffff835305e8
+<4>[    8.708010][    T1] RDX: 0000000000000000 RSI: 0000000000000000 RDI: ffffffff83f8fe58
+<4>[    8.710076][    T1] RBP: ffffffff82b3a000 R08: 0000000000000000 R09: ffffc90000013d68
+<4>[    8.712148][    T1] R10: ffffc90000013d60 R11: ffffffff835f0628 R12: 0000000000000000
+<4>[    8.714224][    T1] R13: 0000000000000000 R14: 0000000000000000 R15: 0000000000000000
+<4>[    8.716296][    T1] FS:  0000000000000000(0000) GS:ffff88813bd80000(0000) knlGS:0000000000000000
+<4>[    8.718612][    T1] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+<4>[    8.720313][    T1] CR2: 000000000000010e CR3: 000000000320a001 CR4: 0000000000770ee0
+<4>[    8.722376][    T1] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+<4>[    8.724443][    T1] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
+<4>[    8.726508][    T1] PKRU: 55555554
+<4>[    8.727422][    T1] Call Trace:
+<4>[    8.728352][    T1]  ? rest_init+0xb4/0xb4
+<4>[    8.729451][    T1]  kernel_init+0x49/0x11c
+<4>[    8.730574][    T1]  ret_from_fork+0x1f/0x30
+<4>[    8.731716][    T1] Modules linked in:
+```
 
 # 参考
 [heki github](https://github.com/heki-linux)  
