@@ -244,19 +244,9 @@ qemu-system-x86-10211   [004] .N..   276.646160: <stack trace>
 #define PFERR_RSVD_BIT 3
 #define PFERR_FETCH_BIT 4
 ```
-### write read-only page test
 
-给虚拟机传递内核参数heki_test=3，进行写只读页的测试。  
-```
-qemu-system-x86_64 -m 4096m -smp 8 \
-        -cpu host,smep=on \
-        -kernel arch/x86/boot/bzImage \
-        -append "rdinit=/bin/sh console=ttyS0 kgdboc=ttyS0,15200 heki_test=3" \
-        -nographic --enable-kvm -initrd rootfs.cpio.gz
-```
-
-host ept violation处理流程中的 `mem_attr_fault` 会获取guest 产生page fault的原因，   
-写权限违规会被识别到，host 构造并注入page fault，guest 会触发异常。  
+`mem_attr_fault` 会获取guest 产生page fault的原因，   
+写权限违规会被识别到，host 构造并注入page fault，guest就会触发异常。  
 ```
 handle_ept_violation
 	kvm_mmu_page_fault
@@ -336,6 +326,17 @@ static bool mem_attr_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 	}
 	return false;
 }
+```
+
+### write read-only page test
+
+给虚拟机传递内核参数heki_test=3，进行写只读页的测试。  
+```
+qemu-system-x86_64 -m 4096m -smp 8 \
+        -cpu host,smep=on \
+        -kernel arch/x86/boot/bzImage \
+        -append "rdinit=/bin/sh console=ttyS0 kgdboc=ttyS0,15200 heki_test=3" \
+        -nographic --enable-kvm -initrd rootfs.cpio.gz
 ```
 
 host拦截并注入page fault， guest 触发 page fault打印如下  
