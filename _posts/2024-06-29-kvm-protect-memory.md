@@ -119,8 +119,10 @@ heki_protect
   	heki_walk(va, end, heki_callback, args);  
   		heki_callback
         heki_add_pa   // 大量内存页的权限属性需要多个page页面才能记录下来，每新增一页记录集合，即添加到链表中
-          hpage->permissions = permissions;
+          	hpage->permissions = permissions;
   heki_apply_permissions(args);  // 下发内存页属性，告知host。
+	hypervisor->protect_memory(list_pa); // kvm_protect_memory
+		kvm_hypercall1(KVM_HC_PROTECT_MEMORY, pa);
 ```
 
 guest 通过protect memory hypercall陷入host处理流程。如下是调用栈:
