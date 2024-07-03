@@ -234,7 +234,17 @@ qemu-system-x86-10211   [004] .N..   276.646160: <stack trace>
 => entry_SYSCALL_64_after_hwframe
 ```
 
-### test write read-only page
+# trigger ept violation
+`handle_ept_violation` 从 `exit_qualification`中提取出`error_code`，  
+交给后续流程做相应处理。  
+```
+#define PFERR_PRESENT_BIT 0
+#define PFERR_WRITE_BIT 1
+#define PFERR_USER_BIT 2
+#define PFERR_RSVD_BIT 3
+#define PFERR_FETCH_BIT 4
+```
+### write read-only page test
 
 给虚拟机传递内核参数heki_test=3，进行写只读页的测试。  
 ```
@@ -328,7 +338,8 @@ static bool mem_attr_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 }
 ```
 
-host拦截并注入page fault， guest 触发 page fault打印如下:
+host拦截并注入page fault， guest 触发 page fault打印如下  
+`error_code`字段值为0x2，bit 1 置位，表示写数据导致的ept violation。  
 ```
 <6>[    5.142523][    T1] heki-guest: Trying memory write
 <1>[    8.681539][    T1] BUG: kernel NULL pointer dereference, address: 000000000000010e
@@ -358,7 +369,7 @@ host拦截并注入page fault， guest 触发 page fault打印如下:
 <4>[    8.731716][    T1] Modules linked in:
 ```
 
-### test non-exec page
+### exec non-exec page test
 给虚拟机传递内核参数heki_test=4，让guest cpu执行不可执行权限页面上的指令数据。  
 ```
 qemu-system-x86_64 -m 4096m -smp 8 \
@@ -368,7 +379,8 @@ qemu-system-x86_64 -m 4096m -smp 8 \
         -nographic --enable-kvm -initrd rootfs.cpio.gz
 ```
 
-host拦截并注入page fault， guest 触发 page fault打印如下:
+host拦截并注入page fault， guest 触发 page fault打印如下  
+`error_code`字段值为0x11，bit 0和bit 4置位，表示读指令数据导致的ept violation。  
 ```
 <4>[    4.713765] heki-guest: Failed to set memory permission
 <4>[    4.714976]     # heki_test_exec: Trying to execute data (ROP) in (initially) non-executable memory
