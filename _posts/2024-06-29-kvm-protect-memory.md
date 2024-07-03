@@ -195,7 +195,7 @@ kvm_handle_gfn_range
 	kvm_flush_remote_tlbs(kvm); //
 ```
 
-清除给定范围内ept页表项之后，等到触发host ept violation事件，  
+清除给定范围内ept页表项之后，等到触发host ept violation(tdp page fault)事件，  
 再通过`kvm_permissions_get`获取每个页面权限属性后设置到ept页表中
 ```
 vcpu_enter_guest
