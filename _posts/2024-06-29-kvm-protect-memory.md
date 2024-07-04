@@ -427,6 +427,157 @@ host拦截并注入page fault， guest 触发 page fault打印如下
 <4>[    4.792153]  </TASK>
 <4>[    4.792612] Modules linked in:
 ```
+
+### tracer collision
+heki 和 tracer 等跟踪特性冲突。前者不允许修改.text，后者必须修改.text才能生效。
+
+guest启动 mark kernel readonly 之后，由于.text文本段所在的内存区域被heki标记为immutable，    
+也就是说整个系统运行期间都不可以更改，所以 tracer 跟踪器（kprobe/ftrace/ebpf等）不可用。  
+
+x86修改内核文本段的总入口是 `text_poke` 函数。heki在这里加了钩子。 
+临时修改指令所在内存页权限属性，并通过hypercall通知到host。    
+
+```
+__text_poke
+	heki_text_poke_start(pages, cross_page_boundary ? 2 : 1, pgprot);
+		heki_text_poke_common
+			heki_apply_permissions
+	unc((u8 *)poking_addr + offset_in_page(addr), src, len);  // 插入指令
+	heki_text_poke_end(pages, cross_page_boundary ? 2 : 1, pgprot);
+		heki_text_poke_common
+			heki_apply_permissions
+```
+
+host响应流程会检测是否允许修改页面的权限属性。  
+```
+heki_protect_memory
+	kvm_permissions_set
+		if (kvm_range_has_memory_attributes(kvm, gfn_start, gfn_end,
+						KVM_MEMORY_ATTRIBUTE_HEKI_IMMUTABLE, false)) 
+			return -EPERM;
+```
+
+为了让tracer生效，给__text_poke流程中的hypercall开个后门，跳过检查，修改如下   
+```
+diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
+index 44f94b75f..6e9f080ff 100644
+--- a/arch/x86/kvm/x86.c
++++ b/arch/x86/kvm/x86.c
+@@ -10088,7 +10088,7 @@ static int heki_protect_memory(struct kvm *const kvm, gpa_t list_pa)
+ 				(permissions & MEM_ATTR_EXEC) ? "x" : "_");
+ 
+ 			err = kvm_permissions_set(kvm, gfn_start, gfn_end,
+-						  permissions);
++						  permissions, head->text_poke);
+ 			if (err) {
+ 				pr_warn("heki: Failed to set permissions\n");
+ 				goto unlock;
+diff --git a/arch/x86/mm/heki.c b/arch/x86/mm/heki.c
+index 6c3fa9def..8798105d9 100644
+--- a/arch/x86/mm/heki.c
++++ b/arch/x86/mm/heki.c
+@@ -119,7 +119,7 @@ static void heki_text_poke_common(struct page **pages, int npages,
+ 	}
+ 
+ 	if (args.head)
+-		heki_apply_permissions(&args);
++		heki_apply_permissions(&args, 1);
+ 
+ 	mutex_unlock(&heki_lock);
+ }
+diff --git a/include/linux/heki.h b/include/linux/heki.h
+index 9e2cf0051..b281dd428 100644
+--- a/include/linux/heki.h
++++ b/include/linux/heki.h
+@@ -54,6 +54,7 @@ struct heki_page_list {
+ 	struct heki_page_list *next;
+ 	gpa_t next_pa;
+ 	unsigned long npages;
++	bool text_poke;
+ 	struct heki_pages pages[];
+ };
+ 
+@@ -148,7 +149,7 @@ void heki_callback(struct heki_args *args);
+ void heki_protect(unsigned long va, unsigned long end);
+ void heki_add_pa(struct heki_args *args, phys_addr_t pa,
+ 		 unsigned long permissions);
+-void heki_apply_permissions(struct heki_args *args);
++void heki_apply_permissions(struct heki_args *args, bool text_poke);
+ void heki_run_test(void);
+ 
+ /* Arch-specific functions. */
+diff --git a/include/linux/kvm_mem_attr.h b/include/linux/kvm_mem_attr.h
+index 0a755025e..7a9b533dd 100644
+--- a/include/linux/kvm_mem_attr.h
++++ b/include/linux/kvm_mem_attr.h
+@@ -26,7 +26,7 @@
+ /* clang-format on */
+ 
+ int kvm_permissions_set(struct kvm *kvm, gfn_t gfn_start, gfn_t gfn_end,
+-			unsigned long heki_attr);
++			unsigned long heki_attr, bool text_poke);
+ unsigned long kvm_permissions_get(struct kvm *kvm, gfn_t gfn);
+ 
+ #endif /* __KVM_MEM_ATTR_H__ */
+diff --git a/virt/heki/counters.c b/virt/heki/counters.c
+index 302113bee..7629c7d49 100644
+--- a/virt/heki/counters.c
++++ b/virt/heki/counters.c
+@@ -185,7 +185,7 @@ static void heki_func(unsigned long va, unsigned long end,
+ 	heki_walk(va, end, heki_callback, args);
+ 
+ 	if (args->head)
+-		heki_apply_permissions(args);
++		heki_apply_permissions(args, 0);
+ 
+ 	mutex_unlock(&heki_lock);
+ }
+diff --git a/virt/heki/main.c b/virt/heki/main.c
+index ce9984231..f91aefbec 100644
+--- a/virt/heki/main.c
++++ b/virt/heki/main.c
+@@ -116,7 +116,7 @@ void heki_add_pa(struct heki_args *args, phys_addr_t pa,
+ 	goto again;
+ }
+ 
+-void heki_apply_permissions(struct heki_args *args)
++void heki_apply_permissions(struct heki_args *args, bool text_poke)
+ {
+ 	struct heki_hypervisor *hypervisor = heki.hypervisor;
+ 	struct heki_page_list *list = args->head;
+@@ -129,6 +129,7 @@ void heki_apply_permissions(struct heki_args *args)
+ 
+ 	/* The very last one must be included. */
+ 	list->npages++;
++	list->text_poke = text_poke;
+ 
+ 	/* Protect guest memory in the host page table. */
+ 	ret = hypervisor->protect_memory(list_pa);
+diff --git a/virt/lib/kvm_permissions.c b/virt/lib/kvm_permissions.c
+index 9f4e8027d..4c44b9748 100644
+--- a/virt/lib/kvm_permissions.c
++++ b/virt/lib/kvm_permissions.c
+@@ -80,7 +80,7 @@ unsigned long kvm_permissions_get(struct kvm *kvm, gfn_t gfn)
+ EXPORT_SYMBOL_GPL(kvm_permissions_get);
+ 
+ int kvm_permissions_set(struct kvm *kvm, gfn_t gfn_start, gfn_t gfn_end,
+-			unsigned long heki_attr)
++			unsigned long heki_attr, bool text_poke)
+ {
+ 	if ((heki_attr | MEM_ATTR_PROT) != MEM_ATTR_PROT)
+ 		return -EINVAL;
+@@ -88,7 +88,7 @@ int kvm_permissions_set(struct kvm *kvm, gfn_t gfn_start, gfn_t gfn_end,
+ 	if (gfn_end <= gfn_start)
+ 		return -EINVAL;
+ 
+-	if (kvm_range_has_memory_attributes(kvm, gfn_start, gfn_end,
++	if (!text_poke && kvm_range_has_memory_attributes(kvm, gfn_start, gfn_end,
+ 					    KVM_MEMORY_ATTRIBUTE_HEKI_IMMUTABLE,
+ 					    false)) {
+ 		pr_warn_ratelimited(
+```
+
+
 # 参考
 [linux-5.10](https://elixir.bootlin.com/linux/v5.10/source)  
 [heki github](https://github.com/heki-linux)  
