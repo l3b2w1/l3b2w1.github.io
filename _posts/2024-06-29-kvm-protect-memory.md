@@ -434,7 +434,7 @@ heki 和 tracer 等跟踪特性冲突。前者不允许修改.text，后者必�
 guest启动 mark kernel readonly 之后，由于.text文本段所在的内存区域被heki标记为immutable，    
 也就是说整个系统运行期间都不可以更改，所以 tracer 跟踪器（kprobe/ftrace/ebpf等）不可用。  
 
-x86修改内核文本段的总入口是 `text_poke` 函数。heki在这里加了钩子。 
+x86修改内核文本段的总入口是 `text_poke` 函数。heki在这里加了钩子。   
 临时修改指令所在内存页权限属性，并通过hypercall通知到host。    
 
 ```
