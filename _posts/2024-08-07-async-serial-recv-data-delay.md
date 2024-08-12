@@ -12,7 +12,7 @@ tags:
 ## 背景
 路由器产品反馈应用程序epoll_wait等着读串口驱动数据出现30ms左右延迟。  
 
-数据从底层向上层应用传送流程：
+数据从底层向上层应用传送流程：  
 `serial port driver -->  tty ldisck ---> application(tty read)`
 
 数据从驱动到应用涉及到的内核函数流程  
@@ -22,7 +22,8 @@ flush_to_ldisc -> receive_buf-> n_tty_receive_buf_common-> wake_up_interruptible
 
 ### 定位思路
 梳理清楚数据传输流程，在传输数据的各个关键节点插入探测点  
-并且打开 tracepoint 事件，根据时间戳核查到底哪个环节引入的延迟。
+并且打开 tracepoint 事件，根据时间戳核查到底哪个环节引入的延迟。  
+也是为了排除内核自身问题，产品找不到原因的时候总是瞎怀疑，说调度有问题，tty有问题。。。
 
 打开 ftrace 下的 sched workqueue 事件，同时在上面几个关键函数插入探测点
 ```
