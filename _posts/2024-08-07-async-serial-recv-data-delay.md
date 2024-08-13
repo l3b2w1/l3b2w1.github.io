@@ -15,6 +15,9 @@ tags:
 业务场景   
 转报机--（串口码流）--> 路由器 --（UDP/TCP/XXX）--> 路由器 --（串口码流）-> 远端转报机
 
+其实串口驱动从串口收到的码流数据可以在内核态直接从网口转发出去，没必要经tty交由上层打个转。  
+询问产品，反馈说是历史设计原因，搞得有点复杂，因交付时间原因当下改不动。
+
 数据从底层向上层应用传送流程：  
 `serial port driver -->  tty ldisck ---> application(tty read)`
 
@@ -150,7 +153,7 @@ ttyd才开始tty_flip_buffer_push -> queue_work，并且0 核上的kworker也能
 ```
 
 所以驱动的bdev内核线程关中断死循环了至少33ms (3424.904845 - 3424.871622)，导致ttyd调度不及时，queue work也就延后了。
-进而用户态rtermd tty read也延迟了。
+进而用户态rtermd tty read也延迟了。后续就交由产品驱动去定位。
 
 ### 相关代码
 串口驱动调用 `tty_flip_buffer_push` 把work 挂到 `system_unbound_wq`  
