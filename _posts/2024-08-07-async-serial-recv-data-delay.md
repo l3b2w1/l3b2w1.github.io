@@ -10,7 +10,10 @@ tags:
     - tty
 ---
 ## 背景
-路由器产品反馈应用程序epoll_wait等着读串口驱动数据出现30ms左右延迟。  
+路由器产品反馈应用程序epoll_wait等着读串口驱动数据出现30ms左右延迟。
+
+业务场景   
+转报机--（串口码流）--> 路由器 --（UDP/TCP/XXX）--> 路由器 --（串口码流）-> 远端转报机
 
 数据从底层向上层应用传送流程：  
 `serial port driver -->  tty ldisck ---> application(tty read)`
