@@ -66,8 +66,9 @@ kdb> md4 glock
 0xffff000004f00e30 04f00e30 ffff0000 04f00e30 ffff0000   0.......0.......	// wait_list    prev和next都指向信号量自己。
 ```
 
-分析驱动函数汇编，锁地址其实是x24寄存器赋值过来的。glock信号量合法地址是`0xffff000004f01410`   
-但是异常寄存器现场显示 x24 的值为 `0xffff000000f00004`。**x24的值在函数入口已经保存到栈上了。所以大概率栈被写坏。**
+分析汇编，锁地址其实是x24寄存器赋值过来的，glock信号量合法地址是`0xffff000004f01410`    
+但是异常寄存器现场显示 x24 的值为 `0xffff000000f00004`    
+**x24的值在函数入口已经保存到栈上了。所以大概率栈被写坏。**
 ```
 0xffff0000010f8a8c dev_handle_change<+492>:   mov       x0, x24
 0xffff0000010f8a90 dev_handle_change<+496>:   bl        0xffff0000010f87f0 sem_up
@@ -86,7 +87,8 @@ kdb> md4 glock
 0xffff0000010f88c0 dev_handle_change<+32>:    stp       x25, x26, [sp, #64]
 ```
 
-在该函数所有涉及到 x24 寄存器的汇编指令前后插入探测点，还好没几处。观察何时 x24 里的值从合法变为非法。  
+在该函数所有涉及到 x24 寄存器的汇编指令前后插入探测点，还好没几处。  
+观察何时 x24 里的值从合法变为非法。  
 ```
 echo 'p:x24a dev_handle_change+28 x24=%x24' >> kprobe_events
 echo 'p:x24b dev_handle_change+164 x24=%x24' >> kprobe_events
