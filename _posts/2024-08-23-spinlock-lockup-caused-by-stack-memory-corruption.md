@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      spinlock lockup caused by stack memory corruption
+title:      stack memory corruption trigger spinlock lockup
 subtitle:   栈内存被写坏触发了系统死锁
 date:       2024-08-23
 author:     icecube
