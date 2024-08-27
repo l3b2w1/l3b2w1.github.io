@@ -22,7 +22,7 @@ tags:
 [ 2269.823550] [<ffffff8040381318>] touch_nmi_watchdog_simple+0x18/0x28
 [ 2269.899617] [<ffffff8040588d3c>] __schedule+0x194/0x798
 [ 2269.962140] [<ffffff8040589388>] schedule+0x48/0xb0
-[ 2269.993052] BUG: spinlock lockup suspected on CPU#3, kdrvfwdd3/857
+[ 2269.993052] BUG: spinlock lockup suspected on CPU#3, trans3/857
 [ 2269.993067]  lock: 0xffffffe0fff28500, .magic: dead4ead, .owner: bRX1/789, .owner_cpu: 0
 [ 2269.993081]
 [ 2269.993081] #owner's Call trace:
@@ -31,13 +31,10 @@ tags:
 [ 2269.993118] [<ffffff8040588d3c>] __schedule+0x194/0x798
 [ 2269.993128] [<ffffff8040589388>] schedule+0x48/0xb0
 [ 2269.993138] [<ffffff804058d2e0>] schedule_timeout+0x118/0x230
-[ 2270.017076] [<ffffff8006d351c0>] sal_sem_take+0x1a0/0x220 [system]
-[ 2270.040699] [<ffffff8003ed0a94>] rx_chan_pkt_thread+0x6b4/0x9e0 [system]
-[ 2270.064554] [<ffffff8006d33c04>] thread_boot+0x54/0x80 [system]
-[ 2270.087871] [<ffffff80016efd48>] mdcThreadHook+0x220/0x298 [system]
+..... // 省掉部分业务栈
 [ 2270.087889] [<ffffff80400d421c>] kthread+0xfc/0x110
 [ 2270.087900] [<ffffff8040082ac0>] ret_from_fork+0x10/0x50
-[ 2270.087913] CPU: 3 PID: 857 Comm: kdrvfwdd3 Tainted: P S         O    4.4.65 #1
+[ 2270.087913] CPU: 3 PID: 857 Comm: trans3 Tainted: P S         O    4.4.65 #1
 [ 2270.087927] Hardware name: E2000Q DEMO DDR4 (DT)
 [ 2270.087937] Call trace:
 [ 2270.087944] [<ffffff8040088a08>] dump_backtrace+0x0/0x1b0
@@ -112,9 +109,9 @@ __schedule
 另外缓冲区里的打印也截止到喂狗前的打印，喂狗后的调试信息没有打印出来  
 显然cpu 0直接挂死在这个喂狗指令上了。  
 ```
-[ 3754.415643] BUG: spinlock lockup suspected on CPU#3, kdrvfwdd3/864, lockcnt 0xa521a520
+[ 3754.415643] BUG: spinlock lockup suspected on CPU#3, trans3/864, lockcnt 0xa521a520
 [ 3754.510456]  lock: 0xffffffe0fff28500, .magic: dead4ead, .owner: bRX1/799, .owner_cpu: 0
-[ 3755.412762] CPU: 3 PID: 864 Comm: kdrvfwdd3 Tainted: P S         O    4.4.65 #1
+[ 3755.412762] CPU: 3 PID: 864 Comm: trans3 Tainted: P S         O    4.4.65 #1
 [ 3755.500279] Hardware name: E2000Q DEMO DDR4 (DT)
 [ 3755.555501] Call trace:
 [ 3755.584683] [<ffffff8040088a08>] dump_backtrace+0x0/0x1b0
@@ -136,14 +133,14 @@ Entering kdb (current=0xffffffdfbe6f3a00, pid 864) on processor 3 due to Keyboar
 [3]kdb>
 [3]kdb>
 [3]kdb>ftdump 72800 0  // 跳过前面的大量打印
-<idle>-0       0d..2 358527981us : __schedule: [2842] ocpu 0, prev swapper/0, next Drv_OHPktThread, lkcnt 0xa51fa51e
-Drv_OHPk-1828    0d..2 358527982us : finish_task_switch: [2706] ocpu 0, prev swapper/0, curr Drv_OHPktThread, lkcnt 0xa51fa51e
-Drv_OHPk-1828    0...1 358527983us : finish_task_switch: [2712] ocpu -1, prev swapper/0, curr Drv_OHPktThread, lkcnt 0xa51fa51f
-Drv_OHPk-1828    0d..2 358527989us : touchdog2: [87] ocpu 0, dog lkcnt 0xa520a51f
-Drv_OHPk-1828    0d..2 358527991us : touchdog2: [93] ocpu 0, dog lkcnt 0xa520a51f
-Drv_OHPk-1828    0d..2 358527992us : __schedule: [2842] ocpu 0, prev Drv_OHPktThread, next bRX1, lkcnt 0xa520a51f
-  bRX1-799     0d..2 358527993us : finish_task_switch: [2706] ocpu 0, prev Drv_OHPktThread, curr bRX1, lkcnt 0xa520a51f
-  bRX1-799     0...1 358527994us+: finish_task_switch: [2712] ocpu -1, prev Drv_OHPktThread, curr bRX1, lkcnt 0xa520a520
+<idle>-0       0d..2 358527981us : __schedule: [2842] ocpu 0, prev swapper/0, next drv_thread, lkcnt 0xa51fa51e
+drv_thread-1828    0d..2 358527982us : finish_task_switch: [2706] ocpu 0, prev swapper/0, curr drv_thread, lkcnt 0xa51fa51e
+drv_thread-1828    0...1 358527983us : finish_task_switch: [2712] ocpu -1, prev swapper/0, curr drv_thread, lkcnt 0xa51fa51f
+drv_thread-1828    0d..2 358527989us : touchdog2: [87] ocpu 0, dog lkcnt 0xa520a51f
+drv_thread-1828    0d..2 358527991us : touchdog2: [93] ocpu 0, dog lkcnt 0xa520a51f
+drv_thread-1828    0d..2 358527992us : __schedule: [2842] ocpu 0, prev drv_thread, next bRX1, lkcnt 0xa520a51f
+  bRX1-799     0d..2 358527993us : finish_task_switch: [2706] ocpu 0, prev drv_thread, curr bRX1, lkcnt 0xa520a51f
+  bRX1-799     0...1 358527994us+: finish_task_switch: [2712] ocpu -1, prev drv_thread, curr bRX1, lkcnt 0xa520a520
   bRX1-799     0d..2 358528005us : touchdog2: [87] ocpu 0, dog lkcnt 0xa521a520
 [3]kdb>
 [3]kdb> cpus
