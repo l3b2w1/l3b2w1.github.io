@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      using ebpf in embeded device env
+title:      using ebpf in embeded env
 subtitle:   嵌入式环境使用ebpf
 date:       2024-09-20
 author:     icecube
