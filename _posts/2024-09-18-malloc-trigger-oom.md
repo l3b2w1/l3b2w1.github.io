@@ -7,7 +7,7 @@ author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
-    -memory
+    - memory
 ---
 ## 问题描述
 一般遇到的OOM，那就是OOM，确实可用内存剩余很少，申请不到触发的。  
