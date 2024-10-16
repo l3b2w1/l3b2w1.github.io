@@ -57,7 +57,7 @@ __gfn_to_hva_memslot(const struct kvm_memory_slot *slot, gfn_t gfn)
 `gfn_to_hva ->   gfn_to_hva_many -> __gfn_to_hva_memslot`
 
 ### 地址转换
-x86_64 只用了48位地址空间，测试用系统采用5级页表配置，所以PGD和P4D重叠，二者页表项内容一致。  
+测试用系统采用5级页表配置，所以PGD和P4D重叠，二者页表项内容一致。  
 ```
 Guest: PGD 80000001050e4067 P4D 80000001050e4067
 Host : PGD 8000000220eaf067 P4D 8000000220eaf067
