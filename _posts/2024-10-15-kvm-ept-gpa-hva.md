@@ -64,6 +64,7 @@ Host : PGD 8000000220eaf067 P4D 8000000220eaf067
 ```
 
 从下面测试中可以看到guest上的 4K 页，host上却属于 2M 大页。  
+这是因为host在ept页表中使用大页，可以减少占用TLB条目，提高命中率，提升性能。
 
 **Guest**  
 由`libc.so.6`的一段地址空间首地址`7f34ef90f000`，即 GVA，转换得到 GPA `0x13b483000`
@@ -528,4 +529,5 @@ tdp   two dimensional paging (AMD's NPT and Intel's EPT)
 ```
 
 ### 参考索引
-[linux-5.0](https://elixir.bootlin.com/linux/v5.10/source)  
+[linux-5.10](https://elixir.bootlin.com/linux/v5.10/source)  
+系统虚拟化-原理与实现
