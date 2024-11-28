@@ -7,8 +7,7 @@ author:     iceberg
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
-    - preempt-rt
-    - PI
+    - real time
 ---
 Preempt-RT 是一个用于嵌入式系统的补丁，旨在提高 Linux 内核的实时性能。  
 实时系统需要能够在实时约束下及时响应事件，同时保证系统稳定和可靠性。  
