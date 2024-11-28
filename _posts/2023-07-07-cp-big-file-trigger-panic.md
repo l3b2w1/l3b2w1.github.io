@@ -9,8 +9,7 @@ catalog: true
 tags:
     - arm64
     - memory
-    - panic
-    - dts
+    - debug
 ---
 ### 问题背景信息
 内核版本号5.4.74  
