@@ -976,7 +976,7 @@ hrtimer_interrupt函数里也会调用raise_softirq_irqoff，设置HRTIMER_SOFTI
 
 top不刷新只是其中一种现象，还会引起其它问题，毕竟hrtimer softirq完全失效了  
 
-使用关中断接口 napi_schedule_irqoff 即可解决该问题  
+使用关中断接口 napi_schedule 即可解决该问题  
 ```
 Index: drivers/net/cq/nic/cq_pf.c
 ==================================================================
