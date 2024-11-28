@@ -7,7 +7,7 @@ author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
-    - ftrace
+    - trace
 ---
 
 ## 编译阶段
