@@ -8,7 +8,7 @@ header-img: img/bluelinux.jpg
 catalog: true
 tags:
     - time
-    - loongson
+    - mips
 ---
 2.6.26内核 loongson3a2000系统上遇到一个系统时间比世界时间慢的问题  
 
