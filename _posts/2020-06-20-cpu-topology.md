@@ -8,8 +8,6 @@ header-img: img/bluelinux.jpg
 catalog: true
 tags:
     - cpu
-    - layout
-    - topology
 ---
 
 **把系统CPU拓扑搞清楚了,有助于理解 调度域 shed domain 和 负载均衡 load balance**
