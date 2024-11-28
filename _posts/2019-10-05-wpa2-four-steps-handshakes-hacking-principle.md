@@ -7,10 +7,7 @@ author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
-    - wpa
     - wireless
-    - hack
-    - aircrack-ng
 
 ---
 ## 缩略词
