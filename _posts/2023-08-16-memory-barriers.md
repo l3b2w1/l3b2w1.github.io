@@ -7,9 +7,8 @@ author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
-    - smp
+    - cpu
     - memory
-    - barrier
 ---
 ### MESI协议  
 该协议用于解决高速缓存一致性问题，理解该协议可以参考文章末尾链接里的论文。
