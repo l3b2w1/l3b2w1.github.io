@@ -8,7 +8,6 @@ header-img: img/bluelinux.jpg
 catalog: true
 tags:
     - kpatch
-    - kgraft
     - live patching
 ---
 
