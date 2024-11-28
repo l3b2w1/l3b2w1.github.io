@@ -8,8 +8,6 @@ header-img: img/bluelinux.jpg
 catalog: true
 tags:
     - riscv
-    - exception
-    - kernel
 ---
 ### 异常简介
 riscv架构上异常分为两类，同步异常和异步中断，二者均属于狭义上的具体的异常类型。     
