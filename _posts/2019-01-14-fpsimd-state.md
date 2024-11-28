@@ -7,8 +7,6 @@ author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
-    - fpsimd
-    - 浮点
     - arm64
 
 ---
