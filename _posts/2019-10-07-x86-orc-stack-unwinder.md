@@ -7,9 +7,6 @@ author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
-    - stack
-    - unwind
-    - orc
     - x86
 
 ---
