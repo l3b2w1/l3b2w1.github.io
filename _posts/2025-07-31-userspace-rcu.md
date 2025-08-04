@@ -18,8 +18,7 @@ tags:
 
 ### urcu_qsbr_gp.ctr
 
-读者状态(ctr)和全局状态(gp.ctr)之间的交互关系图
-[点我看清晰大图](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2025-07-31-urcu-gp-ctr.png)
+读者状态(ctr)和全局状态(gp.ctr)之间的交互关系图  
 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2025-07-31-urcu-gp-ctr.png)
 
