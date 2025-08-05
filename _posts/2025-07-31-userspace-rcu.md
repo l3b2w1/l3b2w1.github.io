@@ -24,24 +24,32 @@ tags:
 
 ### urcu_qsbr_gp.futex
 
-写者同步等待gp结束
-
+第一个写者同步等待gp结束，在`urcu_qsbr_gp.futex`上休眠
 ```
 sychronize_rcu
-	wait_for_readers
-		 if (wait_loops >= RCU_QS_ACTIVE_ATTEMPTS)  { // 仍有读者处于临界区未经QS，准备休眠
-			 uatomic_store(&urcu_qsbr_gp.futex, -1);    //
-			 cds_list_for_each_entry(index, input_readers, node)
-				uatomic_store(&index->waiting, 1);
-		}
+    // 只有第一个进入gp_waiter队列的写者（也可能是call rcu thread线程）才会wait_gp
+    if (urcu_wait_add(&shmctx->gp_waiters, wait) != 0) {
+            /* Not first in queue: will be awakened by another thread. */
+            urcu_adaptative_busy_wait(wait);  // 其它就忙等，后续由第一个负责唤醒
+            goto gp_end;
+    }
+    wait_for_readers
+       if (wait_loops >= RCU_QS_ACTIVE_ATTEMPTS)  { // 仍有读者处于临界区未经过QS，准备休眠
+         uatomic_store(&urcu_qsbr_gp.futex, -1);    //
+         cds_list_for_each_entry(index, input_readers, node)
+          uatomic_store(&index->waiting, 1);
+      }
 
-		if (wait_loops >= RCU_QS_ACTIVE_ATTEMPTS)  // 写者进程休眠，等待宽限期结束
-			wait_gp();   
-				while (uatomic_load(&shmctx->urcu_qsbr_gp.futex) == -1) {
-					if (!futex_noasync(&shmctx->urcu_qsbr_gp.futex, FUTEX_WAIT, -1, NULL, NULL, 0))
+      if (wait_loops >= RCU_QS_ACTIVE_ATTEMPTS)  // 写者进程休眠，等待宽限期结束
+        wait_gp();   
+          while (uatomic_load(&shmctx->urcu_qsbr_gp.futex) == -1) {
+            if (!futex_noasync(&shmctx->urcu_qsbr_gp.futex, FUTEX_WAIT, -1, NULL, NULL, 0))
+
+    // gp结束，第一个写者唤醒其它写者
+    urcu_wake_all_waiters(&waiters);
 ```
 
-读者宣告QS状态，更新本地ctr
+读者宣告QS状态，更新本地ctr；通过`urcu_qsbr_gp.futex`唤醒写者
 ```
 rcu_quiescent_state
 	_urcu_qsbr_quiescent_state
@@ -55,7 +63,7 @@ rcu_quiescent_state
 
 ### crdp->futex
 
-写者唤醒调用call_rcu，注册自己的释放内促的回调函数，并唤醒 call rcu thread
+写者调用call_rcu，注册自己的释放内存的回调函数，并通过`crdp->futex`唤醒 call rcu thread
 ```
 call_rcu
 	_call_rcu
@@ -65,7 +73,7 @@ call_rcu
 				futex_async(&crdp->futex, FUTEX_WAKE, 1, NULL, NULL, 0) < 0)  // crdp.futex
 ```
 
-回收线程
+回收线程处理完在`crdp->futex`上休眠
 ```
 call_rcu_thread
 	if (splice_ret != CDS_WFCQ_RET_SRC_EMPTY) { // 遍历链表并执行回调
