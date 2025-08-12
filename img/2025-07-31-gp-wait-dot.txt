@@ -1,0 +1,61 @@
+digraph waiting_structure {
+    rankdir=LR;
+    node [shape=record, fontname="Courier New"];
+
+    // Global Variables
+    gp_waiters [label="<f0> struct urcu_wait_queue gp_waiters | <stack> stack"];
+    wait [label="<f0> struct urcu_wait_node *wait"];
+
+    // Local Variable in synchronize_rcu()
+    waiters [label="<f0> struct urcu_waiters waiters | <head> head"];
+
+    // Stack inside gp_waiters
+    subgraph cluster_stack {
+        label="gp_waiters.stack (cds_wfs_stack)";
+        style=filled;
+        fillcolor=lightgrey;
+        
+        stack_head [label="<f0> struct cds_wfs_head *head | lock"];
+        gp_waiters:stack -> stack_head:f0 [label="contains"];
+    }
+
+    // Linked list nodes (simplified representation)
+    wait_node [label="<f0> wait_node (urcu_wait_node) | <state> state = WAITING | <next_node> cds_wfs_node"];
+    wait_node1 [label="<f0> wait_node1 (urcu_wait_node) | <state> state = WAITING | <next_node> cds_wfs_node"];
+    wait_node2 [label="<f0> wait_node2 (urcu_wait_node) | <state> state = WAITING | <next_node> cds_wfs_node"];
+    null [shape=point, label=""];
+
+    // Connections between nodes (using HTML-like labels for better compatibility)
+    stack_head:f0 -> wait_node:next_node [label="head points to"];
+    wait_node:next_node -> wait_node1:next_node [label="next"];
+    wait_node1:next_node -> wait_node2:next_node [label="next"];
+    wait_node2:next_node -> null [label="next (NULL)"];
+
+    // wait pointer reference
+    wait:f0 -> wait_node:f0 [label="points to"];
+
+    // After urcu_move_waiters()
+    waiters:head -> wait_node:next_node [label="after move" color=red style=dashed];
+
+    // gp_waiters should point to CDS_WFS_END after move, not NULL
+    stack_head:f0 -> cds_wfs_end [label="after move (gp_waiters points to CDS_WFS_END)" color=red style=dashed];
+
+    // Add CDS_WFS_END as a special node
+    cds_wfs_end [label="CDS_WFS_END (0x1UL)" shape=ellipse color=blue style=dotted];
+
+    // Key relationships (with HTML-like labels for better layout)
+    subgraph cluster_legend {
+        label="Key Relationships";
+        fontsize=12;
+
+        entry1 [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0"><TR><TD>gp_waiters.stack.head → wait_node (initial)</TD></TR></TABLE>>];
+        entry2 [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0"><TR><TD>wait → specific wait node</TD></TR></TABLE>>];
+        entry3 [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0"><TR><TD>Nodes linked via cds_wfs_node.next</TD></TR></TABLE>>];
+        entry4 [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0"><TR><TD>After move: waiters.head → wait_node</TD></TR></TABLE>>];
+        entry5 [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0"><TR><TD>After move: gp_waiters.stack.head → CDS_WFS_END</TD></TR></TABLE>>];
+    }
+
+    // Invisible edges for layout purposes to maintain structure
+    gp_waiters -> waiters [style=invis];
+    wait -> wait_node [style=invis];
+}

@@ -24,13 +24,14 @@ tags:
 
 ### urcu_qsbr_gp.futex
 
-第一个写者同步等待gp结束，在`urcu_qsbr_gp.futex`上休眠
+第一个写者同步等待gp结束，在`urcu_qsbr_gp.futex`上休眠，  
+其它写者在局部链表`waiters`上休眠，等待被第一个写者唤醒。
 ```
 sychronize_rcu
     // 只有第一个进入gp_waiter队列的写者（也可能是call rcu thread线程）才会wait_gp
     if (urcu_wait_add(&shmctx->gp_waiters, wait) != 0) {
             /* Not first in queue: will be awakened by another thread. */
-            urcu_adaptative_busy_wait(wait);  // 其它就忙等，后续由第一个负责唤醒
+            urcu_adaptative_busy_wait(wait);  // 其它writers就忙等，后续由第一个writer负责唤醒
             goto gp_end;
     }
     wait_for_readers
@@ -48,6 +49,7 @@ sychronize_rcu
     // gp结束，第一个写者唤醒其它写者
     urcu_wake_all_waiters(&waiters);
 ```
+![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2025-07-31-gp-wait.png)
 
 读者宣告QS状态，更新本地ctr；通过`urcu_qsbr_gp.futex`唤醒写者
 ```
