@@ -16,6 +16,18 @@ tags:
 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2025-07-31-urcu.png)
 
+### 读者角度
+
+![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2025-07-31-urcu-reader.png)
+
+### 写者角度-同步
+
+![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2025-07-31-urcu-writer-sync.png)
+
+### 写者角度-异步
+
+![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2025-07-31-urcu-writer-async.png)
+
 ### urcu_qsbr_gp.ctr
 
 读者状态(ctr)和全局状态(gp.ctr)之间的交互关系图  

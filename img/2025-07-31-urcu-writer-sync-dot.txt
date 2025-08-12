@@ -1,0 +1,138 @@
+digraph writer_synchronize_rcu {
+    rankdir=TB;
+    node [shape=rectangle, style="rounded,filled", fillcolor="peachpuff"];
+    edge [fontname="Courier", fontsize=10];
+    
+    /* 写者线程生命周期状态 */
+    start [label="写者线程开始", shape=oval, fillcolor="palegreen"];
+    prepare [label="准备阶段\n(标记离线/内存屏障)"];
+    join_waiters [label="加入gp_waiters队列"];
+    is_leader [label="是队列领导者？", shape=diamond];
+    wait_awaken [label="等待前一个GP完成", shape=box];
+    become_leader [label="成为GP领导者"];
+    acquire_gp_lock [label="获取rcu_gp_lock"];
+    move_waiters [label="移动等待队列到本地"];
+    acquire_reg_lock [label="获取rcu_registry_lock"];
+    update_gp_counter [label="更新全局GP计数器"];
+    wait_readers_phase1 [label="等待读者静止状态(第一轮)"];
+    wait_readers_phase2 [label="等待读者静止状态(第二轮)", color=blue];
+    release_locks [label="释放所有锁"];
+    wake_waiters [label="唤醒等待线程"];
+    restore_online [label="恢复在线状态"];
+    end [label="同步操作完成", shape=oval, fillcolor="lightpink"];
+    
+    /* 全局状态 */
+    subgraph cluster_global {
+        label="全局状态";
+        bgcolor="lightgray";
+        
+        gp_waiters [label="gp_waiters队列", shape=box3d];
+        registry [label="registry链表\n(所有注册的读者)", shape=cylinder];
+        gp_counter [label="全局GP计数器\n(urcu_qsbr_gp.ctr)", shape=note];
+        gp_futex [label="GP futex\n(urcu_qsbr_gp.futex)", shape=note];
+    }
+    
+    /* 状态转移 */
+    start -> prepare;
+    prepare -> join_waiters;
+    join_waiters -> is_leader;
+    
+    is_leader -> wait_awaken [label="否"];
+    wait_awaken -> end;
+    
+    is_leader -> become_leader [label="是"];
+    become_leader -> acquire_gp_lock;
+    acquire_gp_lock -> move_waiters;
+    move_waiters -> acquire_reg_lock;
+    acquire_reg_lock -> update_gp_counter;
+    update_gp_counter -> wait_readers_phase1;
+    
+    /* 32位系统特有路径 */
+    wait_readers_phase1 -> wait_readers_phase2 [label="32位系统", color=blue, fontcolor=blue];
+    wait_readers_phase2 -> release_locks [color=blue];
+    
+    /* 64位系统路径 */
+    wait_readers_phase1 -> release_locks [label="64位系统"];
+    
+    release_locks -> wake_waiters;
+    wake_waiters -> restore_online;
+    restore_online -> end;
+    
+    /* 与全局状态交互 */
+    join_waiters -> gp_waiters [label="添加自身到队列", dir=both, style=dashed];
+    move_waiters -> gp_waiters [label="清空全局队列\n移动到本地", dir=both, style=dashed];
+    
+    acquire_reg_lock -> registry [label="锁定读者链表", style=dotted];
+    update_gp_counter -> gp_counter [label="递增计数器", dir=both];
+    
+    wait_readers_phase1 -> registry [label="遍历检查读者状态", style=dotted];
+    wait_readers_phase1 -> gp_futex [label="设置futex=-1\n进入等待", dir=both];
+    
+    /* 与读者线程交互 */
+    reader [label="读者线程", shape=box, fillcolor="lightblue"];
+    reader -> gp_counter [label="更新本地ctr", dir=both, style=dashed];
+    reader -> gp_futex [label="满足条件时唤醒", style=dashed];
+    
+    /* 关键操作说明 */
+    subgraph cluster_notes {
+        label="关键操作说明";
+        bgcolor="beige";
+        
+        note_prepare [label="• 如果是读者线程则离线\n• 内存屏障确保操作顺序"];
+        note_wait [label="• 最多尝试RCU_QS_ACTIVE_ATTEMPTS次\n• 然后设置futex=-1并等待"];
+        note_waiters [label="• 使用urcu_wait机制\n• 避免惊群效应"];
+        note_32bit [label="• 32位系统需要两轮等待\n• 防止计数器溢出"];
+    }
+    
+    prepare -> note_prepare [style=invis];
+    wait_readers_phase1 -> note_wait [style=invis];
+    join_waiters -> note_waiters [style=invis];
+    wait_readers_phase2 -> note_32bit [style=invis];
+    
+    /* 图例 */
+    legend [shape=none, margin=0, label=<
+        <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+            <tr><td colspan="2"><b>图例</b></td></tr>
+            <tr><td bgcolor="palegreen">开始/结束状态</td><td>操作边界</td></tr>
+            <tr><td bgcolor="peachpuff">写者操作</td><td>synchronize_rcu关键步骤</td></tr>
+            <tr><td bgcolor="lightblue">外部实体</td><td>读者线程</td></tr>
+            <tr><td bgcolor="lightgray">全局状态</td><td>共享数据结构</td></tr>
+            <tr><td bgcolor="beige">说明框</td><td>操作详细说明</td></tr>
+            <tr><td>实线箭头</td><td>状态转移</td></tr>
+            <tr><td>虚线箭头</td><td>数据访问</td></tr>
+            <tr><td>点线箭头</td><td>锁定操作</td></tr>
+            <tr><td>蓝色路径</td><td>32位系统特有流程</td></tr>
+        </table>
+    >];
+    
+    /* 关键等待循环 */
+    subgraph cluster_wait_loop {
+        label="等待读者静止状态";
+        bgcolor="mintcream";
+        
+        check_readers [label="遍历registry链表"];
+        classify [label="分类读者状态", shape=diamond];
+        active_current [label="活跃(当前GP)", fillcolor="lightyellow"];
+        inactive [label="非活跃/静止", fillcolor="palegreen"];
+        active_old [label="活跃(旧GP)", fillcolor="lightcoral"];
+        move_list [label="移动到相应列表"];
+        wait_futex [label="等待futex唤醒"];
+        
+        check_readers -> classify;
+        classify -> active_current [label="URCU_READER_ACTIVE_CURRENT"];
+        classify -> inactive [label="URCU_READER_INACTIVE"];
+        classify -> active_old [label="URCU_READER_ACTIVE_OLD"];
+        active_current -> move_list;
+        inactive -> move_list;
+        active_old -> move_list [label="保持原位"];
+        move_list -> check_readers [label="继续下一个读者"];
+        
+        all_checked [label="所有读者处理完成？", shape=diamond];
+        check_readers -> all_checked [label="完成遍历"];
+        all_checked -> release_locks [label="是"];
+        all_checked -> wait_futex [label="否"];
+        wait_futex -> check_readers [label="唤醒后重新检查"];
+    }
+    
+    wait_readers_phase1 -> check_readers [ltail=cluster_wait_loop, lhead=cluster_wait_loop];
+}

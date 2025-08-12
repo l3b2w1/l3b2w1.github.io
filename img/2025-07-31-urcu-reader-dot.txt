@@ -1,0 +1,88 @@
+digraph reader_lifecycle {
+    rankdir=TB;
+    node [shape=rectangle, style="rounded,filled", fillcolor="lightblue"];
+    edge [fontname="Courier", fontsize=10];
+    
+    /* 读者线程生命周期状态 */
+    start [label="线程创建", shape=oval, fillcolor="palegreen"];
+    register [label="注册线程\n(urcu_qsbr_register_thread)"];
+    online [label="上线状态\n(urcu_qsbr_thread_online)"];
+    read_lock [label="进入读临界区\n(urcu_qsbr_read_lock)"];
+    in_rcu_section [label="读临界区操作", shape=box, fillcolor="lightyellow"];
+    read_unlock [label="退出读临界区\n(urcu_qsbr_read_unlock)"];
+    quiescent [label="静止状态\n(urcu_qsbr_quiescent_state)"];
+    offline [label="离线状态\n(urcu_qsbr_thread_offline)"];
+    unregister [label="注销线程\n(urcu_qsbr_unregister_thread)"];
+    end [label="线程退出", shape=oval, fillcolor="lightpink"];
+    
+    /* 全局状态交互 */
+    subgraph cluster_global {
+        label="全局状态";
+        bgcolor="lightgray";
+        
+        registry [label="registry链表\n(所有注册的读者)", shape=cylinder];
+        gp_counter [label="全局GP计数器\n(urcu_qsbr_gp.ctr)", shape=note];
+        gp_futex [label="GP futex\n(urcu_qsbr_gp.futex)", shape=note];
+        writer_waiting [label="写者等待队列", shape=box3d];
+    }
+    
+    /* 状态转移 */
+    start -> register;
+    register -> online;
+    online -> read_lock [label="准备访问共享数据"];
+    read_lock -> in_rcu_section;
+    in_rcu_section -> read_unlock;
+    read_unlock -> quiescent;
+    quiescent -> online [label="继续操作"];
+    online -> offline [label="暂时不访问共享数据"];
+    offline -> online [label="恢复访问共享数据"];
+    online -> unregister [label="准备退出"];
+    unregister -> end;
+    
+    /* 与全局状态交互 */
+    register -> registry [label="添加到链表", dir=both, style=dashed];
+    unregister -> registry [label="从链表移除", dir=both, style=dashed];
+    
+    quiescent -> gp_counter [label="更新本地ctr=全局ctr", dir=both];
+    quiescent -> writer_waiting [label="检查并唤醒等待写者", dir=both];
+    
+    offline -> gp_counter [label="标记为URCU_READER_INACTIVE", dir=both];
+    
+    /* 与写者交互 */
+    writer [label="写者线程\n(synchronize_rcu)", shape=box, fillcolor="peachpuff"];
+    writer -> registry [label="遍历检查读者状态", style=dotted];
+    writer -> gp_futex [label="设置futex=-1\n等待静止状态", dir=both];
+    quiescent -> gp_futex [label="可能唤醒写者", style=dashed];
+    
+    /* 关键操作说明 */
+    subgraph cluster_notes {
+        label="关键操作说明";
+        bgcolor="beige";
+        
+        note_register [label="• 分配reader结构\n• 添加到registry链表\n• 初始化ctr=0"];
+        note_quiescent [label="• 比较本地ctr和全局ctr\n• 如落后则更新为全局值\n• 如写者在等待则唤醒"];
+        note_unregister [label="• 从registry链表移除\n• 释放reader结构"];
+        note_offline [label="• 设置ctr=URCU_QSBR_GP_OFFLINE\n• 避免写者等待离线线程"];
+    }
+    
+    register -> note_register [style=invis];
+    quiescent -> note_quiescent [style=invis];
+    unregister -> note_unregister [style=invis];
+    offline -> note_offline [style=invis];
+    
+    /* 图例 */
+    legend [shape=none, margin=0, label=<
+        <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+            <tr><td colspan="2"><b>图例</b></td></tr>
+            <tr><td bgcolor="palegreen">开始/结束状态</td><td>线程生命周期边界</td></tr>
+            <tr><td bgcolor="lightblue">操作节点</td><td>读者线程关键函数调用</td></tr>
+            <tr><td bgcolor="lightyellow">活动状态</td><td>读临界区操作</td></tr>
+            <tr><td bgcolor="beige">说明框</td><td>操作详细说明</td></tr>
+            <tr><td bgcolor="lightgray">全局状态</td><td>共享数据结构</td></tr>
+            <tr><td bgcolor="peachpuff">外部实体</td><td>写者线程</td></tr>
+            <tr><td>实线箭头</td><td>状态转移</td></tr>
+            <tr><td>虚线箭头</td><td>数据访问</td></tr>
+            <tr><td>点线箭头</td><td>写者操作</td></tr>
+        </table>
+    >];
+}

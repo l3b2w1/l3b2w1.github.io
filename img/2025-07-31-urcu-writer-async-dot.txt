@@ -1,0 +1,127 @@
+digraph call_rcu_flow {
+    rankdir=TB;
+    node [shape=rectangle, style="rounded,filled", fillcolor="peachpuff"];
+    edge [fontname="Courier", fontsize=10];
+    
+    /* 写者线程生命周期状态 */
+    start [label="写者线程开始", shape=oval, fillcolor="palegreen"];
+    alloc_head [label="分配rcu_head结构"];
+    init_head [label="初始化rcu_head"];
+    enqueue_cb [label="将回调加入队列\n(call_rcu)"];
+    wake_worker [label="唤醒call_rcu工作线程"];
+    continue_work [label="继续执行其他任务"];
+    end [label="写者任务完成", shape=oval, fillcolor="lightpink"];
+    
+    /* call_rcu工作线程状态 */
+    subgraph cluster_worker {
+        label="call_rcu工作线程";
+        bgcolor="lightblue";
+        
+        worker_start [label="工作线程启动", shape=oval];
+        wait_task [label="等待任务唤醒"];
+        process_queue [label="处理回调队列"];
+        batch_callbacks [label="批量处理回调"];
+        start_gp [label="启动宽限期"];
+        wait_gp [label="等待宽限期结束"];
+        exec_callbacks [label="执行回调函数"];
+        free_heads [label="释放rcu_head结构"];
+        worker_loop [label="返回等待状态"];
+        
+        worker_start -> wait_task;
+        wait_task -> process_queue [label="有任务到达"];
+        process_queue -> batch_callbacks;
+        batch_callbacks -> start_gp;
+        start_gp -> wait_gp;
+        wait_gp -> exec_callbacks;
+        exec_callbacks -> free_heads;
+        free_heads -> worker_loop;
+        worker_loop -> wait_task;
+    }
+    
+    /* 全局状态 */
+    subgraph cluster_global {
+        label="全局状态";
+        bgcolor="lightgray";
+        
+        call_rcu_queue [label="call_rcu队列", shape=box3d];
+        gp_counter [label="全局GP计数器", shape=note];
+        gp_thread [label="GP推进线程", shape=box];
+        registry [label="读者链表", shape=cylinder];
+    }
+    
+    /* 状态转移 */
+    start -> alloc_head;
+    alloc_head -> init_head;
+    init_head -> enqueue_cb;
+    enqueue_cb -> wake_worker;
+    wake_worker -> continue_work;
+    continue_work -> end;
+    
+    /* 与工作线程交互 */
+    enqueue_cb -> call_rcu_queue [label="添加回调", dir=both, style=dashed];
+    wake_worker -> wait_task [label="唤醒工作线程", style=dashed, constraint=false];
+    
+    /* 工作线程与全局状态交互 */
+    process_queue -> call_rcu_queue [label="获取批量回调", dir=both];
+    start_gp -> gp_thread [label="触发宽限期", style=dashed];
+    wait_gp -> gp_counter [label="等待计数器更新", dir=both];
+    wait_gp -> registry [label="等待读者静止", style=dotted];
+    
+    /* 关键操作说明 */
+    subgraph cluster_notes {
+        label="关键操作说明";
+        bgcolor="beige";
+        
+        note_alloc [label="• 分配struct rcu_head\n• 存储回调函数和参数"];
+        note_enqueue [label="• 添加到每线程队列\n• 或全局共享队列"];
+        note_batching [label="• 批量处理提高效率\n• 减少GP启动次数"];
+        note_async [label="• 写者不等待GP完成\n• 立即返回继续工作"];
+        note_exec [label="• 宽限期结束后执行\n• 在专用线程上下文"];
+    }
+    
+    alloc_head -> note_alloc [style=invis];
+    enqueue_cb -> note_enqueue [style=invis];
+    batch_callbacks -> note_batching [style=invis];
+    continue_work -> note_async [style=invis];
+    exec_callbacks -> note_exec [style=invis];
+    
+    /* 图例 */
+    legend [shape=none, margin=0, label=<
+        <table border="0" cellborder="1" cellspacing="0" cellpadding="4">
+            <tr><td colspan="2"><b>图例</b></td></tr>
+            <tr><td bgcolor="palegreen">开始/结束状态</td><td>操作边界</td></tr>
+            <tr><td bgcolor="peachpuff">写者操作</td><td>异步调用关键步骤</td></tr>
+            <tr><td bgcolor="lightblue">工作线程</td><td>call_rcu后台处理</td></tr>
+            <tr><td bgcolor="lightgray">全局状态</td><td>共享数据结构</td></tr>
+            <tr><td bgcolor="beige">说明框</td><td>操作详细说明</td></tr>
+            <tr><td>实线箭头</td><td>状态转移</td></tr>
+            <tr><td>虚线箭头</td><td>数据访问</td></tr>
+            <tr><td>点线箭头</td><td>跨线程通信</td></tr>
+        </table>
+    >];
+    
+    /* 回调处理细节 */
+    subgraph cluster_callback_handling {
+        label="回调处理细节";
+        bgcolor="mintcream";
+        
+        get_batch [label="获取回调批次"];
+        create_gp [label="创建宽限期请求"];
+        add_to_gp [label="添加到当前GP"];
+        monitor_gp [label="监控宽限期进度"];
+        check_gp_complete [label="宽限期完成？", shape=diamond];
+        invoke_cb [label="执行回调函数"];
+        free_memory [label="释放关联内存"];
+        
+        get_batch -> create_gp [label="新批次"];
+        create_gp -> add_to_gp;
+        get_batch -> add_to_gp [label="已有GP"];
+        add_to_gp -> monitor_gp;
+        monitor_gp -> check_gp_complete;
+        check_gp_complete -> invoke_cb [label="是"];
+        check_gp_complete -> monitor_gp [label="否"];
+        invoke_cb -> free_memory;
+    }
+    
+    batch_callbacks -> get_batch [ltail=cluster_callback_handling, lhead=cluster_callback_handling];
+}
