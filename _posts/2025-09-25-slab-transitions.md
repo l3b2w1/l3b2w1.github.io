@@ -27,6 +27,24 @@ tags:
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2025-09-25-slab-transitons.png)
 
 ### 迁移说明
+总结如下：
+
+* **allocation-driven 转移**：  1、2、5、6、8、12、13、20   
+分配路径（`slab_alloc_node()`、`load_freelist()`、`get_partial_node()`、`alloc_single_from_new_slab()` 等）触发，  
+常以 `alloc_event` 为核心事件。
+
+* **free/owner-driven 转移**：3、4、7、9、10、11、14、15、16、17、18、19   
+`do_slab_free()` fast-path（3）或 `__slab_free()` slow-path / owner 操作（`deactivate_slab()`、  
+`put_cpu_partial()`、`remove_full()`/`add_partial()`、`discard_slab()` 等）触发。
+
+* **关键布尔变量**：
+
+  * `prior`（释放前 `slab->freelist != NULL`）区分“full” vs “partial before free”；
+  * `new.inuse`（释放后占用数）判定 slab 是否变空（用于丢弃）；
+  * `was_frozen` 判定 slab 是否属于某 CPU（影响远端 frees 的处理）；
+  * `has_cpu_partial` 决定 full 首次释放时走 freeze-to-cpu_partial（fast）还是 node->partial（slow）；
+  * `n->nr_partial >= s->min_partial` 决定是否会丢弃空 slab。
+
 ---
 以下是20条 slab 动态转移路径的详细阐述：
 
@@ -204,26 +222,6 @@ debug 首次 free 的处理会把 slab freeze 并把它交给某 CPU 的 `cpu_pa
 **条件（事件+布尔）**: `alloc_event`（page 被 page-allocator 重新分配并用于构建新 slab）  
 **源码映射 / 说明**: `discard_slab()` 释放页后，page allocator 未来可能重新分配该页，  
 并在 slab 初始化路径产生一个全新且全部空闲的 slab。这是 page-allocation / slab 初始化驱动的转换。
-
----
-
-总结如下：
-
-* **allocation-driven 转移**：  1、2、5、6、8、12、13、20   
-由分配路径（`slab_alloc_node()`、`load_freelist()`、`get_partial_node()`、`alloc_single_from_new_slab()` 等）触发，  
-常以 `alloc_event` 为核心事件。
-
-* **free/owner-driven 转移**：3、4、7、9、10、11、14、15、16、17、18、19   
-由 `do_slab_free()` fast-path（3）或 `__slab_free()` slow-path / owner 操作（`deactivate_slab()`、`put_cpu_partial()`、`remove_full()`/`add_partial()`、`discard_slab()` 等）触发。
-
-* **关键布尔变量**：
-
-  * `prior`（释放前 `slab->freelist != NULL`）区分“full” vs “partial before free”；
-  * `new.inuse`（释放后占用数）判定 slab 是否变空（用于丢弃）；
-  * `was_frozen` 判定 slab 是否属于某 CPU（影响远端 frees 的处理）；
-  * `has_cpu_partial` 决定 full 首次释放时走 freeze-to-cpu_partial（fast）还是 node->partial（slow）；
-  * `n->nr_partial >= s->min_partial` 决定是否会丢弃空 slab。
-
 
 ---
 
