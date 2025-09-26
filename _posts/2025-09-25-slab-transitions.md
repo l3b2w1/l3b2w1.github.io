@@ -27,7 +27,6 @@ tags:
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2025-09-25-slab-transitons.png)
 
 ### 迁移说明
-总结如下：
 
 * **allocation-driven 转移**：  1、2、5、6、8、12、13、20   
 分配路径（`slab_alloc_node()`、`load_freelist()`、`get_partial_node()`、`alloc_single_from_new_slab()` 等）触发，  
