@@ -19,7 +19,11 @@ tags:
 4. 作为inactive非活动slab，位于`c->partial`上  
 5. 作为inactive非活动slab，位于`node->partial`上  
 
-共计20条位置转移路径如图所示
+
+alloc、free、shrink等 action 都有可能触发slab的位置发生变化。
+
+共计20条位置转移路径如图所示  
+
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2025-09-25-slab-transitons.png)
 
 ---
