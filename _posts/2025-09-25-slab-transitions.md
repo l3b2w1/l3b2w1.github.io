@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      userspace rcu
-subtitle:   urcu
+title:      slab location migration
+subtitle:   slab 位置迁移
 date:       2025-09-25
 author:     icecube
 header-img: img/bluelinux.jpg
@@ -10,9 +10,9 @@ tags:
     - memory
 ---
 
+### slab 位置
 
----
-一个slab在某一时刻所处的位置，可能情况如下:   
+系统运行过程中，一个slab在某一时刻所处的位置，可能的情况如下:   
 1. 作为满状态的slab，悬空状态，不被任何cpu或者node跟踪
 2. 作为满状态的slab，调试模式下，位于`node->full`上  
 3. 作为active活动slab，位于`c->slab`上(slab上空闲objects由`c->freelist`管理  )
@@ -20,12 +20,13 @@ tags:
 5. 作为inactive非活动slab，位于`node->partial`上  
 
 
-alloc、free、shrink等 action 都有可能触发slab的位置发生变化。
+**alloc、free、shrink等 action 都有可能触发slab的位置发生迁移。**
 
+### 迁移状态机
 共计20条位置转移路径如图所示  
-
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2025-09-25-slab-transitons.png)
 
+### 迁移说明
 ---
 以下是20条 slab 动态转移路径的详细阐述：
 
@@ -226,7 +227,7 @@ debug 首次 free 的处理会把 slab freeze 并把它交给某 CPU 的 `cpu_pa
 
 ---
 
-### 映射代码
+### 代码映射
 
 上面20条转移路线在代码中的映射位置标记如下
 
