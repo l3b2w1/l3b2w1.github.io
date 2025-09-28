@@ -56,47 +56,43 @@ slab完整生命周期框架结构图
 
 1) `S0 -> S3`（新分配全部空闲 → c->slab 激活）
 
-**条件（事件+布尔）**: `alloc_event` (slab chosen by allocator)  
-**源码映射 / 说明**: 当分配路径（`slab_alloc_node()` / `load_freelist()`）  
-从 node 或新 slab 取出objects 并把它交给 CPU 时，  
-执行 `c->slab = slab; c->freelist = get_freepointer(...);`。  
-这是 allocation 驱动的事件。
+**条件（事件+布尔）**: `alloc_event && !c->slab && !c->partial && !n->partial`  
+**代码/说明**: slab 和 cpu 关联绑定，首个 object 被分配器选中，  
+分配路径 `slab_alloc_node()` / `load_freelist()`   
+执行 `c->slab = slab; c->freelist = get_freepointer(...);`
 
 ---
 
 2) `S0 -> S5`（新分配全部空闲 → node->partial，debug 单对象分配）
 
-**条件（事件+布尔）**: `alloc_event && debug`  
-**源码映射 / 说明**: 在 debug / SLUB_TINY 等模式下，分配器的单对象分配路径（`alloc_single_from_new_slab()` 或 debug 特殊路径）  
-可能把刚分配的新 slab 放到 `node->partial`（或以 node 管理的方式记录）。  
-是 allocation 驱动并受 `slub_debug` 影响。
+**条件（事件+布尔）**: `alloc_event && slub_debug`  
+**源码映射 / 说明**: 在 debug / SLUB_TINY 等模式下，  
+分配器的单对象分配路径（`alloc_single_from_new_slab()` 或 debug 特殊路径）  
+会把刚分配的新 slab 放到 `node->partial`。  
 
 ---
 
 3) `S3 -> S3`（c->slab 快速路径释放：保持 active）
 
 **条件（事件+布尔）**: `free_event && slab == c->slab && fast-path success`  
-等价布尔（从可用变量推论）: `slab == c->slab && was_frozen && new.inuse != 0`，即释放不会导致 node-list 操作  
 **源码映射 / 说明**: `do_slab_free()` fast-path：当释放发生在 owning CPU 的 active slab 并且 fast-path atomic/cmpxchg 成功时，  
 仅更新 `c->freelist` 并返回；不会进行 `__slab_free()` 的慢路径链表操作。
 
 ---
 
-4) `S3 -> S5`（deactivate_event && new.freelist != NULL && new.inuse > 0）
+4) `S3 -> S5`（deactivate_event）
 
-**条件（事件+布尔）**: `owner_action` (deactivate_slab / retry_load_slab flush)
+**条件（事件+布尔）**: `owner_action` (deactivate_slab / retry_load_slab flush)或者出现并发处理  
 **代码/说明**: owner CPU 决定 flush/deactivate（例如 `retry_load_slab` 中 flush，  
 或 `deactivate_slab()` 被调用以把 active slab 和 CPU 解绑），  
-CPU 会把 slab 交回 node 层（`add_partial()` 等），导致 S3→S5。此路径为 owner 操作驱动，而不是普通 free。
+CPU 会把 slab 交回 node 层（`add_partial()` ）。
 
 ---
 
-5) `S3 -> S1`（c->slab 被分配耗尽 → full（非调试））
+5) `S3 -> S1`（c->slab 被分配耗尽 → 悬空）
 
 **条件（事件+布尔）**: `alloc_event && slab->inuse == slab->objects`  
-**源码映射 / 说明**: 连续分配把 slab 中所有对象分配完（在 allocation 路径上使 `slab->inuse` 达到 `slab->objects`），  
-在非 debug 情况下 slab 上全部objects被分配出去，不在 node partial/cpu partial 上。  
-属于 allocation 驱动。
+**源码映射 / 说明**: 连续分配把 slab 中所有对象分配完，属于 allocation 驱动。
 
 ---
 
@@ -112,25 +108,23 @@ full slab 会被记录到 `node->full` 以便调试跟踪。代码路径在调�
 7) `S3 -> S6`（c->slab → 丢弃/返还给伙伴）
 
 **条件（事件+布尔）**: `owner_action && new.inuse == 0 && n->nr_partial >= s->min_partail`    
-**源码映射 / 说明**: 当 owner 在 deactivate/flush 路径或慢路径判断到 slab 在释放后变空(`new.inuse == 0`)   
-并且 node 允许丢弃（`n->nr_partial >= s->min_partial`），则走 `slab_empty` 分支并调用 `discard_slab()`，把页返还给伙伴系统。  
+**源码映射 / 说明**:当 owner 在 deactivate/flush 路径或慢路径判断到 slab 在释放后变空(`new.inuse == 0`)    
+并且 node 要求丢弃（`n->nr_partial >= s->min_partial`），则走 `slab_empty` 分支并调用 `discard_slab()`，把页返还给伙伴系统。  
 这是 owner/slow-path 决定的，不是单纯的 fast-path free。
 
 ---
 
 8) `S4 -> S3`（c->partial → c->slab，被激活）
 
-**条件（事件+布尔）**: `alloc_event && was_frozen`  
-**源码映射 / 说明**: 当 CPU 从它的 `cpu_partial`（frozen slab）中挑选 slab 并激活时（`load_freelist()` / allocation path），  
-要求该 slab 之前 `was_frozen==1`（属于该 CPU），然后owner 把 frozen slab 变成 active。  
-allocation 驱动。
+**条件（事件+布尔）**: `alloc_event && was_frozen == 1`  
+**源码映射 / 说明**:  CPU 从它的 `cpu_partial`（frozen slab）中挑选 slab 并激活（`load_freelist()`）。
 
 ---
 
-9) `S4 -> S4`（c->partial 上的远端释放累积）
+9) `S4 -> S4`（c->partial 上的远端释放）
 
-**条件（事件+布尔）**: `free_event && was_frozen`
-**源码映射 / 说明**: 若 slab 已冻结属于某 CPU（`was_frozen==1`），  
+**条件（事件+布尔）**: `free_event && was_frozen == 1`  
+**源码映射 / 说明**: slab 已冻结属于某 CPU（`was_frozen==1`），    
 远端 CPU 的 frees 会把对象加入该 slab 的 `slab->freelist`，  
 但 slab 仍挂在远端 CPU 的 `cpu_partial` ，仅内部 freelist 变更。
 
@@ -141,7 +135,7 @@ allocation 驱动。
 **条件（事件+布尔）**: `owner_action` 或  `oldslab->slabs >= s->cpu_partial_slabs`  
 **源码映射 / 说明**: 当 owner CPU 决定回收/flush 部分空 slab 并且满足`oldslab->slabs >= s->cpu_partial_slabs`  
 会把 frozen slab 从 `cpu_partial` 转移到 `node->partial`(`put_cpu_partial()` 路径)。  
-free-driven 释放事件驱动的。  
+这是free-driven 释放事件驱动的。  
 
 ---
 
@@ -155,10 +149,10 @@ free-driven 释放事件驱动的。
 
 12) `S5 -> S3`（node->partial → c->slab，被 CPU 取为 active）
 
-**条件（事件+布尔）**: `alloc_event && prior`  
-**源码映射 / 说明**: 如果 CPU 从 `node->partial` 获取到 slab（allocation），  
-并且该 slab 在获取前是 partial（`prior==true`），则激活为 active slab（`get_partial_node()` / `load_freelist()` 执行路径）。  
-allocation-driven 分配事件驱动的。
+**条件（事件+布尔）**: `alloc_event && prior != NULL`  
+**源码映射 / 说明**: 如果 CPU 从 `node->partial` 获取到 slab，  
+并且该 slab 在获取前是 partial非空，则激活为 active slab（`get_partial_node()` / `load_freelist()` 执行路径）。  
+由allocation-driven 分配事件驱动。
 
 ---
 
@@ -166,17 +160,17 @@ allocation-driven 分配事件驱动的。
 
 **条件（事件+布尔）**: `alloc_event && has_cpu_partial`  
 **源码映射 / 说明**: 如果系统支持 per-CPU partial (`has_cpu_partial==true`)，    
-CPU 从 node partial 取得 slab 时，可能不是立刻激活，而把 slab 冻结并放到自己的 `cpu_partial`（`put_cpu_partial()`）。  
-allocation-driven分配事件 和 `has_cpu_partial` 策略 共同驱动的。
+CPU 从 node partial 取得 slab 时，不是立刻激活，而把 slab 冻结并放到自己的 `cpu_partial`（`put_cpu_partial()`）。  
+allocation-driven分配事件 和 `has_cpu_partial` 策略共同驱动的。
 
 ---
 
-14) `S5 -> S5`（node->partial 上的远端释放累积）
+14) `S5 -> S5`（node->partial 上的远端释放）
 
 **条件（事件+布尔）**: `free_event && !was_frozen`  
 **源码映射 / 说明**: 当 slab 在 `node->partial`上未冻结（`was_frozen==0`）时，  
 任何 CPU 的 free（slow-path）都会更新该 slab 的 `slab->freelist`，但 slab 位置仍在 node partial 不变，  
-只是 freelist 更新（`__slab_free()` slow-path 的常见情况）。
+只是更新 node->freelist （`__slab_free()` slow-path 的常见情况）。
 
 ---
 
@@ -188,13 +182,13 @@ allocation-driven分配事件 和 `has_cpu_partial` 策略 共同驱动的。
 
 ---
 
-16) `S1 -> S5`（full（非调试）首个释放 → node->partial）
+16) `S1 -> S5`（悬空slab首个object被释放 → node->partial）
 
-**条件（事件+布尔）**: `free_event && !was_frozen && !prior && !has_cpu_partial`  
+**条件（事件+布尔）**: `free_event && !was_frozen && !prior && !has_cpu_partial`    
 **源码映射 / 说明**: `!prior` 表示释放前 `slab->freelist == NULL`（slab 为 full）。  
-若 slab 未被冻结（`!was_frozen`）且系统不支持 cpu partial（`!has_cpu_partial`），  
-`__slab_free()` 在慢路径会拿 node 锁并执行 `remove_full()` / `add_partial()` ，将 slab 插入 node->partial。  
-slab上的首个object 被 free 就导致 slab从n->full转移到n->partial。
+slab 未被冻结（`!was_frozen`）且系统不支持 cpu partial（`!has_cpu_partial`），   
+`__slab_free()` 在慢路径会拿 node 锁并执行 `remove_full()` / `add_partial()` ，将 slab 插入 `node->partial`。  
+slab上的首个object 被 free 就导致 sla b从 `n->full` 转移到 `n->partial`。
 
 ---
 
@@ -207,11 +201,11 @@ slab上的首个object 被 free 就导致 slab从n->full转移到n->partial。
 
 ---
 
-18) `S2 -> S5`（node->full（debug）首个释放 → node->partial）
+18) `S2 -> S5`（node->full（debug）首次释放object → node->partial）
 
 **条件（事件+布尔）**: `debug && free_event && !prior`   
 **源码映射 / 说明**: 在 debug 模式 `node->full` 链上的 slab 上的object 第一次 free（`!prior`）时，   
-debug 路径（例如 `free_to_partial_list()` 或专门的 debug 处理）会将 slab 从 full 列表移到 node->partial。
+debug 路径（例如 `free_to_partial_list()` 或专门的 debug 处理）会将 slab 从 `n->full` 列表移到 `n->partial`。
 
 ---
 
@@ -219,11 +213,11 @@ debug 路径（例如 `free_to_partial_list()` 或专门的 debug 处理）会�
 
 **条件（事件+布尔）**: `debug && free_event && !prior && has_cpu_partial`  
 **源码映射 / 说明**: 类似于 18，但若 `has_cpu_partial` 为真，  
-debug 首次 free 的处理会把 slab freeze 并把它交给某 CPU 的 `cpu_partial`（`new.frozen=1` + `put_cpu_partial()`）。
+debug 首次 free 会把 slab freeze 并把它交给某 CPU 的 `cpu_partial`（`new.frozen=1` + `put_cpu_partial()`）。
 
 ---
 
-20) `S6 -> S0`（discarded → 重新分配为新空 slab）
+20) `S6 -> S0`（申请新的 slab）
 
 **条件（事件+布尔）**: `alloc_event`（page 被 page-allocator 重新分配并用于构建新 slab）  
 **源码映射 / 说明**: `discard_slab()` 释放页后，page allocator 未来可能重新分配该页，  
@@ -867,7 +861,7 @@ deactivate_slab:
 	c->freelist = NULL;
 	c->tid = next_tid(c->tid);
 	local_unlock_irqrestore(&s->cpu_slab->lock, flags);
-	deactivate_slab(s, slab, freelist);
+	deactivate_slab(s, slab, freelist);  
 
 new_slab:
 
@@ -953,7 +947,7 @@ check_new_slab:
 		 * For !pfmemalloc_match() case we don't load freelist so that
 		 * we don't make further mismatched allocations easier.
 		 */
-		deactivate_slab(s, slab, get_freepointer(s, freelist));
+		deactivate_slab(s, slab, get_freepointer(s, freelist)); // -------------- 4.c 极少触发路径 紧急预留相关
 		return freelist;
 	}
 
@@ -970,7 +964,7 @@ retry_load_slab:
 
 		local_unlock_irqrestore(&s->cpu_slab->lock, flags);
 
-		deactivate_slab(s, flush_slab, flush_freelist);
+		deactivate_slab(s, flush_slab, flush_freelist);   // -------------- 4.d 其它并发路径绑定了c->slab
 
 		stat(s, CPUSLAB_FLUSH);
 
