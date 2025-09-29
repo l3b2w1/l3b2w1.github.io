@@ -141,7 +141,7 @@ full slab 会被记录到 `node->full` 以便调试跟踪。代码路径在调�
 
 11) `S4 -> S6`（c->partial slab 完全空且被丢弃）
 
-**条件（事件+布尔）**: `free_event && new.inuse == 0 && n->nr_partial >= s->min_partail`
+**条件（事件+布尔）**: `free_event && new.inuse == 0 && n->nr_partial >= s->min_partail`  
 **源码映射 / 说明**: 当 frozen slab 在某次释放后变空（`new.inuse==0`）并且 node 决定可以回收(`n->nr_partial >= s->min_partail`)，  
 就会执行 `discard_slab()`，将页返还给伙伴。条件与 `__slab_free()` 中 `slab_empty` 分支一致。
 
