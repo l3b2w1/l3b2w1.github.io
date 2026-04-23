@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      overlayfs usage
-subtitle:   kfuzztest 原理与实践
+subtitle:   嵌入式 overlayfs 玩法
 date:       2026-04-23
 author:     icecube
 header-img: img/bluelinux.jpg
@@ -142,7 +142,6 @@ exec switch_root /mnt/merged /sbin/init
 总的来说，这是嵌入式 Linux 上一套很成熟的“只读根文件系统 + 内存覆盖”方案。  
 看懂这一个脚本，基本就理解了 OverlayFS、squashfs、initrd 切换根的配合套路。
 
-## 完整脚本
 ```
 #!/bin/sh
 FLASH_DEV0=/dev/mtdblock0
