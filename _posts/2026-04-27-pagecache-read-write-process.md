@@ -71,8 +71,6 @@ vfs_read()
                                 blk_mq_run_hw_queue() # 唤醒硬件队列
                                   __blk_mq_delay_run_hw_queue()
                                     kblockd_mod_delayed_work_on() # workqueue 异步触发
-          touch_atime()
-          __mark_inode_dirty()
 ```
 关键点：  
 	1. 冷读触发预读：page_cache_sync_readahead() 一次性分配多个页并通过 ext4_readpages 批量读取。  
