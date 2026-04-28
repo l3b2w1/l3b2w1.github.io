@@ -27,6 +27,8 @@ tmpfs                tmpfs       12217504         0  12217504   0% /dev/shm
 ```
 
 ## 日志分析
+![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-04-27-pagecache-flowchart.png)
+
 #### ext4 读路径分析（冷读触发预读）
 trace 显示 ext4_file_read_iter 被调用，是从 ext4 文件冷读时的标准调用链。关键路径如下：
 ```
