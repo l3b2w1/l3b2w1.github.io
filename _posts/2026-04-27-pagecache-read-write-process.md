@@ -286,9 +286,15 @@ root       141  0.0  0.0      0     0 ?        I    00:00   0:00 [kworker/u48:3-
 ```
 
 #### fault_around_bytes
+```
+# uname -a
+Linux buildroot 5.4.74 #19 SMP Tue Apr 28 19:06:33 CST 2026 aarch64 GNU/Linux
+#
+# cat /sys/kernel/debug/fault_around_bytes
+65536
+```
 fault_around_bytes 的本质作用是：  
 控制一次缺页时，内核在目标缺页地址周围“顺带预映射”多少字节的连续页面，以减少后续同一局部区域再次触发 page fault 的次数。  
-它不是普通的“性能开关”那么简单，而是 `do_fault_around()` 这条优化路径的核心参数。  
 源码注释直接说明了它的设计目标：`do_fault_around()` 会尝试映射 fault 地址附近的一小段页面，希望这些页面很快还会被访问，从而降低 fault 次数。
 
 `do_read_fault()` 里只有在 VMA 支持 `vm_ops->map_pages()` 且 `fault_around_bytes >> PAGE_SHIFT > 1` 时，  
@@ -300,10 +306,29 @@ fault_around_bytes 的本质作用是：
 
 它还刻意限制在 同一个 VMA 内、并且不跨越同一个 PTE 页表页边界，因为代码注释里明确说了，这样做是为了只调用一次 map_pages()，同时避免跨页表边界带来的复杂性。
 
-这个变量的默认值是 `rounddown_pow_of_two(65536)`，也就是 64 KiB；并且在` CONFIG_DEBUG_FS` 下可以通过 debugfs 动态调整。设置函数还强制它满足两个约束：  
-	1. 不能大于 `PTRS_PER_PTE * PAGE_SIZE`； 
-	2. 必须是 不超过页大小粒度约束的 2 的幂对齐值，并且最小不会低于 `PAGE_SIZE`。
+
+这个变量的默认值是 `rounddown_pow_of_two(65536)`，也就是 64 KiB；并且在` CONFIG_DEBUG_FS` 下可以通过 debugfs 动态调整。
+设置函数还强制它满足两个约束：   
+	1. 不能大于 `PTRS_PER_PTE * PAGE_SIZE`   
+	2. 必须是 不超过页大小粒度约束的 2 的幂对齐值，并且最小不会低于 `PAGE_SIZE`。    
+	
 源码注释写得很明确：`fault_around_bytes` 必须向下取整到 `do_fault_around()` 期望的 page order。 
+```
+/*
+ * fault_around_bytes must be rounded down to the nearest page order as it's
+ * what do_fault_around() expects to see.
+ */
+static int fault_around_bytes_set(void *data, u64 val)
+{
+        if (val / PAGE_SIZE > PTRS_PER_PTE)
+                return -EINVAL;
+        if (val > PAGE_SIZE)
+                fault_around_bytes = rounddown_pow_of_two(val);
+        else
+                fault_around_bytes = PAGE_SIZE; /* rounddown_pow_of_two(0) is undefined */
+        return 0;
+}
+```
 	
 可以把它理解成一个**“预读式缺页窗口大小”**参数：
 	• 设得大：一次 fault 可能顺带映射更多邻近页，适合线性/局部顺序访问； 
@@ -314,7 +339,7 @@ fault_around_bytes 的本质作用是：
 `fault_around_bytes` 决定了文件映射读缺页时，内核会不会以及会在多大范围内“顺带”批量建立邻近页表项；  
 它的目标是减少重复 page fault，提升局部顺序访问的命中率。
 
-这也就是在trace log里连续调用16次`alloc_set_pte`的原因。  
+这也就是在trace log里看到的连续调用16次`alloc_set_pte`的原因。  
 
 ```
    3582 static vm_fault_t do_read_fault(struct vm_fault *vmf)
