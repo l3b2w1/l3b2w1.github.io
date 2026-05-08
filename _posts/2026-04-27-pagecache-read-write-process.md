@@ -23,7 +23,8 @@ tmpfs                tmpfs       12217504        16  12217488   0% /run
 /dev/mmcblk0p2       ext4         8256952        12   7837512   0% /mnt/mmc
 tmpfs                tmpfs       12217504         0  12217504   0% /dev/shm
 # echo 3 > /proc/sys/vm/drop_caches
-# dd if=/mnt/mmc/zerofile of=/mnt/mmc/zerofile2
+# taskset -c 16 dd if=/mnt/mmc/zerofile of=/mnt/mmc/zerofile2 bs=1k count=8 2>/dev/null
+# taskset -c 16 dd if=/mnt/mmc/zerofile of=/mnt/mmc/zerofile2 bs=1k count=8 2>/dev/null
 ```
 
 ## 日志分析
@@ -38,48 +39,55 @@ vfs_read()
     new_sync_read()
       ext4_file_read_iter()
         generic_file_read_iter()
-          pagecache_get_page.part.65()
-            find_lock_entry()
-              find_get_entry()
-                PageHuge()
-            page_mapping()
-            mark_page_accessed()
-          page_cache_sync_readahead()       # 同步预读
+          pagecache_get_page.part.59()               ### 查找页缓存，首次未命中 ###
+          page_cache_sync_readahead()                # 触发同步预读
             ondemand_readahead()
               __do_page_cache_readahead()
-                __page_cache_alloc()        # 分配新页
+                __page_cache_alloc()                 # 分配多个页
                 read_pages()
                   ext4_readpages()
                     ext4_mpage_readpages()
-                      add_to_page_cache_lru() # 加入 page cache
-                      ext4_map_blocks()       # 逻辑块→物理块映射
-                      bio_alloc_bioset()      # 申请 bio
-                      bio_associate_blkg()    # 关联 cgroup
-                      bio_add_page()          # 填充 bio
-                      submit_bio()            # 提交 bio 到块层
+                      add_to_page_cache_lru()        # 加入 page cache
+                      ext4_map_blocks()              # 逻辑块到物理块映射
+                        ext4_es_lookup_extent()
+                        ext4_ind_map_blocks()
+                          ext4_block_to_path.isra.9()
+                          ext4_get_branch()
+                        ext4_es_insert_extent()
+                      bio_alloc_bioset()             # 分配 bio
+                        mempool_alloc()
+                          mempool_alloc_slab()
+                            kmem_cache_alloc()
+                      bio_associate_blkg()           # 关联 cgroup
+                      bio_add_page()                 # 填充 bio 页
+                      submit_bio()                   # 提交 bio
                         generic_make_request()
                           generic_make_request_checks()
-                          blk_mq_make_request() # 进入多队列块层
-                            __blk_mq_sched_bio_merge()
-                            blk_mq_get_request()
+                          blk_mq_make_request()
+                            __blk_queue_split()
+                            __blk_mq_sched_bio_merge()  # 尝试合并 bio
+                              dd_bio_merge()
+                                blk_mq_sched_try_merge()
+                            blk_mq_get_request()        # 获取请求
                             blk_account_io_start()
-                            blk_add_rq_to_plug()  # plug 队列延迟派发
+                            blk_add_rq_to_plug()        # 加入 plug 队列
                       put_pages_list()
-                      blk_finish_plug()
+                      blk_finish_plug()                 # 冲刷 plug 队列
                         blk_flush_plug_list()
                           blk_mq_flush_plug_list()
                             blk_mq_sched_insert_requests()
-                              dd_insert_requests() # deadline 调度器
-                                blk_mq_run_hw_queue() # 唤醒硬件队列
+                              dd_insert_requests()       # deadline 调度器
+                                blk_mq_run_hw_queue()    # 唤醒硬件队列
                                   __blk_mq_delay_run_hw_queue()
-                                    kblockd_mod_delayed_work_on() # workqueue 异步触发
+                                    kblockd_mod_delayed_work_on()  # 异步派发 I/O
+          pagecache_get_page.part.59()                # 再次查找，命中并标记访问
+          mark_page_accessed()
 ```
-关键点：  
-	1. 冷读触发预读：page_cache_sync_readahead() 一次性分配多个页并通过 ext4_readpages 批量读取。  
-	2. 块层提交：submit_bio → generic_make_request → blk_mq_make_request，  
-     配合 blk_add_rq_to_plug 和 blk_finish_plug 使用 plug 机制优化 I/O。  
-	3. 驱动层未出现：blk_mq_run_hw_queue 后续由 workqueue 异步触发，  
-     实际 eMMC 驱动函数（如 mmc_mq_queue_rq）不在 vfs_read 调用链内。
+**关键点：**
+1. **冷读触发批量预读**：首次 `pagecache_get_page` 未命中，触发 `page_cache_sync_readahead`，一次性分配多个页并通过 `ext4_readpages` 批量提交 I/O。
+2. **ext4 块映射**：`ext4_map_blocks` 结合 extent tree 查找（`ext4_es_lookup_extent`）或间接块映射（`ext4_ind_map_blocks`）完成逻辑块到物理块的转换。
+3. **块层提交流程**：`submit_bio` 进入 `generic_make_request`，经由 `blk_mq_make_request` 将 bio 转换为请求，并利用 `blk_add_rq_to_plug` 暂存请求，最后在 `blk_finish_plug` 时批量下发到调度器。
+4. **异步 I/O 完成**：`blk_mq_run_hw_queue` 通过 `kblockd_mod_delayed_work_on` 交给 workqueue 异步执行，实际 eMMC 驱动函数（如 `mmc_mq_queue_rq`）不在此堆栈内。  
 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-04-27-vfs-read.png)
 
@@ -92,39 +100,200 @@ vfs_write()
   __vfs_write()
     new_sync_write()
       ext4_file_write_iter()
-        generic_write_check_limits()
+        generic_write_check_limits.isra.60()
         __generic_file_write_iter()
           file_remove_privs()
           generic_perform_write()
-            ext4_da_write_begin()                 # 延迟分配写开始
-              grab_cache_page_write_begin()       # 查找/分配页
-              __ext4_journal_start_sb()           # 开启日志事务
-              __block_write_begin()               # 准备缓冲区
-                ext4_da_get_block_prep()          # 预留磁盘块
-                  ext4_es_insert_delayed_block()  # 插入延迟分配记录
-            ext4_da_write_end()
+            ext4_da_write_begin()                       # 延迟分配写开始
+              grab_cache_page_write_begin()
+                pagecache_get_page.part.59()            ### 获取或创建页缓存页 ###
+                  find_get_entry()
+                  __page_cache_alloc()
+                    alloc_pages_current()
+                      __alloc_pages_nodemask()
+                        get_page_from_freelist()
+                  add_to_page_cache_lru()
+                    __add_to_page_cache_locked()
+                      mem_cgroup_try_charge()
+                      __inc_node_page_state()
+                      mem_cgroup_commit_charge()
+                    lru_cache_add()
+              unlock_page()
+              __ext4_journal_start_sb()                 # 开启日志
+              __block_write_begin()                     # 准备写入
+                create_page_buffers()
+                ext4_da_get_block_prep()                # 预留磁盘空间
+                  ext4_es_lookup_extent()
+                  ext4_ind_map_blocks()
+                  ext4_da_reserve_space()
+                    __dquot_alloc_space()
+                    ext4_claim_free_clusters()
+                  ext4_es_insert_delayed_block()        # 标记延迟分配块
+                clean_bdev_aliases()
+                flush_dcache_page()
+            flush_dcache_page()
+            ext4_da_write_end()                         # 延迟分配写完成
               generic_write_end()
                 block_write_end()
-                  __block_commit_write()          # 标记缓冲区为脏
-                    mark_buffer_dirty()           # → buffer_head 脏
-                      __mark_inode_dirty()        # → inode 脏，触发日志
-                __ext4_journal_stop()             # 日志事务结束
+                  __block_commit_write.isra.41()
+                    mark_buffer_dirty()                 # 标记 bh 脏
+                      lock_page_memcg()
+                      __set_page_dirty()
+                        account_page_dirtied()
+                      __mark_inode_dirty()
+                unlock_page()
+                __mark_inode_dirty()               # inode 被标记为脏，唤醒回写线程   
+                  ext4_dirty_inode()
+                    ext4_mark_inode_dirty()
+                      ext4_reserve_inode_write()
+                        __ext4_get_inode_loc()
+                        __ext4_journal_get_write_access()
+                      ext4_mark_iloc_dirty()
+                    __ext4_journal_stop()
+            _cond_resched()
             balance_dirty_pages_ratelimited()
   __sb_end_write()
 ```
-
-写路径没有 submit_bio 的原因：  
-1. ext4 使用 延迟分配策略：写入只标记页脏并记录日志，不立即下发 I/O。  
-2. 真正 I/O 由后台 writeback 线程异步完成，不在 vfs_write 系统调用链上。  
-3. 若要观察写入的实际块层 I/O，应追踪 ext4_writepages 或 do_writepages。  
+**关键点：**
+1. **延迟分配**：`ext4_da_write_begin` 中通过 `ext4_da_reserve_space` 在内存中预留块并标记延迟分配（`ext4_es_insert_delayed_block`），实际磁盘空间在稍后的 writeback 时分配。
+2. **日志保护**：`__ext4_journal_start_sb` / `__ext4_journal_stop` 将写操作包裹在 ext4 日志事务中，确保持久性。
+3. **脏页标记与写回**：`mark_buffer_dirty` 标记 buffer head 为脏，`__set_page_dirty` 通过 `account_page_dirtied` 更新页脏统计数据。
+4. **inode 脏标记**：`ext4_mark_inode_dirty` 负责更新 inode 元数据（如 `ext4_reserve_inode_write`），并同样通过日志保护。
 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-04-27-vfs-write.png)
+
+#### minor fault
+
+当页缓存中已有文件数据时，缺页处理直接建立映射：
+```
+do_page_fault()
+  down_read_trylock()
+  find_vma()
+    vmacache_find()
+  handle_mm_fault()
+    mem_cgroup_from_task()
+    __handle_mm_fault()
+      filemap_map_pages()
+        PageHuge()
+        alloc_set_pte()                # 设置页表项
+          add_mm_counter_fast()
+          page_add_file_rmap()
+            lock_page_memcg()
+            unlock_page_memcg()
+          __sync_icache_dcache()
+        unlock_page()
+        ... (重复多次 alloc_set_pte)
+```
+**关键点：**
+1. **无需 I/O**：整个路径未出现 `__do_fault` 或 `readpage`，表明所需页面已在页缓存中。
+2. **批量映射**：`filemap_map_pages` 遍历页缓存中的一批页面，通过 `alloc_set_pte` 直接为其建立页表映射，并更新 rmap。
+3. **性能优势**：minor fault 仅涉及内存操作，延迟极低，是 mmap 高效性的关键。
+
+
+#### major fault（ext4 文件写时复制）
+
+major fault 发生在需要从磁盘读取数据或进行写时复制时，trace 中显示了 ext4 文件的写时复制流程：
+```
+do_page_fault()
+  down_read_trylock()
+  find_vma()
+  handle_mm_fault()
+    __handle_mm_fault()
+      do_wp_page()                            # 写时复制缺页
+        vm_normal_page()
+        wp_page_copy()
+          __anon_vma_prepare()                # 准备匿名 VMA
+            kmem_cache_alloc()
+            find_mergeable_anon_vma()
+          alloc_pages_vma()                    # 分配新物理页
+            __get_vma_policy()
+              shmem_get_policy()               # 日志中文件策略来自 shmem，但文件为 ext4
+            get_vma_policy()
+            __alloc_pages_nodemask()
+              get_page_from_freelist()
+          __cpu_copy_user_page()               # 拷贝旧页内容
+          mem_cgroup_try_charge_delay()
+          add_mm_counter_fast()
+          ptep_clear_flush()                   # 清除旧页表项
+          page_add_new_anon_rmap()
+          mem_cgroup_commit_charge()
+          lru_cache_add_active_or_unevictable()
+          page_remove_rmap()                   # 移除旧页的 rmap
+```
+**关键点：**
+1. **写时复制**：当对 mmap 共享映射的 ext4 文件进行写操作时，触发 `do_wp_page`，通过 `wp_page_copy` 分配新页并复制数据。
+2. **匿名页转换**：复制后的新页通过 `page_add_new_anon_rmap` 转为匿名页，脱离与文件页缓存的直接关联。
+3. **页面分配**：`alloc_pages_vma` 分配零阶页，若内存紧张可能涉及内存回收。测试环境系统内存充足，因而trace 中未出现 `shrink` 相关调用。
+4. **元数据更新**：更新 rss 计数器、内存 cgroup 统计，并将旧页的脏标记转移到新页（`page_remove_rmap`）。
+
+此 major fault 流程展示了 ext4 文件 mmap 写入时的关键路径，确保进程对映射文件的修改不会影响页缓存中的原始数据。
+
+
+#### __mark_inode_dirty
+
+第一个 `__mark_inode_dirty` 调用，内部执行了一条非常关键的路径：
+
+```
+__mark_inode_dirty
+  ├─ locked_inode_to_wb_and_lock_list()    // 将 inode 挂入对应 backing device 的脏链表
+  ├─ inode_io_list_move_locked()          // 在 wb 的链表上移动该 inode
+  │    └─ wb_io_lists_populated()         // 确认链表是否已初始化
+  └─ wb_wakeup_delayed()                  // *** 唤醒回写 work ***
+       ├─ __msecs_to_jiffies()            // 计算延迟时间
+       ├─ queue_delayed_work_on()         // 把回写 work 排入 workqueue
+       │    └─ __queue_delayed_work()
+       │         └─ add_timer()           // 设置定时器，到期后触发 kworker 执行
+       │              ├─ calc_wheel_index()
+       │              └─ enqueue_timer()
+       └─ ... (软中断开关)
+```
+**交互的子系统**：
+- **VFS inode cache**：`locked_inode_to_wb_and_lock_list` 将 inode 加入 backing device 的脏 inode 链表。
+- **writeback 框架**：`wb_wakeup_delayed` → `queue_delayed_work_on` 将 `wb_workfn` 作为延迟 work 放入 workqueue，由 kworker 线程执行。
+- 实际是由系统里的**[kworker/u48:3-events_unbound]**代为执行的。
+
+```
+# dd if=/dev/zero of=/mnt/mmc/bigfile3 bs=1M count=4
+4+0 records in
+4+0 records out
+# cd /sys/kernel/tracing/
+# cat trace
+# tracer: nop
+#
+# entries-in-buffer/entries-written: 3/3   #P:24
+#
+#                                _-----=> irqs-off
+#                               / _----=> need-resched
+#                              | / _---=> hardirq/softirq
+#                              || / _--=> preempt-depth
+#                              ||| /     delay
+#           TASK-PID     CPU#  ||||   TIMESTAMP  FUNCTION
+#              | |         |   ||||      |         |
+           <...>-141     [003] ....    54.177730: <stack trace>
+ => do_writepages
+ => __writeback_single_inode
+ => writeback_sb_inodes
+ => __writeback_inodes_wb
+ => wb_writeback
+ => wb_workfn
+ => process_one_work
+ => worker_thread
+ => kthread
+ => ret_from_fork
+
+# ps aux|grep 141
+root       141  0.0  0.0      0     0 ?        I    00:00   0:00 [kworker/u48:3-events_unbound]
+```
+
 
 ## 跟踪脚本
 ```
 #!/bin/sh
+set -x
 
-TRACING_DIR=/sys/kernel/debug/tracing
+FUNCTION=$1
+
+TRACING_DIR=/sys/kernel/tracing
 
 # 进入 tracing 目录
 cd $TRACING_DIR || exit 1
@@ -142,15 +311,24 @@ echo > set_ftrace_notrace
 # 3. 设置追踪器为 function_graph
 echo function_graph > current_tracer
 
-# 4. 只允许 vfs_read 和 vfs_write 作为“根函数”展开调用图
+# 4. 入参函数作为“根函数”展开调用图
+#echo "$FUNCTION" >> set_graph_function
 echo vfs_read  >> set_graph_function
 echo vfs_write >> set_graph_function
+echo filemap_fault >> set_graph_function
+echo do_wp_page >> set_graph_function
+echo do_mmap >> set_graph_function
+echo do_page_fault >> set_graph_function
 
 # 5. 配置图形输出选项，减少干扰
 echo 0 > options/funcgraph-irqs       # 不显示中断处理函数
-echo 0 > options/funcgraph-proc       # 不显示进程名（可选）
-echo 16 > max_graph_depth             # 限制深度，避免刷屏
+#echo 0 > options/funcgraph-proc       # 不显示进程名（可选）
+#echo 32 > max_graph_depth             # 限制深度，避免刷屏
 echo 1 > options/funcgraph-tail       # 显示函数结尾
+
+# show process comm pid
+echo funcgraph-proc > trace_options
+echo funcgraph-abstime > trace_options
 
 # 6. 批量过滤无关函数
 # 锁操作
@@ -207,20 +385,14 @@ echo pl011_tx_chars    >> set_graph_notrace
 echo pl011_tx_char     >> set_graph_notrace
 echo pl011_read        >> set_graph_notrace
 echo pl011_stop_tx     >> set_graph_notrace
-echo tty_write         >> set_graph_notrace
-echo tty_write_room    >> set_graph_notrace
-echo tty_hung_up_p     >> set_graph_notrace
-echo n_tty_write       >> set_graph_notrace
 echo redirected_tty_write >> set_graph_notrace
 echo uart_write_room   >> set_graph_notrace
 echo uart_flush_chars  >> set_graph_notrace
-echo tty_ldisc_ref_wait >> set_graph_notrace
-echo tty_ldisc_deref   >> set_graph_notrace
 echo ldsem_down_read   >> set_graph_notrace
 echo ldsem_up_read     >> set_graph_notrace
 echo process_echoes    >> set_graph_notrace
-echo tty_port_default_wakeup >> set_graph_notrace
-echo tty_wakeup        >> set_graph_notrace
+echo "tty_*" >> set_graph_notrace
+echo "n_tty_*" >> set_graph_notrace
 
 # 如果你还看到其他不想看的内核线程函数，可以继续添加
 
@@ -232,1025 +404,15 @@ echo 3 > /proc/sys/vm/drop_caches
 
 # 9. 开启追踪 → 运行测试 → 关闭追踪
 echo 1 > tracing_on
-dd if=/mnt/mmc/zerofile of=/mnt/mmc/zerofile2 bs=1k count=4 2>/dev/null
+taskset -c 16 dd if=/mnt/mmc/zerofile of=/mnt/mmc/zerofile2 bs=1k count=8 2>/dev/null
+taskset -c 16 dd if=/mnt/mmc/zerofile of=/mnt/mmc/zerofile2 bs=1k count=8 2>/dev/null
 echo 0 > tracing_on
 
 # 10. 显示结果
 cat trace
 ```
 
-# 完整log
-```
-#
-#
-# /trace-vfs-read.sh
-sh: write error: Invalid argument
-[   64.160200] trace-vfs-read. (3318): drop_caches: 3
-# tracer: function_graph
-#
-# CPU  DURATION                  FUNCTION CALLS
-# |     |   |                     |   |   |   |
- 20)               |  vfs_write() {
- 20)   2.570 us    |    rw_verify_area();
- 20)   1.950 us    |    __sb_start_write();
- 20)               |    __vfs_write() {
- 20)               |      new_sync_write() {
- 20)               |        generic_file_write_iter() {
- 20)   2.000 us    |          generic_write_check_limits.isra.58();
- 20)               |          __generic_file_write_iter() {
- 20)   1.990 us    |            file_remove_privs();
- 20)               |            generic_perform_write() {
- 20)               |              shmem_write_begin() {
- 20)               |                shmem_getpage_gfp.isra.56() {
- 20)               |                  find_lock_entry() {
- 20)               |                    find_get_entry() {
- 20)   2.040 us    |                      PageHuge();
- 20)   6.560 us    |                    }
- 20)   1.910 us    |                    page_mapping();
- 20) + 14.320 us   |                  }
- 20)   1.910 us    |                  mark_page_accessed();
- 20) + 22.050 us   |                }
- 20) + 25.990 us   |              }
- 20)   1.850 us    |              flush_dcache_page();
- 20)               |              shmem_write_end() {
- 20)               |                set_page_dirty() {
- 20)   1.940 us    |                  page_mapping();
- 20)   1.950 us    |                  __set_page_dirty_no_writeback();
- 20)   9.540 us    |                }
- 20)   1.980 us    |                unlock_page();
- 20) + 17.240 us   |              }
- 20)   2.390 us    |              _cond_resched();
- 20)   1.950 us    |              balance_dirty_pages_ratelimited();
- 20) + 61.910 us   |            }
- 20) + 71.150 us   |          }
- 20) + 80.000 us   |        }
- 20) + 84.180 us   |      }
- 20) + 87.900 us   |    }
- 20)   1.910 us    |    __sb_end_write();
- 20) ! 107.020 us  |  }
- 20)               |  vfs_read() {
- 20)   2.700 us    |    rw_verify_area();
- 20)               |    __vfs_read() {
- 20)               |      new_sync_read() {
- 20)               |        sock_read_iter() {
- 20)               |          unix_dgram_recvmsg() {
- 20)               |            __skb_try_recv_datagram() {
- 20)   1.060 us    |              __skb_try_recv_from_queue();
- 20)   5.400 us    |            }
- 20)               |            __skb_wait_for_more_packets() {
- 20)   3.220 us    |              prepare_to_wait_exclusive();
- 21)               |  vfs_read() {
- 21)   2.920 us    |    rw_verify_area();
- 21)               |    __vfs_read() {
- 21)               |      new_sync_read() {
- 21)               |        shmem_file_read_iter() {
- 21)               |          shmem_getpage_gfp.isra.56() {
- 21)               |            find_lock_entry() {
- 21)               |              find_get_entry() {
- 21)   1.830 us    |                PageHuge();
- 21)   5.790 us    |              }
- 21)   2.240 us    |              page_mapping();
- 21) + 13.920 us   |            }
- 21) + 17.770 us   |          }
- 21)               |          set_page_dirty() {
- 21)   1.830 us    |            page_mapping();
- 21)   1.830 us    |            __set_page_dirty_no_writeback();
- 21)   9.190 us    |          }
- 21)   1.920 us    |          unlock_page();
- 21)   1.850 us    |          mark_page_accessed();
- 21) + 43.590 us   |        }
- 21) + 47.500 us   |      }
- 21) + 51.250 us   |    }
- 21) + 62.480 us   |  }
- 21)               |  vfs_read() {
- 21)   2.670 us    |    rw_verify_area();
- 21)               |    __vfs_read() {
- 21)               |      new_sync_read() {
- 21)               |        shmem_file_read_iter() {
- 21)               |          shmem_getpage_gfp.isra.56() {
- 21)               |            find_lock_entry() {
- 21)               |              find_get_entry() {
- 21)   1.840 us    |                PageHuge();
- 21)   5.670 us    |              }
- 21)   1.820 us    |              page_mapping();
- 21) + 13.120 us   |            }
- 21) + 17.060 us   |          }
- 21)               |          set_page_dirty() {
- 21)   1.880 us    |            page_mapping();
- 21)   1.860 us    |            __set_page_dirty_no_writeback();
- 21)   9.340 us    |          }
- 21)   1.920 us    |          unlock_page();
- 21) + 37.300 us   |        }
- 21) + 41.100 us   |      }
- 21) + 44.800 us   |    }
- 21) + 54.150 us   |  }
- 21)               |  vfs_read() {
- 21)   2.270 us    |    rw_verify_area();
- 21)               |    __vfs_read() {
- 21)               |      new_sync_read() {
- 21)               |        shmem_file_read_iter() {
- 21)               |          shmem_getpage_gfp.isra.56() {
- 21)               |            find_lock_entry() {
- 21)               |              find_get_entry() {
- 21)   1.760 us    |                PageHuge();
- 21)   5.540 us    |              }
- 21)   1.820 us    |              page_mapping();
- 21) + 12.900 us   |            }
- 21) + 16.620 us   |          }
- 21)               |          set_page_dirty() {
- 21)   1.840 us    |            page_mapping();
- 21)   1.840 us    |            __set_page_dirty_no_writeback();
- 21)   9.130 us    |          }
- 21)   1.910 us    |          unlock_page();
- 21) + 35.800 us   |        }
- 21) + 39.480 us   |      }
- 21) + 43.050 us   |    }
- 21) + 51.230 us   |  }
- 21)               |  vfs_read() {
- 21)   2.470 us    |    rw_verify_area();
- 21)               |    __vfs_read() {
- 21)               |      new_sync_read() {
- 21)               |        shmem_file_read_iter() {
- 21)               |          shmem_getpage_gfp.isra.56() {
- 21)               |            find_lock_entry() {
- 21)               |              find_get_entry() {
- 21)   1.900 us    |                PageHuge();
- 21)   5.940 us    |              }
- 21)   1.880 us    |              page_mapping();
- 21) + 13.470 us   |            }
- 21) + 17.140 us   |          }
- 21)               |          set_page_dirty() {
- 21)   1.830 us    |            page_mapping();
- 21)   1.840 us    |            __set_page_dirty_no_writeback();
- 21)   9.240 us    |          }
- 21)   1.900 us    |          unlock_page();
- 21)   1.820 us    |          mark_page_accessed();
- 21) + 42.120 us   |        }
- 21) + 45.820 us   |      }
- 21) + 50.810 us   |    }
- 21) + 59.840 us   |  }
- 21)               |  vfs_read() {
- 21)   2.330 us    |    rw_verify_area();
- 21)               |    __vfs_read() {
- 21)               |      new_sync_read() {
- 21)               |        shmem_file_read_iter() {
- 21)               |          shmem_getpage_gfp.isra.56() {
- 21)               |            find_lock_entry() {
- 21)               |              find_get_entry() {
- 21)   1.830 us    |                PageHuge();
- 21)   5.520 us    |              }
- 21)   1.810 us    |              page_mapping();
- 21) + 12.940 us   |            }
- 21) + 16.620 us   |          }
- 21)               |          set_page_dirty() {
- 21)   1.800 us    |            page_mapping();
- 21)   1.820 us    |            __set_page_dirty_no_writeback();
- 21)   9.110 us    |          }
- 21)   1.930 us    |          unlock_page();
- 21) + 36.070 us   |        }
- 21) + 39.780 us   |      }
- 21) + 43.430 us   |    }
- 21) + 51.670 us   |  }
- 21)               |  vfs_read() {
- 21)   2.550 us    |    rw_verify_area();
- 21)               |    __vfs_read() {
- 21)               |      new_sync_read() {
- 21)               |        shmem_file_read_iter() {
- 21)               |          shmem_getpage_gfp.isra.56() {
- 21)               |            find_lock_entry() {
- 21)               |              find_get_entry() {
- 21)   1.970 us    |                PageHuge();
- 21)   6.140 us    |              }
- 21)   1.900 us    |              page_mapping();
- 21) + 13.810 us   |            }
- 21) + 17.710 us   |          }
- 21)   1.950 us    |          unlock_page();
- 21)   1.850 us    |          mark_page_accessed();
- 21) + 89.460 us   |        }
- 21) + 93.380 us   |      }
- 21) + 97.080 us   |    }
- 21) ! 107.000 us  |  }
- 21)               |  vfs_read() {
- 21)   2.620 us    |    rw_verify_area();
- 21)               |    __vfs_read() {
- 21)               |      new_sync_read() {
- 21)               |        shmem_file_read_iter() {
- 21)               |          shmem_getpage_gfp.isra.56() {
- 21)               |            find_lock_entry() {
- 21)               |              find_get_entry() {
- 21)   1.950 us    |                PageHuge();
- 21)   6.260 us    |              }
- 21)   1.990 us    |              page_mapping();
- 21) + 13.930 us   |            }
- 21) + 18.170 us   |          }
- 21)   1.960 us    |          unlock_page();
- 21)   1.870 us    |          mark_page_accessed();
- 21) + 32.810 us   |        }
- 21) + 36.650 us   |      }
- 21) + 40.410 us   |    }
- 21) + 49.860 us   |  }
- 21)               |  vfs_read() {
- 21)   2.830 us    |    rw_verify_area();
- 21)               |    __vfs_read() {
- 21)               |      new_sync_read() {
- 21)               |        ext4_file_read_iter() {
- 21)               |          generic_file_read_iter() {
- 21)   2.270 us    |            _cond_resched();
- 21)               |            pagecache_get_page.part.65() {
- 21)   1.970 us    |              find_get_entry();
- 21)   5.860 us    |            }
- 21)               |            page_cache_sync_readahead() {
- 21)   1.890 us    |              kthread_blkcg();
- 21)               |              ondemand_readahead() {
- 21)               |                __do_page_cache_readahead() {
- 21)               |                  __page_cache_alloc() {
- 21)               |                    alloc_pages_current() {
- 21)   2.000 us    |                      get_task_policy.part.48();
- 21)   1.880 us    |                      policy_node();
- 21)   1.870 us    |                      policy_nodemask();
- 21)               |                      __alloc_pages_nodemask() {
- 21)   1.970 us    |                        should_fail_alloc_page();
- 21)               |                        get_page_from_freelist.part.112() {
- 21)   0.980 us    |                          __inc_numa_state();
- 21)   0.970 us    |                          __inc_numa_state();
- 21)   1.950 us    |                          prep_new_page();
- 21) + 10.820 us   |                        }
- 21) + 18.580 us   |                      }
- 21) + 33.760 us   |                    }
- 21) + 37.570 us   |                  }
- 21)               |                  read_pages() {
- 21)   1.810 us    |                    blk_start_plug();
- 21)               |                    ext4_readpages() {
- 21)               |                      ext4_mpage_readpages() {
- 21)               |                        add_to_page_cache_lru() {
- 21)               |                          __add_to_page_cache_locked() {
- 21)   1.850 us    |                            PageHuge();
- 21)   1.900 us    |                            shmem_mapping();
- 21)               |                            mem_cgroup_try_charge() {
- 21)   2.030 us    |                              get_mem_cgroup_from_mm.part.47();
- 21)   1.870 us    |                              try_charge();
- 21)   9.470 us    |                            }
- 21)               |                            __inc_node_page_state() {
- 21)   0.970 us    |                              __inc_node_state();
- 21)   2.860 us    |                            }
- 21)               |                            mem_cgroup_commit_charge() {
- 21)               |                              mem_cgroup_charge_statistics() {
- 21)   1.040 us    |                                __mod_memcg_state();
- 21)   1.070 us    |                                __count_memcg_events();
- 21)   5.120 us    |                              }
- 21)               |                              memcg_check_events() {
- 21)   1.050 us    |                                mem_cgroup_event_ratelimit.isra.38();
- 21)   2.930 us    |                              }
- 21) + 12.960 us   |                            }
- 21) + 40.750 us   |                          }
- 21)               |                          lru_cache_add() {
- 21)   1.940 us    |                            __lru_cache_add();
- 21)   5.620 us    |                          }
- 21) + 52.030 us   |                        }
- 21)               |                        ext4_map_blocks() {
- 21)   2.270 us    |                          ext4_es_lookup_extent();
- 21)               |                          ext4_ind_map_blocks() {
- 21)   1.970 us    |                            ext4_block_to_path.isra.9();
- 21)   1.830 us    |                            ext4_get_branch();
- 21)   9.720 us    |                          }
- 21)               |                          ext4_es_insert_extent() {
- 21)               |                            __es_remove_extent() {
- 21)   1.840 us    |                              __es_tree_search.isra.18();
- 21)   5.600 us    |                            }
- 21)               |                            __es_insert_extent() {
- 21)               |                              kmem_cache_alloc() {
- 21)   1.850 us    |                                should_failslab();
- 21)   1.870 us    |                                set_tag();
- 21)   1.920 us    |                                do_track();
- 21) + 13.370 us   |                              }
- 21) + 17.600 us   |                            }
- 21) + 28.970 us   |                          }
- 21)               |                          __check_block_validity.constprop.90() {
- 21)               |                            ext4_data_block_valid() {
- 21)   2.200 us    |                              ext4_data_block_valid_rcu.isra.6();
- 21)   5.910 us    |                            }
- 21)   9.700 us    |                          }
- 21) + 61.100 us   |                        }
- 21)               |                        bio_alloc_bioset() {
- 21)               |                          mempool_alloc() {
- 21)               |                            mempool_alloc_slab() {
- 21)               |                              kmem_cache_alloc() {
- 21)   1.850 us    |                                should_failslab();
- 21)   1.850 us    |                                set_tag();
- 21)   1.890 us    |                                do_track();
- 21) + 13.120 us   |                              }
- 21) + 17.970 us   |                            }
- 21) + 21.770 us   |                          }
- 21) + 25.690 us   |                        }
- 21)               |                        bio_associate_blkg() {
- 21)   1.950 us    |                          kthread_blkcg();
- 21)               |                          bio_associate_blkg_from_css() {
- 21)   1.980 us    |                            __bio_associate_blkg.isra.35();
- 21)   5.740 us    |                          }
- 21) + 13.260 us   |                        }
- 21)               |                        bio_add_page() {
- 21)   1.940 us    |                          __bio_try_merge_page();
- 21)   1.920 us    |                          __bio_add_page();
- 21)   9.380 us    |                        }
- 21)               |                        submit_bio() {
- 21)               |                          generic_make_request() {
- 21)               |                            generic_make_request_checks() {
- 21)   1.860 us    |                              should_fail_bio.isra.55();
- 21)   1.970 us    |                              __disk_get_part();
- 21) + 10.580 us   |                            }
- 21)   2.060 us    |                            blk_queue_enter();
- 21)               |                            blk_mq_make_request() {
- 21)   2.010 us    |                              __blk_queue_split();
- 21)   1.940 us    |                              bio_integrity_prep();
- 21)   1.980 us    |                              blk_attempt_plug_merge();
- 21)               |                              __blk_mq_sched_bio_merge() {
- 21)               |                                dd_bio_merge() {
- 21)               |                                  blk_mq_sched_try_merge() {
- 21)               |                                    elv_merge() {
- 21)   1.980 us    |                                      elv_rqhash_find();
- 21)               |                                      dd_request_merge() {
- 21)   2.030 us    |                                        elv_rb_find();
- 21)   5.830 us    |                                      }
- 21) + 13.650 us   |                                    }
- 21) + 17.410 us   |                                  }
- 21) + 21.360 us   |                                }
- 21) + 25.140 us   |                              }
- 21)               |                              blk_mq_get_request() {
- 21)               |                                blk_mq_get_tag() {
- 21)   2.210 us    |                                  __blk_mq_get_tag();
- 21)   5.990 us    |                                }
- 21)   1.930 us    |                                dd_prepare_request();
- 21) + 14.460 us   |                              }
- 21)               |                              blk_account_io_start() {
- 21)   1.870 us    |                                disk_map_sector_rcu();
- 21)   1.850 us    |                                part_inc_in_flight();
- 21)               |                                update_io_ticks() {
- 21) + 56.970 us   |                                }
- 21) + 68.260 us   |                              }
- 21)   2.120 us    |                              blk_add_rq_to_plug();
- 21) ! 130.950 us  |                            }
- 21) ! 151.230 us  |                          }
- 21) ! 155.030 us  |                        }
- 21) ! 330.450 us  |                      }
- 21) ! 334.300 us  |                    }
- 21)   1.940 us    |                    put_pages_list();
- 21)               |                    blk_finish_plug() {
- 21)               |                      blk_flush_plug_list() {
- 21)               |                        blk_mq_flush_plug_list() {
- 21)               |                          blk_mq_sched_insert_requests() {
- 21)               |                            dd_insert_requests() {
- 21)               |                              blk_mq_sched_try_insert_merge() {
- 21)               |                                elv_attempt_insert_merge() {
- 21)   1.960 us    |                                  elv_rqhash_find();
- 21)   5.710 us    |                                }
- 21) + 10.650 us   |                              }
- 21)   1.860 us    |                              blk_mq_sched_request_inserted();
- 21)   1.990 us    |                              elv_rb_add();
- 21)   1.930 us    |                              elv_rqhash_add();
- 21) + 25.940 us   |                            }
- 21)               |                            blk_mq_run_hw_queue() {
- 21)   2.090 us    |                              __srcu_read_lock();
- 21)   1.840 us    |                              dd_has_work();
- 21)   1.960 us    |                              __srcu_read_unlock();
- 21)               |                              __blk_mq_delay_run_hw_queue() {
- 21)   1.860 us    |                                __msecs_to_jiffies();
- 21)               |                                kblockd_mod_delayed_work_on() {
- 21)               |                                  mod_delayed_work_on() {
- 21)               |                                    try_to_grab_pending() {
- 21)   1.000 us    |                                      del_timer();
- 21)   4.380 us    |                                    }
- 21)               |                                    __queue_delayed_work() {
- 21)               |                                      __queue_work() {
- 21)   1.140 us    |                                        get_work_pool();
- 21)               |                                        insert_work() {
- 21)   0.970 us    |                                          get_pwq.isra.30();
- 21)               |                                          wake_up_process() {
- 21)               |                                            try_to_wake_up() {
- 21)   1.060 us    |                                              update_rq_clock.part.108();
- 21)               |                                              ttwu_do_activate.isra.113() {
- 21)               |                                                activate_task() {
- 21)               |                                                  enqueue_task_fair() {
- 21)               |                                                    enqueue_entity() {
- 21)               |                                                      update_curr() {
- 21)   0.980 us    |                                                        update_min_vruntime();
- 21)               |                                                        cpuacct_charge() {
- 21)               |                                                          need_beauty_cputime() {
- 21)   0.960 us    |                                                            beauty_cpu_usage_ctrl_update();
- 21)   2.830 us    |                                                          }
- 21)   4.820 us    |                                                        }
- 21)   8.800 us    |                                                      }
- 21)               |                                                      __update_load_avg_se() {
- 21)   0.940 us    |                                                        __accumulate_pelt_segments();
- 21)   3.090 us    |                                                      }
- 21)               |                                                      __update_load_avg_cfs_rq() {
- 21)   0.950 us    |                                                        __accumulate_pelt_segments();
- 21)   2.950 us    |                                                      }
- 21)   0.920 us    |                                                      update_cfs_group();
- 21)   1.010 us    |                                                      account_entity_enqueue();
- 21)   0.990 us    |                                                      __enqueue_entity();
- 21) + 24.440 us   |                                                    }
- 21) + 26.550 us   |                                                  }
- 21) + 28.580 us   |                                                }
- 21)               |                                                ttwu_do_wakeup.isra.112() {
- 21)               |                                                  check_preempt_curr() {
- 21)               |                                                    check_preempt_wakeup() {
- 21)   0.990 us    |                                                      update_curr();
- 21)               |                                                      wakeup_preempt_entity.isra.98() {
- 21)   1.000 us    |                                                        __calc_delta();
- 21)   2.940 us    |                                                      }
- 21)   1.000 us    |                                                      resched_curr();
- 21)   8.760 us    |                                                    }
- 21) + 10.790 us   |                                                  }
- 21) + 13.350 us   |                                                }
- 21) + 44.840 us   |                                              }
- 21) + 49.270 us   |                                            }
- 21) + 51.160 us   |                                          }
- 21) + 55.060 us   |                                        }
- 21) + 59.440 us   |                                      }
- 21) + 61.440 us   |                                    }
- 21) + 70.360 us   |                                  }
- 21) + 74.160 us   |                                }
- 21) + 81.530 us   |                              }
- 21) + 96.700 us   |                            }
- 21) ! 128.350 us  |                          }
- 21) ! 132.200 us  |                        }
- 21) ! 135.910 us  |                      }
- 21) ! 139.620 us  |                    }
- 21) ! 487.340 us  |                  }
- 21) ! 530.860 us  |                }
- 21) ! 534.870 us  |              }
- 21) ! 542.740 us  |            }
- 21)               |            pagecache_get_page.part.65() {
- 21)               |              find_get_entry() {
- 21)   1.900 us    |                PageHuge();
- 21)   5.880 us    |              }
- 21)   9.700 us    |            }
- 21)   2.570 us    |            mark_page_accessed();
- 21) ! 929.360 us  |          }
- 21) ! 933.410 us  |        }
- 21) ! 938.800 us  |      }
- 21) ! 943.550 us  |    }
- 21) ! 953.720 us  |  }
- 21)               |  vfs_write() {
- 21)   2.270 us    |    rw_verify_area();
- 21)   2.210 us    |    __sb_start_write();
- 21)               |    __vfs_write() {
- 21)               |      new_sync_write() {
- 21)               |        ext4_file_write_iter() {
- 21)   1.920 us    |          generic_write_check_limits.isra.58();
- 21)               |          __generic_file_write_iter() {
- 21)               |            file_remove_privs() {
- 21)               |              dentry_needs_remove_privs.part.34() {
- 21)   1.910 us    |                should_remove_suid();
- 21)               |                security_inode_need_killpriv() {
- 21)               |                  cap_inode_need_killpriv() {
- 21)               |                    __vfs_getxattr() {
- 21)   2.170 us    |                      xattr_resolve_name();
- 21)   5.960 us    |                    }
- 21)   9.780 us    |                  }
- 21) + 13.620 us   |                }
- 21) + 21.140 us   |              }
- 21) + 24.990 us   |            }
- 21)               |            generic_perform_write() {
- 21)               |              ext4_da_write_begin() {
- 21)   1.950 us    |                ext4_nonda_switch();
- 21)               |                grab_cache_page_write_begin() {
- 21)               |                  pagecache_get_page.part.65() {
- 21)   2.080 us    |                    find_get_entry();
- 21)               |                    __page_cache_alloc() {
- 21)               |                      alloc_pages_current() {
- 21)   2.000 us    |                        get_task_policy.part.48();
- 21)   1.830 us    |                        policy_node();
- 21)   1.850 us    |                        policy_nodemask();
- 21)               |                        __alloc_pages_nodemask() {
- 21)   1.920 us    |                          should_fail_alloc_page();
- 21)               |                          get_page_from_freelist.part.112() {
- 21)               |                            node_dirty_ok() {
- 21)   1.980 us    |                              node_page_state();
- 21)   1.860 us    |                              node_page_state();
- 21)   1.900 us    |                              node_page_state();
- 21)   1.820 us    |                              node_page_state();
- 21)   1.890 us    |                              node_page_state();
- 21) + 20.640 us   |                            }
- 21)   1.020 us    |                            __inc_numa_state();
- 21)   0.970 us    |                            __inc_numa_state();
- 21)   1.950 us    |                            prep_new_page();
- 21) + 33.490 us   |                          }
- 21) + 41.150 us   |                        }
- 21) + 56.090 us   |                      }
- 21) + 59.880 us   |                    }
- 21)               |                    add_to_page_cache_lru() {
- 21)               |                      __add_to_page_cache_locked() {
- 21)   1.840 us    |                        PageHuge();
- 21)   1.960 us    |                        shmem_mapping();
- 21)               |                        mem_cgroup_try_charge() {
- 21)   2.000 us    |                          get_mem_cgroup_from_mm.part.47();
- 21)   1.890 us    |                          try_charge();
- 21)   9.610 us    |                        }
- 21)               |                        __inc_node_page_state() {
- 21)   0.960 us    |                          __inc_node_state();
- 21)   2.840 us    |                        }
- 21)               |                        mem_cgroup_commit_charge() {
- 21)               |                          mem_cgroup_charge_statistics() {
- 21)   1.060 us    |                            __mod_memcg_state();
- 21)   1.040 us    |                            __count_memcg_events();
- 21)   4.980 us    |                          }
- 21)               |                          memcg_check_events() {
- 21)   1.060 us    |                            mem_cgroup_event_ratelimit.isra.38();
- 21)   2.920 us    |                          }
- 21) + 12.770 us   |                        }
- 21) + 41.060 us   |                      }
- 21)               |                      lru_cache_add() {
- 21)   1.930 us    |                        __lru_cache_add();
- 21)   5.720 us    |                      }
- 21) + 52.480 us   |                    }
- 21) ! 122.080 us  |                  }
- 21)   1.850 us    |                  wait_for_stable_page();
- 21) ! 129.810 us  |                }
- 21)   1.920 us    |                unlock_page();
- 21)               |                __ext4_journal_start_sb() {
- 21)   1.910 us    |                  ext4_journal_check_start();
- 21)   5.800 us    |                }
- 21)   1.900 us    |                wait_for_stable_page();
- 21)               |                __block_write_begin() {
- 21)               |                  __block_write_begin_int() {
- 21)               |                    create_page_buffers() {
- 21)               |                      create_empty_buffers() {
- 21)               |                        alloc_page_buffers() {
- 21)   1.830 us    |                          get_mem_cgroup_from_page();
- 21)               |                          alloc_buffer_head() {
- 21)               |                            kmem_cache_alloc() {
- 21)   1.870 us    |                              should_failslab();
- 21)   1.860 us    |                              set_tag();
- 21)   1.850 us    |                              do_track();
- 21) + 13.570 us   |                            }
- 21)   1.970 us    |                            recalc_bh_state();
- 21) + 21.290 us   |                          }
- 21) + 28.730 us   |                        }
- 21) + 32.720 us   |                      }
- 21) + 36.480 us   |                    }
- 21)               |                    ext4_da_get_block_prep() {
- 21)   2.280 us    |                      ext4_es_lookup_extent();
- 21)               |                      ext4_ind_map_blocks() {
- 21)   1.880 us    |                        ext4_block_to_path.isra.9();
- 21)   1.920 us    |                        ext4_get_branch();
- 21)   9.560 us    |                      }
- 21)               |                      ext4_da_reserve_space() {
- 21)               |                        __dquot_alloc_space() {
- 21)               |                          inode_reserved_space() {
- 21)   1.850 us    |                            ext4_get_reserved_space();
- 21)   5.670 us    |                          }
- 21)   9.640 us    |                        }
- 21)               |                        ext4_claim_free_clusters() {
- 21)   1.930 us    |                          ext4_has_free_clusters();
- 21)   5.820 us    |                        }
- 21) + 21.460 us   |                      }
- 21)               |                      ext4_es_insert_delayed_block() {
- 21)               |                        __es_remove_extent() {
- 21)   1.920 us    |                          __es_tree_search.isra.18();
- 21)   5.730 us    |                        }
- 21)               |                        __es_insert_extent() {
- 21)               |                          kmem_cache_alloc() {
- 21)   1.870 us    |                            should_failslab();
- 21)   1.830 us    |                            set_tag();
- 21)   1.830 us    |                            do_track();
- 21) + 13.130 us   |                          }
- 21) + 16.980 us   |                        }
- 21) + 28.620 us   |                      }
- 21) + 72.640 us   |                    }
- 21)               |                    clean_bdev_aliases() {
- 21)               |                      pagevec_lookup_range() {
- 21)   2.150 us    |                        find_get_pages_range();
- 21)   5.960 us    |                      }
- 21)   10.000 us   |                    }
- 21)   1.850 us    |                    flush_dcache_page();
- 21) ! 131.240 us  |                  }
- 21) ! 135.100 us  |                }
- 21) ! 291.260 us  |              }
- 21)   1.870 us    |              flush_dcache_page();
- 21)               |              ext4_da_write_end() {
- 21)               |                generic_write_end() {
- 21)               |                  block_write_end() {
- 21)   1.820 us    |                    flush_dcache_page();
- 21)               |                    __block_commit_write.isra.41() {
- 21)               |                      mark_buffer_dirty() {
- 21)               |                        lock_page_memcg() {
- 21)   1.830 us    |                          lock_page_memcg.part.52();
- 21)   5.680 us    |                        }
- 21)   1.900 us    |                        page_mapping();
- 21)               |                        __set_page_dirty() {
- 21)               |                          account_page_dirtied() {
- 21)               |                            __mod_lruvec_state() {
- 21)   1.020 us    |                              __mod_node_page_state();
- 21)   1.040 us    |                              __mod_memcg_state();
- 21)   5.010 us    |                            }
- 21)               |                            __inc_zone_page_state() {
- 21)   1.060 us    |                              __inc_zone_state();
- 21)   3.040 us    |                            }
- 21)               |                            __inc_node_page_state() {
- 21)   0.940 us    |                              __inc_node_state();
- 21)   2.820 us    |                            }
- 21) + 15.150 us   |                          }
- 21) ! 106.210 us  |                        }
- 21)               |                        unlock_page_memcg() {
- 21)   1.830 us    |                          __unlock_page_memcg();
- 21)   5.610 us    |                        }
- 21)   1.970 us    |                        __mark_inode_dirty();
- 21) ! 132.980 us  |                      }
- 21) ! 137.140 us  |                    }
- 21) ! 144.570 us  |                  }
- 21)   1.970 us    |                  unlock_page();
- 21)               |                  __mark_inode_dirty() {
- 21)               |                    ext4_dirty_inode() {
- 21)               |                      __ext4_journal_start_sb() {
- 21)   1.930 us    |                        ext4_journal_check_start();
- 21)   5.850 us    |                      }
- 21)               |                      ext4_mark_inode_dirty() {
- 21)               |                        ext4_reserve_inode_write() {
- 21)               |                          __ext4_get_inode_loc() {
- 21)   2.030 us    |                            ext4_get_group_desc();
- 21)   1.930 us    |                            ext4_inode_table();
- 21)               |                            __getblk_gfp() {
- 21)               |                              __find_get_block() {
- 21)   2.020 us    |                                mark_page_accessed();
- 21)   7.140 us    |                              }
- 21) + 10.850 us   |                            }
- 21) + 22.610 us   |                          }
- 21)   1.930 us    |                          __ext4_journal_get_write_access();
- 21) + 30.370 us   |                        }
- 21)               |                        ext4_mark_iloc_dirty() {
- 21)               |                          from_kuid() {
- 21)   1.910 us    |                            map_id_up();
- 21)   5.640 us    |                          }
- 21)               |                          from_kgid() {
- 21)   1.860 us    |                            map_id_up();
- 21)   5.670 us    |                          }
- 21)               |                          from_kprojid() {
- 21)   1.830 us    |                            map_id_up();
- 21)   5.570 us    |                          }
- 21)   1.860 us    |                          ext4_inode_csum_set();
- 21)               |                          __ext4_handle_dirty_metadata() {
- 21)   1.940 us    |                            mark_buffer_dirty();
- 21)   5.670 us    |                          }
- 21)   1.950 us    |                          __brelse();
- 21) + 40.190 us   |                        }
- 21) + 76.320 us   |                      }
- 21)   1.890 us    |                      __ext4_journal_stop();
- 21) + 91.600 us   |                    }
- 21) + 95.500 us   |                  }
- 21) ! 249.870 us  |                }
- 21)   1.920 us    |                __ext4_journal_stop();
- 21) ! 257.800 us  |              }
- 21)   2.300 us    |              _cond_resched();
- 21)   2.490 us    |              balance_dirty_pages_ratelimited();
- 21) ! 568.380 us  |            }
- 21) ! 607.760 us  |          }
- 21) ! 616.660 us  |        }
- 21) ! 620.930 us  |      }
- 21) ! 624.610 us  |    }
- 21)   1.960 us    |    __sb_end_write();
- 21) ! 641.100 us  |  }
- 21)               |  vfs_read() {
- 21)   2.600 us    |    rw_verify_area();
- 21)               |    __vfs_read() {
- 21)               |      new_sync_read() {
- 21)               |        ext4_file_read_iter() {
- 21)               |          generic_file_read_iter() {
- 21)   2.110 us    |            _cond_resched();
- 21)               |            pagecache_get_page.part.65() {
- 21)               |              find_get_entry() {
- 21)   1.840 us    |                PageHuge();
- 21)   5.820 us    |              }
- 21)   9.540 us    |            }
- 21) + 18.740 us   |          }
- 21) + 22.520 us   |        }
- 21) + 26.360 us   |      }
- 21) + 30.150 us   |    }
- 21) + 38.740 us   |  }
- 21)               |  vfs_write() {
- 21)   2.060 us    |    rw_verify_area();
- 21)   2.000 us    |    __sb_start_write();
- 21)               |    __vfs_write() {
- 21)               |      new_sync_write() {
- 21)               |        ext4_file_write_iter() {
- 21)   1.920 us    |          generic_write_check_limits.isra.58();
- 21)               |          __generic_file_write_iter() {
- 21)   1.900 us    |            file_remove_privs();
- 21)               |            generic_perform_write() {
- 21)               |              ext4_da_write_begin() {
- 21)   1.920 us    |                ext4_nonda_switch();
- 21)               |                grab_cache_page_write_begin() {
- 21)               |                  pagecache_get_page.part.65() {
- 21)               |                    find_get_entry() {
- 21)   1.890 us    |                      PageHuge();
- 21)   5.800 us    |                    }
- 21)   9.660 us    |                  }
- 21)   1.880 us    |                  wait_for_stable_page();
- 21) + 17.240 us   |                }
- 21)   1.940 us    |                unlock_page();
- 21)               |                __ext4_journal_start_sb() {
- 21)   1.890 us    |                  ext4_journal_check_start();
- 21)   5.660 us    |                }
- 21)   1.800 us    |                wait_for_stable_page();
- 21)               |                __block_write_begin() {
- 21)               |                  __block_write_begin_int() {
- 21)   1.850 us    |                    create_page_buffers();
- 21)   5.700 us    |                  }
- 21)   9.450 us    |                }
- 21) + 51.280 us   |              }
- 21)   1.880 us    |              flush_dcache_page();
- 21)               |              ext4_da_write_end() {
- 21)               |                generic_write_end() {
- 21)               |                  block_write_end() {
- 21)   1.870 us    |                    flush_dcache_page();
- 21)               |                    __block_commit_write.isra.41() {
- 21)   1.900 us    |                      mark_buffer_dirty();
- 21)   5.710 us    |                    }
- 21) + 13.110 us   |                  }
- 21)   1.940 us    |                  unlock_page();
- 21)               |                  __mark_inode_dirty() {
- 21)               |                    ext4_dirty_inode() {
- 21)               |                      __ext4_journal_start_sb() {
- 21)   1.900 us    |                        ext4_journal_check_start();
- 21)   5.620 us    |                      }
- 21)               |                      ext4_mark_inode_dirty() {
- 21)               |                        ext4_reserve_inode_write() {
- 21)               |                          __ext4_get_inode_loc() {
- 21)   1.940 us    |                            ext4_get_group_desc();
- 21)   1.840 us    |                            ext4_inode_table();
- 21)               |                            __getblk_gfp() {
- 21)               |                              __find_get_block() {
- 21)   1.980 us    |                                mark_page_accessed();
- 21)   6.780 us    |                              }
- 21) + 10.390 us   |                            }
- 21) + 21.490 us   |                          }
- 21)   1.880 us    |                          __ext4_journal_get_write_access();
- 21) + 28.910 us   |                        }
- 21)               |                        ext4_mark_iloc_dirty() {
- 21)               |                          from_kuid() {
- 21)   1.990 us    |                            map_id_up();
- 21)   5.680 us    |                          }
- 21)               |                          from_kgid() {
- 21)   1.870 us    |                            map_id_up();
- 21)   5.540 us    |                          }
- 21)               |                          from_kprojid() {
- 21)   1.820 us    |                            map_id_up();
- 21)   5.470 us    |                          }
- 21)   1.840 us    |                          ext4_inode_csum_set();
- 21)               |                          __ext4_handle_dirty_metadata() {
- 21)   1.870 us    |                            mark_buffer_dirty();
- 21)   5.510 us    |                          }
- 21)   1.950 us    |                          __brelse();
- 21) + 40.270 us   |                        }
- 21) + 74.720 us   |                      }
- 21)   1.870 us    |                      __ext4_journal_stop();
- 21) + 89.560 us   |                    }
- 21) + 93.270 us   |                  }
- 21) ! 115.820 us  |                }
- 21)   1.850 us    |                __ext4_journal_stop();
- 21) ! 123.190 us  |              }
- 21)   2.220 us    |              _cond_resched();
- 21)   2.140 us    |              balance_dirty_pages_ratelimited();
- 21) ! 192.360 us  |            }
- 21) ! 206.630 us  |          }
- 21) ! 214.950 us  |        }
- 21) ! 218.920 us  |      }
- 21) ! 222.640 us  |    }
- 21)   1.890 us    |    __sb_end_write();
- 21) ! 238.170 us  |  }
- 21)               |  vfs_read() {
- 21)   2.540 us    |    rw_verify_area();
- 21)               |    __vfs_read() {
- 21)               |      new_sync_read() {
- 21)               |        ext4_file_read_iter() {
- 21)               |          generic_file_read_iter() {
- 21)   2.070 us    |            _cond_resched();
- 21)               |            pagecache_get_page.part.65() {
- 21)               |              find_get_entry() {
- 21)   1.830 us    |                PageHuge();
- 21)   5.610 us    |              }
- 21)   9.200 us    |            }
- 21) + 17.900 us   |          }
- 21) + 21.530 us   |        }
- 21) + 25.240 us   |      }
- 21) + 28.980 us   |    }
- 21) + 37.340 us   |  }
- 21)               |  vfs_write() {
- 21)   2.040 us    |    rw_verify_area();
- 21)   1.820 us    |    __sb_start_write();
- 21)               |    __vfs_write() {
- 21)               |      new_sync_write() {
- 21)               |        ext4_file_write_iter() {
- 21)   1.880 us    |          generic_write_check_limits.isra.58();
- 21)               |          __generic_file_write_iter() {
- 21)   1.870 us    |            file_remove_privs();
- 21)               |            generic_perform_write() {
- 21)               |              ext4_da_write_begin() {
- 21)   1.930 us    |                ext4_nonda_switch();
- 21)               |                grab_cache_page_write_begin() {
- 21)               |                  pagecache_get_page.part.65() {
- 21)               |                    find_get_entry() {
- 21)   1.860 us    |                      PageHuge();
- 21)   5.730 us    |                    }
- 21)   9.520 us    |                  }
- 21)   1.900 us    |                  wait_for_stable_page();
- 21) + 16.960 us   |                }
- 21)   1.920 us    |                unlock_page();
- 21)               |                __ext4_journal_start_sb() {
- 21)   1.860 us    |                  ext4_journal_check_start();
- 21)   5.620 us    |                }
- 21)   1.800 us    |                wait_for_stable_page();
- 21)               |                __block_write_begin() {
- 21)               |                  __block_write_begin_int() {
- 21)   1.830 us    |                    create_page_buffers();
- 21)   5.570 us    |                  }
- 21)   9.180 us    |                }
- 21) + 50.300 us   |              }
- 21)   1.870 us    |              flush_dcache_page();
- 21)               |              ext4_da_write_end() {
- 21)               |                generic_write_end() {
- 21)               |                  block_write_end() {
- 21)   1.830 us    |                    flush_dcache_page();
- 21)               |                    __block_commit_write.isra.41() {
- 21)   1.920 us    |                      mark_buffer_dirty();
- 21)   5.730 us    |                    }
- 21) + 13.010 us   |                  }
- 21)   1.960 us    |                  unlock_page();
- 21)               |                  __mark_inode_dirty() {
- 21)               |                    ext4_dirty_inode() {
- 21)               |                      __ext4_journal_start_sb() {
- 21)   1.860 us    |                        ext4_journal_check_start();
- 21)   5.560 us    |                      }
- 21)               |                      ext4_mark_inode_dirty() {
- 21)               |                        ext4_reserve_inode_write() {
- 21)               |                          __ext4_get_inode_loc() {
- 21)   1.960 us    |                            ext4_get_group_desc();
- 21)   1.850 us    |                            ext4_inode_table();
- 21)               |                            __getblk_gfp() {
- 21)               |                              __find_get_block() {
- 21)   1.930 us    |                                mark_page_accessed();
- 21)   6.780 us    |                              }
- 21) + 10.430 us   |                            }
- 21) + 21.660 us   |                          }
- 21)   1.860 us    |                          __ext4_journal_get_write_access();
- 21) + 29.020 us   |                        }
- 21)               |                        ext4_mark_iloc_dirty() {
- 21)               |                          from_kuid() {
- 21)   1.860 us    |                            map_id_up();
- 21)   5.570 us    |                          }
- 21)               |                          from_kgid() {
- 21)   1.870 us    |                            map_id_up();
- 21)   5.530 us    |                          }
- 21)               |                          from_kprojid() {
- 21)   1.870 us    |                            map_id_up();
- 21)   5.570 us    |                          }
- 21)   1.820 us    |                          ext4_inode_csum_set();
- 21)               |                          __ext4_handle_dirty_metadata() {
- 21)   1.870 us    |                            mark_buffer_dirty();
- 21)   5.580 us    |                          }
- 21)   1.950 us    |                          __brelse();
- 21) + 39.450 us   |                        }
- 21) + 74.010 us   |                      }
- 21)   1.910 us    |                      __ext4_journal_stop();
- 21) + 89.710 us   |                    }
- 21) + 93.490 us   |                  }
- 21) ! 115.830 us  |                }
- 21)   1.850 us    |                __ext4_journal_stop();
- 21) ! 123.190 us  |              }
- 21)   2.150 us    |              _cond_resched();
- 21)   2.070 us    |              balance_dirty_pages_ratelimited();
- 21) ! 190.660 us  |            }
- 21) ! 198.700 us  |          }
- 21) ! 206.720 us  |        }
- 21) ! 210.570 us  |      }
- 21) ! 214.220 us  |    }
- 21)   1.880 us    |    __sb_end_write();
- 21) ! 229.440 us  |  }
- 21)               |  vfs_read() {
- 21)   2.370 us    |    rw_verify_area();
- 21)               |    __vfs_read() {
- 21)               |      new_sync_read() {
- 21)               |        ext4_file_read_iter() {
- 21)               |          generic_file_read_iter() {
- 21)   2.080 us    |            _cond_resched();
- 21)               |            pagecache_get_page.part.65() {
- 21)               |              find_get_entry() {
- 21)   1.870 us    |                PageHuge();
- 21)   5.700 us    |              }
- 21)   9.350 us    |            }
- 21) + 17.950 us   |          }
- 21) + 21.610 us   |        }
- 21) + 25.380 us   |      }
- 21) + 29.090 us   |    }
- 21) + 37.280 us   |  }
- 21)               |  vfs_write() {
- 21)   2.040 us    |    rw_verify_area();
- 21)   1.840 us    |    __sb_start_write();
- 21)               |    __vfs_write() {
- 21)               |      new_sync_write() {
- 21)               |        ext4_file_write_iter() {
- 21)   1.930 us    |          generic_write_check_limits.isra.58();
- 21)               |          __generic_file_write_iter() {
- 21)   1.890 us    |            file_remove_privs();
- 21)               |            generic_perform_write() {
- 21)               |              ext4_da_write_begin() {
- 21)   1.910 us    |                ext4_nonda_switch();
- 21)               |                grab_cache_page_write_begin() {
- 21)               |                  pagecache_get_page.part.65() {
- 21)               |                    find_get_entry() {
- 21)   1.870 us    |                      PageHuge();
- 21)   5.690 us    |                    }
- 21)   9.480 us    |                  }
- 21)   1.890 us    |                  wait_for_stable_page();
- 21) + 16.920 us   |                }
- 21)   1.920 us    |                unlock_page();
- 21)               |                __ext4_journal_start_sb() {
- 21)   1.860 us    |                  ext4_journal_check_start();
- 21)   5.720 us    |                }
- 21)   1.840 us    |                wait_for_stable_page();
- 21)               |                __block_write_begin() {
- 21)               |                  __block_write_begin_int() {
- 21)   1.800 us    |                    create_page_buffers();
- 21)   5.540 us    |                  }
- 21)   9.180 us    |                }
- 21) + 51.300 us   |              }
- 21)   1.880 us    |              flush_dcache_page();
- 21)               |              ext4_da_write_end() {
- 21)               |                generic_write_end() {
- 21)               |                  block_write_end() {
- 21)   1.900 us    |                    flush_dcache_page();
- 21)               |                    __block_commit_write.isra.41() {
- 21)   1.880 us    |                      mark_buffer_dirty();
- 21)   5.690 us    |                    }
- 21) + 13.040 us   |                  }
- 21)   1.930 us    |                  unlock_page();
- 21)               |                  __mark_inode_dirty() {
- 21)               |                    ext4_dirty_inode() {
- 21)               |                      __ext4_journal_start_sb() {
- 21)   1.880 us    |                        ext4_journal_check_start();
- 21)   5.600 us    |                      }
- 21)               |                      ext4_mark_inode_dirty() {
- 21)               |                        ext4_reserve_inode_write() {
- 21)               |                          __ext4_get_inode_loc() {
- 21)   1.980 us    |                            ext4_get_group_desc();
- 21)   1.880 us    |                            ext4_inode_table();
- 21)               |                            __getblk_gfp() {
- 21)               |                              __find_get_block() {
- 21)   1.980 us    |                                mark_page_accessed();
- 21) + 60.640 us   |                              }
- 21) + 64.300 us   |                            }
- 21) + 75.570 us   |                          }
- 21)   1.820 us    |                          __ext4_journal_get_write_access();
- 21) + 82.950 us   |                        }
- 21)               |                        ext4_mark_iloc_dirty() {
- 21)               |                          from_kuid() {
- 21)   1.940 us    |                            map_id_up();
- 21)   5.650 us    |                          }
- 21)               |                          from_kgid() {
- 21)   1.870 us    |                            map_id_up();
- 21)   5.610 us    |                          }
- 21)               |                          from_kprojid() {
- 21)   1.840 us    |                            map_id_up();
- 21)   5.480 us    |                          }
- 21)   1.880 us    |                          ext4_inode_csum_set();
- 21)               |                          __ext4_handle_dirty_metadata() {
- 21)   1.870 us    |                            mark_buffer_dirty();
- 21)   5.560 us    |                          }
- 21)   1.970 us    |                          __brelse();
- 21) + 39.810 us   |                        }
- 21) ! 128.380 us  |                      }
- 21)   1.920 us    |                      __ext4_journal_stop();
- 21) ! 143.280 us  |                    }
- 21) ! 147.140 us  |                  }
- 21) ! 169.570 us  |                }
- 21)   1.850 us    |                __ext4_journal_stop();
- 21) ! 176.930 us  |              }
- 21)   2.230 us    |              _cond_resched();
- 21)   2.170 us    |              balance_dirty_pages_ratelimited();
- 21) ! 246.660 us  |            }
- 21) ! 254.710 us  |          }
- 21) ! 262.830 us  |        }
- 21) ! 266.700 us  |      }
- 21) ! 270.420 us  |    }
- 21)   1.940 us    |    __sb_end_write();
- 21) ! 285.880 us  |  }
- 21)               |  vfs_write() {
- 21)   2.360 us    |    rw_verify_area();
- 21)               |    __vfs_write() {
- 21)   1.900 us    |      write_null();
- 21)   5.830 us    |    }
- 21) + 15.560 us   |  }
- ------------------------------------------
- 20)  syslogd-3299  =>   <...>-3318
- ------------------------------------------
-
- 20)               |  vfs_write() {
- 20)   2.280 us    |    rw_verify_area();
- 20)   1.910 us    |    __sb_start_write();
- 20)               |    __vfs_write() {
-#
-
-```
-
 ## 参考
-[linux-5.4.74](https://elixir.bootlin.com/linux/v5.4.74/source)
+[linux-5.4.74](https://elixir.bootlin.com/linux/v5.4.74/source)  
+[trace-pagecache-rw-fault-mmap](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/trace-pagecache-rw-fault-mmap.txt)  
+[trace-vfs-do_writepages](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/trace-vfs-do_writepages.txt)
