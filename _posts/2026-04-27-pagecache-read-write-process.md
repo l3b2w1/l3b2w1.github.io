@@ -437,7 +437,8 @@ drop_caches_sysctl_handler()
 2.  **不同文件系统/对象处理路径不同**：  
     普通文件通过 `remove_mapping` 直接剥离页面。   
 	而块设备文件（如日志中的 `/dev/mmc...`）则会进入 `try_to_release_page` -> `blkdev_releasepage` -> `try_to_free_buffers` 路径，额外释放缓冲区头。  
-3.  仅回收干净页：invalidate_inode_page 在调用 try_to_release_page 失败时会跳过需要写回的脏页。  
+3.  ***仅回收干净页**：  
+    invalidate_inode_page 在调用 try_to_release_page 失败时会跳过需要写回的脏页。  
     因此，整个操作不会触发脏页写回，只会回收干净页。  
 4.  **批量释放机制**：页面回收不是逐个进行的。`__pagevec_release` 函数聚集了多个待释放页面，  
     然后统一调用 `release_pages` 将它们归还给伙伴系统，并处理相关的 memcg 结算。  
