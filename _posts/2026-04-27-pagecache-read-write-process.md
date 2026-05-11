@@ -259,7 +259,40 @@ __mark_inode_dirty
 - **writeback 框架**：`wb_wakeup_delayed` → `queue_delayed_work_on` 将 `wb_workfn` 作为延迟 work 放入 workqueue，由 kworker 线程执行。
 - 实际是由系统里的**[kworker/u48:3-events_unbound]**代为执行的。
 
-#### wb_workfn
+```
+# dd if=/dev/zero of=/mnt/mmc/bigfile3 bs=1M count=4
+4+0 records in
+4+0 records out
+# cd /sys/kernel/tracing/
+# cat trace
+# tracer: nop
+#
+# entries-in-buffer/entries-written: 3/3   #P:24
+#
+#                                _-----=> irqs-off
+#                               / _----=> need-resched
+#                              | / _---=> hardirq/softirq
+#                              || / _--=> preempt-depth
+#                              ||| /     delay
+#           TASK-PID     CPU#  ||||   TIMESTAMP  FUNCTION
+#              | |         |   ||||      |         |
+           <...>-141     [003] ....    54.177730: <stack trace>
+ => do_writepages
+ => __writeback_single_inode
+ => writeback_sb_inodes
+ => __writeback_inodes_wb
+ => wb_writeback
+ => wb_workfn
+ => process_one_work
+ => worker_thread
+ => kthread
+ => ret_from_fork
+
+# ps aux|grep 141
+root       141  0.0  0.0      0     0 ?        I    00:00   0:00 [kworker/u48:3-events_unbound]
+```
+
+#### kworker 后台线程回收
 
 内核后台 writeback 线程回写脏页的关键路径如下：
 
@@ -312,39 +345,6 @@ wb_workfn()
 5. **异步派发**：`blk_mq_run_hw_queue` 并不直接调用驱动，而是通过 `kblockd_mod_delayed_work_on` 将实际硬件队列处理交给 workqueue 异步执行，避免阻塞 writeback 上下文。  
 6. **元数据写回**：trace 中还包含 `ext4_write_inode`（如 `__ext4_get_inode_loc`），用于回写 inode 自身元数据，保证文件系统一致性。  
 7. **带宽控制**：每轮写回后调用 `wb_update_bandwidth` 更新脏页阈值和写回速率，用于后续后台写回的决策。  
-
-```
-# dd if=/dev/zero of=/mnt/mmc/bigfile3 bs=1M count=4
-4+0 records in
-4+0 records out
-# cd /sys/kernel/tracing/
-# cat trace
-# tracer: nop
-#
-# entries-in-buffer/entries-written: 3/3   #P:24
-#
-#                                _-----=> irqs-off
-#                               / _----=> need-resched
-#                              | / _---=> hardirq/softirq
-#                              || / _--=> preempt-depth
-#                              ||| /     delay
-#           TASK-PID     CPU#  ||||   TIMESTAMP  FUNCTION
-#              | |         |   ||||      |         |
-           <...>-141     [003] ....    54.177730: <stack trace>
- => do_writepages
- => __writeback_single_inode
- => writeback_sb_inodes
- => __writeback_inodes_wb
- => wb_writeback
- => wb_workfn
- => process_one_work
- => worker_thread
- => kthread
- => ret_from_fork
-
-# ps aux|grep 141
-root       141  0.0  0.0      0     0 ?        I    00:00   0:00 [kworker/u48:3-events_unbound]
-```
 
 #### fault_around_bytes
 ```
