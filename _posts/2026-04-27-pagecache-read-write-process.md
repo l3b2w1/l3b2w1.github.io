@@ -259,6 +259,60 @@ __mark_inode_dirty
 - **writeback 框架**：`wb_wakeup_delayed` → `queue_delayed_work_on` 将 `wb_workfn` 作为延迟 work 放入 workqueue，由 kworker 线程执行。
 - 实际是由系统里的**[kworker/u48:3-events_unbound]**代为执行的。
 
+#### wb_workfn
+
+内核后台 writeback 线程回写脏页的关键路径如下：
+
+```
+wb_workfn()
+  wb_writeback()
+    __writeback_inodes_wb()
+      writeback_sb_inodes()
+        __writeback_single_inode()
+          do_writepages()
+            ext4_writepages() / blkdev_writepages()
+              generic_writepages()
+                write_cache_pages() ### 对每个脏页
+                    clear_page_dirty_for_io()
+                    __writepage()
+                      blkdev_writepage()
+                        block_write_full_page()
+                          __block_write_full_page()
+                            __test_set_page_writeback()
+                            submit_bh_wbc()
+                              bio_alloc_bioset()
+                              bio_associate_blkg()
+                              bio_add_page()
+                              submit_bio()
+                                generic_make_request()
+                                  blk_mq_make_request()
+                                    __blk_mq_sched_bio_merge()
+                                    blk_mq_get_request()
+                                    blk_account_io_start()
+                                    blk_add_rq_to_plug()      # 加入 plug 队列
+                    → 循环处理多个页
+                blk_finish_plug()                            # 刷新 plug，批量提交
+                  blk_flush_plug_list()
+                    blk_mq_flush_plug_list()
+                      blk_mq_sched_insert_requests()
+                        dd_insert_requests()                 # deadline 调度器插入请求
+                        blk_mq_run_hw_queue()
+                          __blk_mq_delay_run_hw_queue()
+                            kblockd_mod_delayed_work_on()    # workqueue 异步触发硬件队列
+    wb_update_bandwidth()
+    queue_io()
+```
+
+**关键点：**
+
+1. **写回触发**：`wb_workfn` 由内核 writeback 工作队列唤醒，通过 `wb_writeback` 选择脏 inode 并逐级回写。  
+2. **页迭代**：`write_cache_pages` 遍历地址空间的脏页，对每页调用 `__writepage`，最终由 `block_write_full_page` 生成 bio。  
+3. **Plug 机制**：`blk_start_plug`（trace 开头）与 `blk_finish_plug` 配对，将多个相邻的 bio 合并为一个大请求，显著减少块层请求数量。  
+4. **块层提交**：`submit_bio` 进入通用块层，经 `blk_mq_make_request` 进入多队列块层，通过 deadline 调度器（`dd_insert_requests`）进行合并和排序。  
+5. **异步派发**：`blk_mq_run_hw_queue` 并不直接调用驱动，而是通过 `kblockd_mod_delayed_work_on` 将实际硬件队列处理交给 workqueue 异步执行，避免阻塞 writeback 上下文。  
+6. **元数据写回**：trace 中还包含 `ext4_write_inode`（如 `__ext4_get_inode_loc`），用于回写 inode 自身元数据，保证文件系统一致性。  
+7. **带宽控制**：每轮写回后调用 `wb_update_bandwidth` 更新脏页阈值和写回速率，用于后续后台写回的决策。  
+
 ```
 # dd if=/dev/zero of=/mnt/mmc/bigfile3 bs=1M count=4
 4+0 records in
@@ -437,11 +491,14 @@ drop_caches_sysctl_handler()
 2.  **不同文件系统/对象处理路径不同**：  
     普通文件通过 `remove_mapping` 直接剥离页面。   
 	而块设备文件（如日志中的 `/dev/mmc...`）则会进入 `try_to_release_page` -> `blkdev_releasepage` -> `try_to_free_buffers` 路径，额外释放缓冲区头。  
-3.  ***仅回收干净页**：  
+3.  **仅回收干净页**：  
     invalidate_inode_page 在调用 try_to_release_page 失败时会跳过需要写回的脏页。  
     因此，整个操作不会触发脏页写回，只会回收干净页。  
 4.  **批量释放机制**：页面回收不是逐个进行的。`__pagevec_release` 函数聚集了多个待释放页面，  
     然后统一调用 `release_pages` 将它们归还给伙伴系统，并处理相关的 memcg 结算。  
+
+#### kswapd
+
 
 ## 跟踪脚本
 ```
