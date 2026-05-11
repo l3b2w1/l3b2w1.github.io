@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      trace vfs read/write
-subtitle:   读写流程跟踪
+title:      trace pagecache
+subtitle:   跟踪pagecache处理流程
 date:       2026-04-27
 author:     icecube
 header-img: img/bluelinux.jpg
@@ -366,6 +366,82 @@ static int fault_around_bytes_set(void *data, u64 val)
    3596         }
    ......
 ```
+#### drop caches
+
+清理页面缓存、目录项和 inode，关键路径如下：
+
+```
+drop_caches_sysctl_handler()
+  iterate_supers()                                 # 遍历所有超级块
+    drop_pagecache_sb()                            # 针对每个超级块，清理其页面缓存
+      __iget()
+      invalidate_mapping_pages()                   # 核心函数：使该超级块下的页面失效
+        pagevec_lookup_entries()                   # 在页面缓存中查找候选页面
+          find_get_entries()
+        invalidate_inode_page()                    # 使单个页面失效
+          page_mapping()
+          page_mapped()
+          try_to_release_page()                    # 尝试释放页面
+            ext4_releasepage()                     # 对于 ext4 文件系统
+            blkdev_releasepage()                   # 对于块设备文件
+              try_to_free_buffers()
+                drop_buffers()
+          remove_mapping()                         # 从地址空间中剥离页面（核心步骤）
+            __remove_mapping()
+              __delete_from_page_cache()            # 从 page cache 中删除
+        deactivate_file_page()                     # 将页面标记为非活跃
+        __pagevec_release()                        # 批量释放已失效的页面
+          lru_add_drain()                          # 排空每CPU的LRU缓存
+          release_pages()                          # 将页面归还给伙伴系统
+            mem_cgroup_uncharge_list()
+            free_unref_page_list()
+      iput()
+
+  drop_slab()                                      # 回收 slab 缓存（dentries 和 inodes）
+    drop_slab_node()
+      mem_cgroup_iter()
+      shrink_slab()
+        do_shrink_slab()                           # 遍历各缓存对象的回收函数
+          super_cache_count()                      # 获取可用对象数量
+          super_cache_scan()                       # 执行真正的回收
+            trylock_super()
+            prune_dcache_sb()                      # 回收目录项缓存
+              list_lru_walk_one()                  # 遍历LRU链表中的对象
+                dentry_lru_isolate()
+                  d_lru_shrink_move()
+              shrink_dentry_list()                 # 释放已回收的目录项
+                __dentry_kill()
+                  __d_drop.part.28()
+                  dentry_unlink_inode()
+                    iput()
+                  dentry_free()
+                    call_rcu()
+            prune_icache_sb()                      # 回收 inode 缓存
+              list_lru_walk_one()
+                inode_lru_isolate()
+              dispose_list()
+                evict()                            # 驱逐 inode
+                  ext4_evict_inode()
+                    truncate_inode_pages_final()
+                    ext4_clear_inode()
+                  destroy_inode()
+                    __destroy_inode()
+                    call_rcu()
+          _cond_resched()
+```
+
+**关键节点**  
+1.  **分层回收**：操作分为两个主要阶段。  
+    *   **第一阶段**通过 `iterate_supers` 和 `invalidate_mapping_pages` 专注于**页面缓存 (Page Cache)** 的清理。  
+    *   **第二阶段**通过 `drop_slab` 和 `shrink_slab` 回收因页面释放而变为空闲的 **slab 缓存 (Dentries 和 Inodes)**。  
+2.  **不同文件系统/对象处理路径不同**：  
+    普通文件通过 `remove_mapping` 直接剥离页面。   
+	而块设备文件（如日志中的 `/dev/mmc...`）则会进入 `try_to_release_page` -> `blkdev_releasepage` -> `try_to_free_buffers` 路径，额外释放缓冲区头。  
+3.  仅回收干净页：invalidate_inode_page 在调用 try_to_release_page 失败时会跳过需要写回的脏页。  
+    因此，整个操作不会触发脏页写回，只会回收干净页。  
+4.  **批量释放机制**：页面回收不是逐个进行的。`__pagevec_release` 函数聚集了多个待释放页面，  
+    然后统一调用 `release_pages` 将它们归还给伙伴系统，并处理相关的 memcg 结算。  
+
 ## 跟踪脚本
 ```
 #!/bin/sh
