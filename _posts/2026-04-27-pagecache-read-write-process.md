@@ -311,8 +311,8 @@ fault_around_bytes 的本质作用是：
 设置函数还强制它满足两个约束：   
 	1. 不能大于 `PTRS_PER_PTE * PAGE_SIZE`   
 	2. 必须是 不超过页大小粒度约束的 2 的幂对齐值，并且最小不会低于 `PAGE_SIZE`。    
-	
-源码注释写得很明确：`fault_around_bytes` 必须向下取整到 `do_fault_around()` 期望的 page order。 
+
+源码注释写得很明确：`fault_around_bytes` 必须向下取整到 `do_fault_around()` 期望的 page order。
 ```
 /*
  * fault_around_bytes must be rounded down to the nearest page order as it's
@@ -329,11 +329,11 @@ static int fault_around_bytes_set(void *data, u64 val)
         return 0;
 }
 ```
-	
-可以把它理解成一个**“预读式缺页窗口大小”**参数：
-	• 设得大：一次 fault 可能顺带映射更多邻近页，适合线性/局部顺序访问； 
-	• 设得小：prefault 范围缩小，减少一次 fault 的额外工作量，但后续更容易再次 fault； 
-	• 设为 `PAGE_SIZE`：等价于基本关闭“around”扩展，退化到接近单页 fault 语义。 
+
+可以把它理解成一个**“预读式缺页窗口大小”**参数：  
+	• 设得大：一次 fault 可能顺带映射更多邻近页，适合线性/局部顺序访问；  
+	• 设得小：prefault 范围缩小，减少一次 fault 的额外工作量，但后续更容易再次 fault；  
+	• 设为 `PAGE_SIZE`：等价于基本关闭“around”扩展，退化到接近单页 fault 语义。  
 
 一句话总结：  
 `fault_around_bytes` 决定了文件映射读缺页时，内核会不会以及会在多大范围内“顺带”批量建立邻近页表项；  
