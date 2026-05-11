@@ -27,6 +27,13 @@ tmpfs                tmpfs       12217504         0  12217504   0% /dev/shm
 # taskset -c 16 dd if=/mnt/mmc/zerofile of=/mnt/mmc/zerofile2 bs=1k count=8 2>/dev/null
 ```
 
+## 执行路径
+读路径：冷读 → PageCache 分配 → 同步预读 → BIO 提交 → blk 层调度。  
+写路径：PageCache 写入 → 日志元数据更新 → 延迟落盘 I/O。  
+mmap：共享 PageCache，首次访问触发缺页加载，写时触发 COW。  
+次要缺页：内存复制更新页表，无硬盘访问。  
+主要缺页：文件页未缓存，触发硬盘 I/O，加载 PageCache。  
+
 ## 日志分析
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-04-27-pagecache-flowchart.png)
 
