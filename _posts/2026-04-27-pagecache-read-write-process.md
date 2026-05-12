@@ -497,8 +497,106 @@ drop_caches_sysctl_handler()
 4.  **批量释放机制**：页面回收不是逐个进行的。`__pagevec_release` 函数聚集了多个待释放页面，  
     然后统一调用 `release_pages` 将它们归还给伙伴系统，并处理相关的 memcg 结算。  
 
-#### kswapd
+#### kswapd 后台内存回收 
 
+trace 显示 kswapd 线程执行 `balance_pgdat`，触发了标准的后台内存回收流程。  
+主要包含两个阶段：Slab 缓存回收和 Page Cache/LRU 页回收。关键路径如下：
+
+**阶段一：Slab 缓存统计与扫描 (shrink_slab)**
+```text
+balance_pgdat()
+  pgdat_balanced()          # 检查节点是否平衡
+  shrink_node()
+    shrink_node_memcg()     # 内存组回收
+      shrink_slab()         # 开始 Slab 回收
+        down_read_trylock() # 获取超级块锁
+        do_shrink_slab()    # 遍历文件系统超级块
+          super_cache_count() # 统计可回收对象数量
+            list_lru_count_one() # 计算 LRU 列表中的对象数
+          super_cache_scan()  # 执行实际扫描
+            trylock_super()
+            prune_dcache_sb() # 回收 dentry 缓存
+              list_lru_walk_one()
+                __list_lru_walk_one()
+                  dentry_lru_isolate() # 隔离待回收 dentry
+                    d_lru_shrink_move()
+                      list_lru_isolate_move()
+            prune_icache_sb() # 回收 inode 缓存
+              list_lru_walk_one()
+                __list_lru_walk_one()
+                  dispose_list()
+        _cond_resched()       # 允许调度
+        do_shrink_slab()      # 其他文件系统 (ext4, nfs, rpc 等)
+          ext4_es_count()     # ext4 扩展属性统计
+          mb_cache_count()    # 块位图缓存统计
+```
+
+**阶段二：LRU 页回收 (shrink_inactive_list)**
+```text
+    shrink_node()
+      shrink_list()           # 回收非活跃 LRU 链表
+        shrink_inactive_list()
+          lru_add_drain()     # 刷新本地 LRU 添加队列
+          isolate_lru_pages() # 从 LRU 链表隔离页面
+            __isolate_lru_page() # 检查页面状态并隔离
+            __mod_lruvec_state() # 更新统计计数
+          shrink_page_list()  # 核心页面回收逻辑
+            _cond_resched()
+            
+            # 循环处理每个被隔离的页面
+            page_evictable()  # 检查页面是否可回收
+            page_mapping()
+            page_referenced() # 检查页面引用计数
+            page_mapped()
+            
+            # 分支 A: 匿名页回收 (如堆、栈、共享内存等)
+            # 匿名页没有关联的文件系统元数据，直接进入 __remove_mapping 流程
+            __remove_mapping() # 从 Page Cache 移除
+              workingset_eviction() # 记录工作集事件
+              __delete_from_page_cache()
+                unaccount_page_cache_page()
+              unlock_page()
+              
+            # 分支 B: 可释放的 Page Cache (如 ext4 文件数据)
+            try_to_release_page()
+              ext4_releasepage() # ext4 特定释放逻辑
+                try_to_free_buffers()
+                  drop_buffers()
+                  free_buffer_head() # 释放 buffer head
+                    kmem_cache_free() # 归还 slab 缓存
+                      __slab_free() # 归还 slab 对象
+              __remove_mapping()
+                __delete_from_page_cache()
+                unlock_page()
+                
+            mem_cgroup_uncharge_list() # 解除内存组记账
+              uncharge_page()
+              uncharge_batch()
+                __mod_memcg_state()
+                memcg_check_events()
+            free_unref_page_list() # 释放物理页帧
+              free_pcp_prepare()
+              free_unref_page_prepare.part.80()
+              free_unref_page_commit()
+                free_pcppages_bulk() # 批量归还到伙伴系统
+                  pfn_valid()     # 验证页帧号有效性
+                    memblock_is_map_memory()
+                  __mod_zone_page_state()
+```
+
+关键点：  
+1.  **Slab 回收以统计为主**：    
+	`shrink_slab` 阶段大量时间消耗在 `super_cache_count` 和 `do_shrink_slab` 的循环调用上，主要进行 `list_lru_count_one` 统计操作。   
+	这表明系统当前可能没有大量的脏 Slab 对象需要紧急回收，或者回收效率很高，大部分时间花在遍历和计数上。  
+2.  **Page Cache 回收**：    
+	`shrink_page_list` 的过程中可以看到大量的 `page_evictable`、`page_referenced` 和 `__remove_mapping` 调用。   
+	分支 A 明确代表匿名页回收，分支 B 代表文件页回收。  
+3.  **Buffer Head 释放**：   
+	在 `try_to_release_page` -> `ext4_releasepage` -> `try_to_free_buffers` 路径中，  
+	频繁出现 `free_buffer_head` 和 `kmem_cache_free`，说明正在回收 ext4 文件的元数据缓存（Buffer Heads），这有助于释放 slab 内存。   
+4.  **物理页归还**：    
+	`free_unref_page_list` -> `free_pcppages_bulk` 路径中，`pfn_valid` 和 `memblock_is_map_memory` 频繁调用,  
+	表明内核正在验证页帧的有效性，并将其归还给伙伴系统（Buddy System）。这是内存回收的最后一步，将物理页标记为可用。  
 
 ## 跟踪脚本
 ```
