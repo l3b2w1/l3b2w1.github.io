@@ -54,7 +54,7 @@ vfs_read()
                 read_pages()
                   ext4_readpages()
                     ext4_mpage_readpages()
-                      add_to_page_cache_lru()        # 加入 page cache
+                      add_to_page_cache_lru()        ### 加入 page cache ####
                       ext4_map_blocks()              # 逻辑块到物理块映射
                         ext4_es_lookup_extent()
                         ext4_ind_map_blocks()
@@ -119,7 +119,7 @@ vfs_write()
                     alloc_pages_current()
                       __alloc_pages_nodemask()
                         get_page_from_freelist()
-                  add_to_page_cache_lru()
+                  add_to_page_cache_lru()				### 加入 page cache ####
                     __add_to_page_cache_locked()
                       mem_cgroup_try_charge()
                       __inc_node_page_state()
@@ -442,7 +442,7 @@ drop_caches_sysctl_handler()
                 drop_buffers()
           remove_mapping()                         # 从地址空间中剥离页面（核心步骤）
             __remove_mapping()
-              __delete_from_page_cache()            # 从 page cache 中删除
+              __delete_from_page_cache()           ### 从 page cache 中删除 ###
         deactivate_file_page()                     # 将页面标记为非活跃
         __pagevec_release()                        # 批量释放已失效的页面
           lru_add_drain()                          # 排空每CPU的LRU缓存
@@ -553,7 +553,7 @@ balance_pgdat()
             # 匿名页没有关联的文件系统元数据，直接进入 __remove_mapping 流程
             __remove_mapping() # 从 Page Cache 移除
               workingset_eviction() # 记录工作集事件
-              __delete_from_page_cache()
+              __delete_from_page_cache()			### 从 page cache 中删除 ###
                 unaccount_page_cache_page()
               unlock_page()
               
@@ -566,7 +566,7 @@ balance_pgdat()
                     kmem_cache_free() # 归还 slab 缓存
                       __slab_free() # 归还 slab 对象
               __remove_mapping()
-                __delete_from_page_cache()
+                __delete_from_page_cache()			### 从 page cache 中删除 ###
                 unlock_page()
                 
             mem_cgroup_uncharge_list() # 解除内存组记账
