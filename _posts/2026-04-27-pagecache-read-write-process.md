@@ -634,9 +634,10 @@ echo do_page_fault >> set_graph_function
 
 # 5. 配置图形输出选项，减少干扰
 echo 0 > options/funcgraph-irqs       # 不显示中断处理函数
-#echo 0 > options/funcgraph-proc       # 不显示进程名（可选）
-#echo 32 > max_graph_depth             # 限制深度，避免刷屏
+echo 1 > options/funcgraph-proc       # 显示进程名（可选）
+#echo 32 > max_graph_depth            # 限制深度，避免刷屏
 echo 1 > options/funcgraph-tail       # 显示函数结尾
+echo 1 > options/funcgraph-abstime	  # 显示时间戳
 
 # show process comm pid
 echo funcgraph-proc > trace_options
