@@ -245,7 +245,7 @@ __mark_inode_dirty
   ├─ locked_inode_to_wb_and_lock_list()    // 将 inode 挂入对应 backing device 的脏链表
   ├─ inode_io_list_move_locked()          // 在 wb 的链表上移动该 inode
   │    └─ wb_io_lists_populated()         // 确认链表是否已初始化
-  └─ wb_wakeup_delayed()                  // *** 唤醒回写 work ***
+  └─ wb_wakeup_delayed()                  // *** 唤醒回写 worker ***
        ├─ __msecs_to_jiffies()            // 计算延迟时间
        ├─ queue_delayed_work_on()         // 把回写 work 排入 workqueue
        │    └─ __queue_delayed_work()
