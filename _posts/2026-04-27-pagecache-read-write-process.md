@@ -499,6 +499,19 @@ drop_caches_sysctl_handler()
 	* 页面不属于任何进程的页表 (!page_mapped(page))。  
 	* 页面不是脏页 (!PageDirty(page))。  
 	* 页面不在回写中 (!PageWriteback(page))。  
+```
+int invalidate_inode_page(struct page *page)
+{
+        struct address_space *mapping = page_mapping(page);
+        if (!mapping)
+                return 0;
+        if (PageDirty(page) || PageWriteback(page))
+                return 0;
+        if (page_mapped(page))
+                return 0;
+        return invalidate_complete_page(mapping, page);
+}
+```
 
 #### kswapd 内存压力触发回收
 
