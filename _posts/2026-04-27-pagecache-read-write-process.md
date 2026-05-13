@@ -10,8 +10,8 @@ tags:
     - pagecache
     - trace
 ---
-研究`pagecache`相关代码，可以利用`ftrace`获取各个关键流程。  
-如下是在嵌入式环境，利用 `ftrace` 跟踪 vfs read write 的过程。   
+为了研究`pagecache`相关代码，在嵌入式环境，  
+利用 `ftrace` 跟踪 read/write/pagefault/dropcaches 等的过程。   
 
 ## 测试命令
 ```
@@ -169,7 +169,7 @@ vfs_write()
 
 ![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-04-27-vfs-write.png)
 
-#### minor fault
+#### minor fault(页缓存命中)
 
 当页缓存中已有文件数据时，缺页处理直接建立映射：
 ```
@@ -197,7 +197,7 @@ do_page_fault()
 3. **性能优势**：minor fault 仅涉及内存操作，延迟极低，是 mmap 高效性的关键。
 
 
-#### major fault（ext4 文件写时复制）
+#### major fault（写时复制）
 
 major fault 发生在需要从磁盘读取数据或进行写时复制时，trace 中显示了 ext4 文件的写时复制流程：
 ```
@@ -292,7 +292,7 @@ __mark_inode_dirty
 root       141  0.0  0.0      0     0 ?        I    00:00   0:00 [kworker/u48:3-events_unbound]
 ```
 
-#### kworker 后台线程回收
+#### kworker 脏页写回
 
 内核后台 writeback 线程回写脏页的关键路径如下：
 
@@ -420,9 +420,9 @@ static int fault_around_bytes_set(void *data, u64 val)
    3596         }
    ......
 ```
-#### drop caches
+#### drop caches 清理缓存
 
-清理页面缓存、目录项和 inode，关键路径如下：
+清理 页面缓存、目录项缓存 和 inode缓存，关键路径如下：
 
 ```
 drop_caches_sysctl_handler()
