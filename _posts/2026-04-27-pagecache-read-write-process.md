@@ -491,13 +491,16 @@ drop_caches_sysctl_handler()
 2.  **不同文件系统/对象处理路径不同**：  
     普通文件通过 `remove_mapping` 直接剥离页面。   
 	而块设备文件（如日志中的 `/dev/mmc...`）则会进入 `try_to_release_page` -> `blkdev_releasepage` -> `try_to_free_buffers` 路径，额外释放缓冲区头。  
-3.  **仅回收干净页**：  
-    invalidate_inode_page 在调用 try_to_release_page 失败时会跳过需要写回的脏页。  
-    因此，整个操作不会触发脏页写回，只会回收干净页。  
-4.  **批量释放机制**：页面回收不是逐个进行的。`__pagevec_release` 函数聚集了多个待释放页面，  
+3.  **批量释放机制**：页面回收不是逐个进行的。`__pagevec_release` 函数聚集了多个待释放页面，  
     然后统一调用 `release_pages` 将它们归还给伙伴系统，并处理相关的 memcg 结算。  
+4. **只处理“干净”页**：     
+	drop_caches 的核心逻辑 `invalidate_mapping_pages` 会遍历所有 page cache 页面。   
+	一个页面只有通过 `invalidate_inode_page` 一整套严格检查后，才会被真正清理，这些检查包括：  
+	* 页面不属于任何进程的页表 (!page_mapped(page))。  
+	* 页面不是脏页 (!PageDirty(page))。  
+	* 页面不在回写中 (!PageWriteback(page))。  
 
-#### kswapd 内存压力触发回收 
+#### kswapd 内存压力触发回收
 
 trace 显示 kswapd 线程执行 `balance_pgdat`，触发了标准的后台内存回收流程。  
 主要包含两个阶段：Slab 缓存回收和 Page Cache/LRU 页回收。关键路径如下：
@@ -542,13 +545,13 @@ balance_pgdat()
             __mod_lruvec_state() # 更新统计计数
           shrink_page_list()  # 核心页面回收逻辑
             _cond_resched()
-            
+
             # 循环处理每个被隔离的页面
             page_evictable()  # 检查页面是否可回收
             page_mapping()
             page_referenced() # 检查页面引用计数
             page_mapped()
-            
+
             # 分支 A: 匿名页回收 (如堆、栈、共享内存等)
             # 匿名页没有关联的文件系统元数据，直接进入 __remove_mapping 流程
             __remove_mapping() # 从 Page Cache 移除
@@ -556,7 +559,7 @@ balance_pgdat()
               __delete_from_page_cache()			### 从 page cache 中删除 ###
                 unaccount_page_cache_page()
               unlock_page()
-              
+
             # 分支 B: 可释放的 Page Cache (如 ext4 文件数据)
             try_to_release_page()
               ext4_releasepage() # ext4 特定释放逻辑
@@ -568,7 +571,7 @@ balance_pgdat()
               __remove_mapping()
                 __delete_from_page_cache()			### 从 page cache 中删除 ###
                 unlock_page()
-                
+
             mem_cgroup_uncharge_list() # 解除内存组记账
               uncharge_page()
               uncharge_batch()
