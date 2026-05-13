@@ -493,7 +493,9 @@ drop_caches_sysctl_handler()
 	而块设备文件（如日志中的 `/dev/mmc...`）则会进入 `try_to_release_page` -> `blkdev_releasepage` -> `try_to_free_buffers` 路径，额外释放缓冲区头。  
 3.  **批量释放机制**：页面回收不是逐个进行的。`__pagevec_release` 函数聚集了多个待释放页面，  
     然后统一调用 `release_pages` 将它们归还给伙伴系统，并处理相关的 memcg 结算。  
-4. **只处理“干净”页**：     
+4. **处理 THP**：  
+	对透明大页进行特殊处理，要么整个大页一起删除，要么完全不删（部分页超出范围的情况index > end）。
+5. **只处理“干净”页**：     
 	drop_caches 的核心逻辑 `invalidate_mapping_pages` 会遍历所有 page cache 页面。   
 	一个页面只有通过 `invalidate_inode_page` 一整套严格检查后，才会被真正清理，这些检查包括：  
 	* 页面不属于任何进程的页表 (!page_mapped(page))。  
