@@ -497,7 +497,7 @@ drop_caches_sysctl_handler()
 4.  **批量释放机制**：页面回收不是逐个进行的。`__pagevec_release` 函数聚集了多个待释放页面，  
     然后统一调用 `release_pages` 将它们归还给伙伴系统，并处理相关的 memcg 结算。  
 
-#### kswapd 后台内存回收 
+#### kswapd 内存压力触发回收 
 
 trace 显示 kswapd 线程执行 `balance_pgdat`，触发了标准的后台内存回收流程。  
 主要包含两个阶段：Slab 缓存回收和 Page Cache/LRU 页回收。关键路径如下：
