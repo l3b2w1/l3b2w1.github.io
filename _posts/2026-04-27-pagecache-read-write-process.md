@@ -444,7 +444,7 @@ drop_caches_sysctl_handler()
             __remove_mapping()
               __delete_from_page_cache()           ### 从 page cache 中删除 ###
         deactivate_file_page()                     # 将页面标记为非活跃
-        __pagevec_release()                        # 批量释放已失效的页面
+        __pagevec_release()                        ### 批量释放已失效的页面 ###
           lru_add_drain()                          # 排空每CPU的LRU缓存
           release_pages()                          # 将页面归还给伙伴系统
             mem_cgroup_uncharge_list()
@@ -514,6 +514,12 @@ int invalidate_inode_page(struct page *page)
         return invalidate_complete_page(mapping, page);
 }
 ```
+6. **lru list**：
+	`deactivate_file_page`的作用就是将干净、未映射的文件页移到 inactive LRU 的尾部（加速回收）。    
+	将脏/回写的文件页移到 inactive LRU 的头部并标记 PG_reclaim，促使 flusher 线程优先处理。  
+	当 `invalidate_inode_page` 返回 0（页面无法被删除，例如因为脏、回写或被映射），   
+	但页面已被成功锁定且通过了基本检查，则调用 `deactivate_file_page` 将其移到 inactive LRU list加速回收。   
+	这是一种“提示”：虽然我现在不能删你，但后续会尽快把你回收掉。  
 
 #### kswapd 内存压力触发回收
 
