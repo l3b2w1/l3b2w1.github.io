@@ -19,7 +19,7 @@ description: "日拱一卒 不期而至"
         </div>
     </a>
     <p class="post-meta">
-        Posted by {% if post.author %}{{ post.author }}{% else %}{{ site.title }}{% endif %} on {{ post.date | date: "%B %-d, %Y" }}
+        发布于 {{ post.date | date: "%Y年%-m月%-d日" }}
     </p>
 </div>
 <hr>
