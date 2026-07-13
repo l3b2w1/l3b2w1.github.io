@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      codebuddy webGUI
-subtitle:   codebuddy webGUI 使用
+title:      xfs introduction
+subtitle:   xfs 文件系统介绍
 date:       2026-07-13
 author:     icecube
 header-img: img/bluelinux.jpg
@@ -476,14 +476,14 @@ XFS 诞生于 1993 年的 SGI 实验室，跨越了三十年计算史：
 1996 年的论文标题 *"Scalability in the XFS File System"* 精准地预判了时代的走向。  
 当整个行业从单核走向多核、从 GB 级存储走向 PB 级数据湖时，XFS 的 AG 独立并行架构不仅没有过时，反而成了理所当然的选择。
 
-**最值得玩味的设计**:      
-BNO 树和 CNT 树用两套排序方式索引同一份空闲空间数据——一个看似浪费的设计选择，  
-却让三种分配策略都能以最优路径执行。这种"冗余换效率"的思路，贯穿 XFS 的每一个子系统（CIL 批量提交、延迟分配、reflink COW），或许正是 XFS 工程哲学的缩影。
+**最值得玩味的设计**:  
+BNO 树和 CNT 树用两套排序方式索引同一份空闲空间数据——一个看似浪费的设计选择，却让三种分配策略都能以最优路径执行。  
+这种"冗余换效率"的思路，贯穿 XFS 的每一个子系统（CIL 批量提交、延迟分配、reflink COW），或许正是 XFS 工程哲学的缩影。
 
 ---
 
 ## 参考
-- *A. Sweeney et al., "Scalability in the XFS File System", USENIX 1996*
-- *C. Hellwig, "XFS: The Big Storage File System for Linux", Linux Journal, 2009*
-- *Mark Tinguely, "XFS Filesystem Block Usage", Oracle Linux Blog*
-- *internals-for-interns.com, "XFS Filesystem Internals"*(https://internals-for-interns.com/posts/xfs-filesystem/)
+- [*A. Sweeney et al., "Scalability in the XFS File System", USENIX 1996*](https://www.cs.princeton.edu/courses/archive/fall11/cos518/papers/xfs.pdf)
+- [*C. Hellwig, "XFS: The Big Storage File System for Linux", Linux Journal, 2009*](https://www.usenix.org/system/files/login/articles/140-hellwig.pdf)
+- [*Mark Tinguely, "XFS Filesystem Block Usage", Oracle Linux Blog*](https://blogs.oracle.com/linux/xfs-filesystem-block-usage)
+- [*internals-for-interns.com, "XFS Filesystem Internals"*](https://internals-for-interns.com/posts/xfs-filesystem/)
