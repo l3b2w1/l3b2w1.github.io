@@ -9,6 +9,10 @@ catalog: true
 tags:
     - debug
 ---
+> ⚠️ **声明**：kfuzztest 目前是提案阶段，尚未合入 Linux 主线内核。以下内容基于 [patchew 上的 v11 RFC 补丁](https://patchew.org/linux/20250919145750.3448393-1-ethan.w.s.graham@gmail.com/)。
+
+---
+
 # 功能简介
 
 KFuzzTest的主要是简化对低级、相对无状态函数（如数据解析器、格式转换器）的模糊测试，这些函数很难通过系统调用边界有效覆盖。
