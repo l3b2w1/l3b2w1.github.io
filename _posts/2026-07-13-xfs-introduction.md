@@ -26,9 +26,7 @@ tags:
 
 XFS 的设计目标是**从第一天起就面向大容量和高并发**。  
 
-这份设计文档在 1996 年的 USENIX 会议上发表，标题为 *"Scalability in the XFS File System"*，  
-由 Adam Sweeney、Doug Doubley、Gregg H. Luddington、Bob Collins 和 David N. Cole 执笔。
-
+1996 年的 USENIX 会议上发表了标题为 *"Scalability in the XFS File System"*的设计文档。  
 2001 年 SGI 将 XFS 开源，2002 年进入 Linux 主线内核，  
 2014 年成为 Red Hat Enterprise Linux 7 和 CentOS 7 的默认文件系统。  
 
@@ -107,8 +105,6 @@ SGI 论文中指出，这是 XFS 能够在 64 路 SGI Challenge 服务器上跑�
 | 较小（如 1 GB） | 多 | 高 | 碎片化风险 |
 | 较大（如 64 GB） | 少 | 低 | 更易找到大连续空间 |
 
-现代建议使用 1 GB 左右的 AG 大小作为平衡点。
-
 ---
 
 ## 四、B+ 树：无所不在的底层结构
@@ -168,7 +164,8 @@ CNT 树排序:  [4][8][16]          ← 用于"大小优先分配"
 **一条重要规则**：普通文件即使只有几字节内容，也**永远使用 extent 映射**，  
 绝不会将数据内联进 inode。小型目录和短符号链接则可以内联。
 
-inode 以 64 个为一组（chunk）分配。现代 CRC XFS 每个 inode 512 字节，每 chunk 占用 8 个 4 KB 块（32 KB）。
+inode 以 64 个为一组（chunk）分配。  
+现代 CRC XFS 每个 inode 512 字节，每 chunk 占用 8 个 4 KB 块（32 KB）。
 
 ### 5.2 大型目录的 B+ 树优化
 
@@ -476,7 +473,7 @@ XFS 诞生于 1993 年的 SGI 实验室，跨越了三十年计算史：
 1996 年的论文标题 *"Scalability in the XFS File System"* 精准地预判了时代的走向。  
 当整个行业从单核走向多核、从 GB 级存储走向 PB 级数据湖时，XFS 的 AG 独立并行架构不仅没有过时，反而成了理所当然的选择。
 
-**最值得玩味的设计**:  
+**最值得玩味的设计**  
 BNO 树和 CNT 树用两套排序方式索引同一份空闲空间数据——一个看似浪费的设计选择，却让三种分配策略都能以最优路径执行。  
 这种"冗余换效率"的思路，贯穿 XFS 的每一个子系统（CIL 批量提交、延迟分配、reflink COW），或许正是 XFS 工程哲学的缩影。
 
