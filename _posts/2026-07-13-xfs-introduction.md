@@ -8,6 +8,7 @@ header-img: img/bluelinux.jpg
 catalog: true
 tags:
     - xfs
+    - fs
 ---
 
 
