@@ -52,12 +52,13 @@ tags:
 把所有文件系统抽象到最高层，功能就是"存储、检索、定位、操纵信息"。具体形态（层次目录、对象存储、数据库式查询）都是这四种能力的不同包装。  
 BFS 把 locate 做成一等公民（索引+查询），NTFS/ext4/XFS 以层次目录为主——谱系两端，本质相同。
 
-**原则 0.3：一致性、性能、功能三者互斥，设计即取舍。**
+**原则 0.3：一致性与性能互为代价，设计即明示取舍。**
 
-- FFS：同步写元数据保一致性 → 元数据操作被压到逐块写速度；
-- ext2：放松一致性换极限速度 → 崩溃语义弱，依赖重量级 fsck；
-- BFS/XFS/NTFS：日志折中——以约 2 倍元数据写放大换一致性和秒级恢复。
-没有免费的午餐，只有明示的权衡。
+- **FFS 选了安全**：元数据同步写盘 + 仔细排定写序，崩溃后 fsck 能据此推断修复——代价是元数据操作被拖到"逐块写"这一最慢档位；
+- **ext2 选了速度**：元数据操作几乎全在内存完成，不承诺落盘时机与顺序——换来约一个数量级的性能，代价是崩溃语义弱、恢复依赖重量级 fsck；
+- **BFS/XFS/NTFS 选了折中（日志）**：元数据先写日志、再写原位置，账面上写了两次；但日志写是批量顺序写、回写可排序合并，实际性能往往不降反升，同时换来崩溃一致性与秒级恢复。其真实成本在于实现复杂度，以及单日志成为更新路径的串行化点。
+
+功能维度同理——BFS 为保工期砍掉 ACL、硬链接、rename_attr：**没有免费的午餐，每个系统都先把"放弃什么"写清楚。**
 
 ---
 
@@ -81,14 +82,16 @@ BFS 把 locate 做成一等公民（索引+查询），NTFS/ext4/XFS 以层次�
 寻道（5–20ms）是系统中最慢的操作，省空间省不出一次寻道的代价。
 
 印证：XFS 宁愿为大目录消耗更多块也要 dabtree 聚簇；  
-BFS 为 i-node 独占整块（结构仅 232 字节）换取"一次寻道读全元数据+小属性"；NTFS 小文件数据常驻 MFT 记录内（resident attribute）同理。
+BFS 为 i-node 独占整块（结构仅 232 字节）换取"一次寻道读全元数据+小属性"；  
+NTFS 小文件数据常驻 MFT 记录内（resident attribute）同理。
 
 ### 原则 1.3：批量 + 排序摊销寻道
 
 必须做多处 I/O 时，聚合成批、按磁盘地址排序、合并相邻请求，可把寻道成本减半。  
 原书例：乱序块 {971,245,972,246,973,247} 排序合并后 6 次写+5 次寻道 → 2 次写+1 次寻道。
 
-印证：Linux 块层 elevator/CFQ/BFQ 调度器、缓存回写排序（BFS 缓存刷盘排序、"一次大扫描"）、group commit（§6.4）、XFS 的 delayed logging 对同一元数据项的合并——全是此原则的实例化。
+印证：Linux 块层 elevator/CFQ/BFQ 调度器、缓存回写排序（BFS 缓存刷盘排序、"一次大扫描"）、  
+group commit（§6.4）、XFS 的 delayed logging 对同一元数据项的合并——全是此原则的实例化。
 
 ### 原则 1.4：现代磁盘隐藏物理几何，文件系统按"逻辑块线性数组"设计
 
@@ -166,7 +169,8 @@ i-node 存 4–16 个直接块指针，超出后走间接→双间接→三间�
 
 ### 原则 4.1：i-node 必须回答两个问题——"数据在哪"+"这是什么"
 
-数据位置（§3 的映射结构）+ 元数据（大小、时间、属主、权限、类型）。各系统字段取舍不同（BFS 砍掉 atime——"维护代价太高、收益太小"；BFS 保留 create time），但骨架一致。
+数据位置（§3 的映射结构）+ 元数据（大小、时间、属主、权限、类型）。  
+各系统字段取舍不同（BFS 砍掉 atime——"维护代价太高、收益太小"；BFS 保留 create time），但骨架一致。
 
 ### 原则 4.2：i-node 定位三流派
 
@@ -442,7 +446,8 @@ BFS 全部重大性能修复都来自"给每次磁盘 I/O 打一条日志（块�
 ### 原则 12.3：关键子系统独立 test harness
 
 块分配器、B+tree、日志各配独立随机测试（B+tree 改动经受数天连续随机插删数亿键）——覆盖远胜只测整机。  
-随机测试必须**打印并接收种子**（可复现）、参数丰富（防止退化为窄模式）。fskit（用户态、文件中建文件系统、普通调试器可调试）证明：**把文件系统核心挪到用户态开发调试，效率远超内核"崩溃-重启"循环**。
+随机测试必须**打印并接收种子**（可复现）、参数丰富（防止退化为窄模式）。  
+fskit（用户态、文件中建文件系统、普通调试器可调试）证明：**把文件系统核心挪到用户态开发调试，效率远超内核"崩溃-重启"循环**。
 
 ### 原则 12.4：压力测试的通用清单
 
@@ -476,9 +481,9 @@ BFS 全部重大性能修复都来自"给每次磁盘 I/O 打一条日志（块�
 | 3.3 | 小数据内联 | small_data（i-node 块尾） | shortform/local（inode fork） | inline data | resident attribute |
 | 4.2 | i-node 定位 | i-node 号=盘地址 | inobt B+tree 定位 | 固定表索引 | MFT 记录号（MFT 是文件） |
 | 5.1 | 目录结构 | B+tree | dabtree（hash 键 B+tree） | htree（hash+排序桶） | B+tree |
-| 6.2 | WAL 三要素 | redo-only 元数据日志 | redo-only（iclog→CIL） | jbd2 redo-only | LFS 服务 undo+redo |
+| 6.2 | WAL 三要素 | redo-only 元数据日志 | redo-only（iclog→CIL） | jbd2 redo-only | log file service：undo+redo* |
 | 6.4 | group commit | 多事务批量冲刷 | iclog 聚合/delayed logging | jbd2 commit 批量 | checkpoint+循环日志 |
-| 6.5 | 日志可扩展性 | 单日志（未扩展） | 多 iclog/CIL | 单 journal | LSF 循环日志+full 处理 |
+| 6.5 | 日志可扩展性 | 单日志（未扩展） | 多 iclog/CIL | 单 journal | log file service 循环日志+full 处理 |
 | 7.4 | 统一缓存 | 固定 2MB/16MB（短板） | Linux page cache | Linux page cache | Windows cache manager |
 | 7.5 | 日志-缓存契约 | pin+flush 回调+克隆 | pinned buffers+XLOG 完成处理 | jbd2 buffer 状态机 | cache manager 三方协作 |
 | 7.6 | 大 I/O 直通 | ≥64K 隐式绕过 | O_DIRECT | O_DIRECT | FILE_FLAG_NO_BUFFERING |
@@ -488,7 +493,9 @@ BFS 全部重大性能修复都来自"给每次磁盘 I/O 打一条日志（块�
 | 10.5 | 变化通知 | node monitor | inotify/fanotify（VFS 挂点） | 同左 | USN journal |
 | 12.1 | 运行时检查 | CHECK_INODE 永开 | ASSERT/xfs_corruption | ext4_error/jbd2 校验 | NTFS 一致性检查 |
 
-**唯一未被主流吸收的 BFS 特性**：属性索引 + 查询 + live query 作为一等文件系统操作（数据库式定位）。XFS/ext4/NTFS 均停留在"层次目录 + 变化通知"，定位仍靠用户态索引服务（tracker/beagle/Locate）。这是原书最具前瞻性、也至今未被完全采纳的设计。
+
+**唯一未被主流吸收的 BFS 特性**：属性索引 + 查询 + live query 作为一等文件系统操作（数据库式定位）。  
+XFS/ext4/NTFS 均停留在"层次目录 + 变化通知"，定位仍靠用户态索引服务（tracker/beagle/Locate）。这是原书最具前瞻性、也至今未被完全采纳的设计。
 
 ---
 
