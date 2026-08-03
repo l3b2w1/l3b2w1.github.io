@@ -36,6 +36,12 @@ git branch -m old-branch new-branch  // 重命名分支，当前位于old-branch
 git tag -a tagName -m "comment"   // 打标签  
 git tag -d tagName                // 删标签  
 
+### 代理
+
+代码服务器git走PC(10.31.80.28:808)代理  
+git config --global https.proxy http://10.31.80.28:808  
+git config --global http.proxy http://10.31.80.28:808  
+
 ### 查看历史改动
 git status --untracked-files=no   // 不显示未跟踪的文件
 
