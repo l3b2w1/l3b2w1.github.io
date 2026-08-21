@@ -10,7 +10,7 @@ tags:
     - misc
 ---
 
-# zram 问题
+# 问题
 
 **zram: Can't change algorithm for initialized device**
 
@@ -45,10 +45,10 @@ mkswap /dev/zram0 && swapon /dev/zram0
 
 ### 排查方向
 
-1. 查找 init 拉起的初始化脚本/服务里对 zram 的操作，确认是否先写了 `disksize`。　　
-常见于 init.rc / fstab 中配置了 zram swap（`/dev/block/zram0 none swap defaults zramsize=...`），　　
+1. 查找 init 拉起的初始化脚本/服务里对 zram 的操作，确认是否先写了 `disksize`。  
+常见于 init.rc / fstab 中配置了 zram swap（`/dev/block/zram0 none swap defaults zramsize=...`）,  
 init 早已把 disksize 设好，之后某脚本再去写 `comp_algorithm`。
-　
+
 2. 若需重置算法，须先复位设备：
 
    ```sh
@@ -78,5 +78,5 @@ ubuntu:/$ echo 2G > /sys/block/zram0/disksize
 ubuntu:/$
 ```
 
-##
+## 参考  
 [linux-6.6](https://elixir.bootlin.com/linux/v6.6/source)
