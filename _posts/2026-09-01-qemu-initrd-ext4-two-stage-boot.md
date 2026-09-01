@@ -17,6 +17,7 @@ tags:
 > 环境：Code Server + QEMU +  6.6 内核
 >
 > 产物：`rootfs-ext4.img`（ext4 根）+ `boot-initrd.img`（loader initrd）
+>
 ---
 
 ## 1. 为什么需要两段式
@@ -160,22 +161,31 @@ busybox `switch_root NEW_ROOT NEW_INIT`（要求以 PID 1 运行）：
 
 ### 4.5 /dev/console 的来历
 
-内核在 exec PID 1 之前要打开 `/dev/console` 作为其 stdio。initramfs 里没有它，init 输出直接丢失（现象是"起不来、无日志"）。   
-loader 的 console/null 节点由 gen_init_cpio 的 `nod` 条目保证；ext4 根里的节点是 switch_root 把 devtmpfs 搬过来兜底，另外也用 sudo mknod 实打实补进了镜像。
+内核在 exec PID 1 之前要打开 `/dev/console` 作为其 stdio。  
+initramfs 里没有它，init 输出直接丢失（现象是"起不来、无日志"）。
+
+loader 的 console/null 节点由 gen_init_cpio 的 `nod` 条目保证；  
+ext4 根里的节点是 switch_root 把 devtmpfs 搬过来兜底，另外也用 sudo mknod 实打实补进了镜像。
 
 ### 4.6 免 root 制作镜像的两件工具
 
-- **`mke2fs -d <dir>`**（e2fsprogs ≥1.43）：把目录内容直接灌进新建 ext4 镜像，**不需要 loop mount、不需要 root**。ext4 镜像由此生成。
-- **`gen_init_cpio`**（内核源码 `usr/gen_init_cpio`，构建内核时已产出）：按 spec 文本打 initramfs cpio，spec 里直接写 `nod /dev/console 600 0 0 c 5 1` 即可
-**免 root 造设备节点**——普通 `cpio` 打包时非 root 会静默丢设备节点，这是大坑。
+- **`mke2fs -d <dir>`**（e2fsprogs ≥1.43）：  
+  把目录内容直接灌进新建 ext4 镜像，**不需要 loop mount、不需要 root**。ext4 镜像由此生成。
+
+- **`gen_init_cpio`**（内核源码 `usr/gen_init_cpio`，构建内核时已产出）：  
+  按 spec 文本打 initramfs cpio，spec 里直接写 `nod /dev/console 600 0 0 c 5 1` 即可  
+  **免 root 造设备节点**——普通 `cpio` 打包时非 root 会静默丢设备节点，这是大坑。
 
 ### 4.7 动态链接 busybox 的库必须随包
 
-本 rootfs 的 busybox 是 uClibc 动态链接版（`readelf -d` 显示 NEEDED: libm.so.0, libc.so.0）。loader 里只放 busybox 二进制不放库，shell 根本 exec 不了。随包清单：`ld.so.0`（加载器本体）、`ld64.so.0`（指向它的符号链接，interpreter 路径）、`libc.so.0`、`libm.so.0`。
+本 rootfs 的 busybox 是 uClibc 动态链接版（`readelf -d` 显示 NEEDED: libm.so.0, libc.so.0）。  
+loader 里只放 busybox 二进制不放库，shell 根本 exec 不了。  
+随包清单：`ld.so.0`（加载器本体）、`ld64.so.0`（指向它的符号链接，interpreter 路径）、`libc.so.0`、`libm.so.0`。
 
 ### 4.8 switch_root 不搬 /proc（本 busybox 版本）
 
-busybox 1.20 的 switch_root 只搬 /dev，不搬 /proc、/sys。因此**新根里的 /init 必须自己重新 `mount -t proc proc /proc`**，否则进 ext4 后 `/proc/mounts` 都不存在。
+busybox 1.20 的 switch_root 只搬 /dev，不搬 /proc、/sys。  
+因此**新根里的 /init 必须自己重新 `mount -t proc proc /proc`**，否则进 ext4 后 `/proc/mounts` 都不存在。
 
 ### 4.9 其他小点
 
