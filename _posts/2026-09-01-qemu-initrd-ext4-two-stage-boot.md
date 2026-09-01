@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      QEMU two-stage tartup scheme
+title:      QEMU two-stage startup scheme
 subtitle:   QEMU 两段式启动方案
 date:       2026-09-01
 author:     icecube
@@ -319,7 +319,12 @@ mount -t ext4 -o rw /dev/vda /newroot && exec switch_root /newroot /bin/sh
 
 ## 8. 与物理机的对应
 
-QEMU 里这套折腾（loader initrd 装模块再切根）在物理机上完全不需要：  
-物理机发行版内核把磁盘驱动和 ext4 直接编进内核（=y），或随 dracut/mkinitcpio 生成的 initramfs 自带全套模块与 udev。  
-**两段式是"模块化内核 + 极简自制 initramfs"组合的专属补课**。  
-本方案的价值在于：不换测试内核配置（避免全量重编 bzImage），就获得 ext4 常驻根文件系统的测试环境。
+两段式并非 QEMU 特有：物理机发行版内核要么把磁盘驱动和 ext4 编进内核（=y），  
+要么由 dracut / mkinitcpio 生成的 initramfs 自动完成「装模块 → 挂真根 → switch_root」  
+——**同样的两段式，只是由工具生成、无需手写**。  
+
+真正的分水岭是根驱动 =y 还是 =m，而非运行环境：QEMU 上编成 =y 同样不需要两段式，  
+物理机上全是 =m 且无 initramfs 同样起不来。  
+
+本文方案的特殊之处是用极简自制 initramfs 替代 dracut；  
+价值在于不改测试内核配置（避免全量重编 bzImage）就获得 ext4 常驻根文件系统的测试环境。
