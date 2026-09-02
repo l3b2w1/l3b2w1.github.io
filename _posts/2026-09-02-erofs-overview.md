@@ -7,15 +7,14 @@ author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
-    - ai
 	- fs
-	- erofs
 ---
 
 # EROFS 文件系统概览
 
-> 基于 `/sdd/erofs/papers/` 下 6 份 EROFS 官方/社区资料综合整理
+
 > 资料来源：USENIX ATC'19 论文、官方内核文档、OSS 2019 / OSS China 2023 / FOSDEM 2023 / OSS NA 2024 共 6 份演讲
+> 由AI整理归纳总结
 
 ---
 
