@@ -8,6 +8,7 @@ header-img: img/bluelinux.jpg
 catalog: true
 tags:
     - fs
+    - ai
 ---
 
 # EROFS 文件系统概览
