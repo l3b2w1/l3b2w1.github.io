@@ -1,19 +1,19 @@
 ---
 layout:     post
 title:      EROFS Overview
-subtitle:   erofs 概览
+subtitle:   EROFS 概览
 date:       2026-09-02
 author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
-	- fs
+    - fs
 ---
 
 # EROFS 文件系统概览
 
-
 > 资料来源：USENIX ATC'19 论文、官方内核文档、OSS 2019 / OSS China 2023 / FOSDEM 2023 / OSS NA 2024 共 6 份演讲
+>
 > 由AI整理归纳总结
 
 ---
@@ -28,7 +28,6 @@ tags:
 
 核心特点一句话概括：**以块对齐（block-aligned）的固定输出压缩为基础，在保证高压缩比的同时实现零 I/O 读放大和低内存开销的解压**。
 
----
 
 ## 2. 开发的缘由与目的
 
@@ -56,7 +55,6 @@ SquashFS 作为当时主流的只读压缩文件系统，在嵌入式/手机等�
 | **可复现构建** | 业界少有的对可复现镜像友好的设计 |
 | **灵活部署** | 支持块设备、fscache、TarFS、文件后端等多种形态 |
 
----
 
 ## 3. 顶层架构设计
 
@@ -91,7 +89,6 @@ EROFS 在架构上可分为四层：**用户态工具（erofs-utils）→ 内核
 **用户态工具 erofs-utils** 负责镜像构建（mkfs.erofs），  
 支持按文件透明压缩、ztailpacking（尾部打包）、chunk 去重、原生分层合并（`--tar=f` 逐层构建 + `meta.erofs` 合并）等。
 
----
 
 ## 4. 核心创新：固定输出压缩（Fixed-Output Compression）
 
@@ -117,8 +114,6 @@ EROFS 在架构上可分为四层：**用户态工具（erofs-utils）→ 内核
 
 > 注：小簇尺寸（4K）下 EROFS 压缩密度已优于 SquashFS；大簇下 SquashFS 密度更高，但代价是随机读放大的急剧上升。
 
----
-
 ## 5. 解压方案
 
 EROFS 解压策略在 **两个维度** 上组合：
@@ -134,8 +129,6 @@ EROFS 解压策略在 **两个维度** 上组合：
 
 **为何需要 In-place**：纯 cached 解压会引入页缓存抖动（cache thrashing）；考虑大量一次性/低频使用数据，in-place 可显著减少内存占用。  
 由于所有 LZ 系算法都用滑动窗口，EROFS 只需有限的 64KB（LZ4）bounced buffer 即可完成 in-place 解压。
-
----
 
 ## 6. 磁盘格式（On-Disk Format）
 
@@ -153,7 +146,6 @@ EROFS 解压策略在 **两个维度** 上组合：
 - **目录格式**：目录项按文件名 **字典序排序**，通过二分查找加速；目录文件由 inode base、xattrs、tail-packing 内联目录数据、目录块组成。
 - **其他**：支持扩展属性与 POSIX ACL、多设备、块对齐（支持 Direct I/O / FSDAX / 页缓存 mmap）。
 
----
 
 ## 7. 压缩算法与内核演进时间线
 
@@ -173,7 +165,6 @@ EROFS 解压策略在 **两个维度** 上组合：
 
 > EROFS over fscache（5.19 引入）用于 Nydus 等懒加载场景，6.12 起由 file-backed mounts 取代。
 
----
 
 ## 8. 数据去重（Deduplication）
 
@@ -187,8 +178,6 @@ EROFS 解压策略在 **两个维度** 上组合：
   - 压缩 OCI (tar.gz) 282.5MiB（省 63.1%）
   - **未压缩 EROFS 4k 去重 109.5MiB（省 86%）**
   - **压缩 EROFS DEFLATE 46.5MiB（省 94%）**，与 SquashFS+GZIP(47.0MiB) 相当但块更小、随机读更优。
-
----
 
 ## 9. 子镜像分层合并（Native Layering）
 
@@ -204,8 +193,6 @@ layer0.erofs  layer1.erofs  …  layerN.erofs
 2. **FSDAX 分层内存访问**：传统快照式 FSDAX 只能做镜像级去重（N 倍内存开销），EROFS 子镜像合并使每个 PMEM 区域可由多个子镜像组成；
 3. **runC 页缓存共享**：同内容文件（跨 runC / VM 运行时）可共享页缓存（上游 WIP）。
 
----
-
 ## 10. 应用场景与生态
 
 | 场景 | 说明 |
@@ -218,8 +205,6 @@ layer0.erofs  layer1.erofs  …  layerN.erofs
 **社区维护者**：Xiang Gao（阿里云）、Chao Yu（OPPO）、Yue Hu（酷派）、Jingbo Xu（阿里云）、  
 Sandeep Dhavale（Google）、Hongbo Li（字节跳动）、Tiwei Bie（蚂蚁/贡献 gVisor）等。
 
----
-
 ## 11. 性能与安全性
 
 ### 11.1 性能（USENIX ATC'19 实测）
@@ -231,16 +216,12 @@ Sandeep Dhavale（Google）、Hongbo Li（字节跳动）、Tiwei Bie（蚂蚁/�
 - 采用简单、自包含的端到端核心格式，尽力抵御远程恶意镜像；
 - 经 syzbot 持续加固；对比实验中，特制的恶意 EXT4 镜像可在 CentOS 8/9 上分别 **挂起（hang）或触发内核 panic**，而 EROFS 对恶意镜像具备更强鲁棒性。
 
----
-
 ## 12. 路线图
 
 - 引入硬件压缩加速器：Intel QAT / IAA 等，卸载云端负载；
 - sub-page block 解压（子块粒度）；
 - 扩展更多云原生与沙箱场景（Composefs、gVisor、runC 页缓存共享等）；
 - 元数据压缩与更大 folio 的持续优化。
-
----
 
 ## 附：关键数字速查
 
@@ -254,8 +235,8 @@ Sandeep Dhavale（Google）、Hongbo Li（字节跳动）、Tiwei Bie（蚂蚁/�
 - 默认压缩簇：4KB（erofs 内核实现）
 
 ---
+
 ## 参考
-*本文档内容由AI提取自这 6 份 pdf 资料*  
 [EROFS Release 0.1](https://erofs.docs.kernel.org/_/downloads/en/latest/pdf/)  
 [EROFS file system](https://hosted-files.sched.co/ossna2024/eb/oss_na24_EROFS.pdf)   
 [EROFS: A Compression-friendly Readonly File
