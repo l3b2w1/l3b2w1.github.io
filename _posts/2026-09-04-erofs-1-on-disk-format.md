@@ -7,9 +7,9 @@ author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
 tags:
-    - fs
-	- erofs
-	- ai
+  - fs
+  - erofs
+  - ai
 ---
 
 # 阶段 1：on-disk 格式
@@ -91,7 +91,7 @@ Inode size: 32   Xattr size: 16
 
 ## 1.2 镜像整体布局
 
-![镜像布局](img/2026-09-04-erofs-02-image-layout.svg)
+![镜像布局](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-04-erofs-02-image-layout.svg)
 
 **最重要的一句话：除了 superblock，没有什么是位置固定的。**
 
@@ -149,7 +149,7 @@ superblock 永远在偏移 0，大小 128 字节起（`sb_size` 字段可让它�
 
 ## 1.4 nid → 磁盘偏移：一行公式
 
-![nid 寻址](img/2026-09-04-erofs-04-nid-to-inode.svg)
+![nid 寻址](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-04-erofs-04-nid-to-inode.svg)
 
 EROFS 里**没有 inode 表**。给你一个 nid，你得**算**出它在哪。
 
@@ -211,7 +211,7 @@ root inode 偏移 = 0 × 4096 + 128 × 32 = 4096
 
 ## 1.5 ⭐ 5 种 datalayout
 
-![5 种 datalayout](img/2026-09-04-erofs-03-datalayout-five.svg)
+![5 种 datalayout](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-04-erofs-03-datalayout-five.svg)
 
 **这是理解 EROFS on-disk 格式最关键的一节。**
 
@@ -595,6 +595,5 @@ hash 的作用只是**快速缩小候选范围**，
 
 </details>
 
-## 参考
 ## 参考
 [linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)
