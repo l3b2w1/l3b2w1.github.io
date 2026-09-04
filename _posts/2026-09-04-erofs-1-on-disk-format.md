@@ -17,8 +17,6 @@ tags:
 > 本章所有数字都来自**真实镜像**，不是编造的示例。
 > 你可以照着 1.9 节的命令一步步复现，看到和我一样的结果。
 
----
-
 ## 本阶段目标
 
 读完这一章，你应该能够：
@@ -211,8 +209,6 @@ root inode 偏移 = 0 × 4096 + 128 × 32 = 4096
 该 inode 存放在 metabox 里，此时公式**不加**元数据区起点。
 这个先记住有这回事，阶段 6 讲。
 
----
-
 ## 1.5 ⭐ 5 种 datalayout
 
 ![5 种 datalayout](img/2026-09-04-erofs-03-datalayout-five.svg)
@@ -335,8 +331,6 @@ NID: 42   Layout: 4
 | `chunk2.erofs` | 4 CHUNK_BASED | **69632 字节** |
 
 同样的 1MB 稀疏文件，**省了 93%**。
-
----
 
 ## 1.6 `union erofs_inode_i_u`：一个字段，四种含义
 
@@ -601,7 +595,6 @@ hash 的作用只是**快速缩小候选范围**，
 
 </details>
 
-
-上一章：[00-前置知识-内核存储栈](2026-09-04-erofs-guide.md)
-
 ## 参考
+## 参考
+[linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)

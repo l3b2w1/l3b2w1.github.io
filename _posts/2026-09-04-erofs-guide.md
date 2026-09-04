@@ -434,7 +434,5 @@ EROFS 声称支持它，但代码里存在若干处理不干净的地方，
 - **阶段 3** 的非压缩读路径，就是本章 0.5 节"缓存未命中时的五步"的具体实现
 - **阶段 4** 展开本章 0.8 节埋下的伏笔：压缩让读从一步变成四步
 
-下一章：[on-disk 格式](2026-09-04-erofs-1-on-disk-format.md)
-
 ## 参考
 [linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)
