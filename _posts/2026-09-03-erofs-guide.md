@@ -1,8 +1,8 @@
 ---
 layout:     post
-title:      erofs guide
-subtitle:   erofs入门导读
-date:       2026-09-04
+title:      EROFS Prerequisites
+subtitle:   EROFS 前置知识
+date:       2026-09-03
 author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
