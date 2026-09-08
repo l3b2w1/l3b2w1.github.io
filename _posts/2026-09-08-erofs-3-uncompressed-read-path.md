@@ -1,8 +1,8 @@
 ---
 layout:     post
-title:      EROFS mount and metabuf
-subtitle:   EROFS 挂载与元数据原语
-date:       2026-09-07
+title:      EROFS uncompressed reading-path
+subtitle:   EROFS 非压缩读路径
+date:       2026-09-08
 author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
