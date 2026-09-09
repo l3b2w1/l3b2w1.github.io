@@ -305,7 +305,7 @@ if (fragment && vi->datalayout == EROFS_INODE_COMPRESSED_FULL)
 
 ## 4.5 ⭐ pcluster 状态机
 
-![pcluster 状态机](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-09-erofs-4-11-pcluster-state-machine.svg)
+![pcluster 状态机](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-09-erofs-11-pcluster-state-machine.svg)
 
 **这一节回答一个核心问题：同一个 pcluster 被多个并发读请求需要时，怎么避免重复解压？**
 
