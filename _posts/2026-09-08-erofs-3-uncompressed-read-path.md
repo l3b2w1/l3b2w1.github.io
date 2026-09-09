@@ -550,4 +550,4 @@ pos = (25 - 1) × 4096 = 24 × 4096 = 98304   ✓
   fileio 后端详解、FSDAX
 
 ## 参考
-  [linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)
+[linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)
