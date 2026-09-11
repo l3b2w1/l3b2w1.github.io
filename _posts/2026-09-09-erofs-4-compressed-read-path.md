@@ -643,11 +643,5 @@ mkfs 侧（`erofs-utils/lib/compress.c`）复用了这个原本存块地址的�
 
 </details>
 
-## 与后续阶段的关系
-
-- **阶段 5**：解压后端。本章只讲了"决定解压"，
-  阶段 5 讲"解压本身"（四种算法、同步异步、硬件加速）
-- **阶段 6**：fragment / ztailpacking 详解、去重（partial-ref 的来源）
-
 ## 参考
 [linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)

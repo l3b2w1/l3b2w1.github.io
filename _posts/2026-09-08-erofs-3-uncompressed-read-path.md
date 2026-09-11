@@ -542,12 +542,5 @@ pos = (25 - 1) × 4096 = 24 × 4096 = 98304   ✓
 
 </details>
 
-## 与后续阶段的关系
-
-- **阶段 4**：压缩路径。同样要"翻译"，但**不能做算术**——必须查索引。
-  本章的 `erofs_map_blocks` 对应压缩路径的 `z_erofs_map_blocks_iter`
-- **阶段 6**：多设备详解（本章只讲了 `erofs_map_dev` 的基本逻辑）、
-  fileio 后端详解、FSDAX
-
 ## 参考
 [linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)

@@ -380,13 +380,5 @@ metabox 的引入让系统里出现了**第二个** `mapping`（之前基本只�
 
 </details>
 
----
-
-## 与后续阶段的关系
-
-- **阶段 3**：非压缩读路径大量使用 `erofs_bread`（解析 chunk 索引、dirent）
-- **阶段 4**：压缩路径同样靠它读索引；本项目核查发现压缩路径的三个调用点**都正确 put 了**
-- **阶段 6**：metabox 详解、多设备（`dif0` 之外的设备）
-
 ## 参考
 [linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)

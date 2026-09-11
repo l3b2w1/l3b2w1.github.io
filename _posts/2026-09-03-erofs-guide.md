@@ -241,7 +241,7 @@ folio 把这个歧义消除了：一个 folio 明确知道自己有多大（orde
 
 ```c
 sbi->blkszbits = dsb->blkszbits;                                  /* super.c */
-if (sbi->blkszbits < 9 || sbi->blkszbits > PAGE_SHIFT) { 
+if (sbi->blkszbits < 9 || sbi->blkszbits > PAGE_SHIFT) {
         erofs_err(sb, "blkszbits %u isn't supported", sbi->blkszbits);
 ```
 
@@ -518,15 +518,6 @@ EROFS 声称支持它，但代码里存在若干处理不干净的地方，
 阶段 3 会遇到一个相关的遗留疑问。
 
 </details>
-
-
-## 与后续阶段的关系
-
-- **阶段 1** 会用本章的"块"和"偏移"概念，讲 EROFS 镜像在磁盘上的布局
-- **阶段 2** 的 `erofs_buf` 元数据缓存，本质上是**借用一个假 inode 的 `address_space`**——
-  不懂 `address_space` 就读不懂它
-- **阶段 3** 的非压缩读路径，就是本章 0.5 节"缓存未命中时的五步"的具体实现
-- **阶段 4** 展开本章 0.8 节埋下的伏笔：压缩读路径的"映射 → 获取压缩簇 → 解压 → 提供结果"
 
 ## 参考
 [linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)
