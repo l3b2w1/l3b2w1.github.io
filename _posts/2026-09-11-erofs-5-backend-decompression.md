@@ -31,7 +31,7 @@ tags:
 
 ## 5.1 统一的后端接口
 
-![解压分派](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-11-erofs-09-13-decompress-dispatch.svg)
+![解压分派](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-11-erofs-13-decompress-dispatch.svg)
 
 EROFS 用一个结构体统一抽象所有解压算法（`compress.h`）：
 
@@ -92,7 +92,7 @@ struct z_erofs_decompressor {
 
 ## 5.3 ⭐ 同步解压 vs 异步解压
 
-![同步 vs 异步](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-11-erofs-09-14-sync-vs-async.svg)
+![同步 vs 异步](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-11-erofs-14-sync-vs-async.svg)
 
 解压可以在**当前进程上下文**完成（同步/前台），
 也可以丢给**工作队列**后台完成（异步）。
