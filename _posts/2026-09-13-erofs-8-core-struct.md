@@ -90,7 +90,7 @@ EROFS 需要额外信息时就从自己的私有结构里取。
 
 #### 图一：全局层与 inode 层
 
-(https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-13-erofs-22-core-structs-overview.svg)
+![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-13-erofs-22-core-structs-overview.svg)
 
 讲两件事：
 
@@ -104,7 +104,7 @@ EROFS 需要额外信息时就从自己的私有结构里取。
 
 #### 图二：地址映射与压缩解压层
 
-(https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-13-erofs-23-core-structs-io.svg)
+![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-13-erofs-23-core-structs-io.svg)
 
 讲一次读请求经过的中间对象：
 
