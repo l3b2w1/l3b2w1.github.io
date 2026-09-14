@@ -118,9 +118,7 @@ erofs_map_blocks  ──►  erofs_map_dev  ──►  （实际读盘）
 
 **怎么读**：从左到右看，箭尾是容器，箭头是被包含者。虚线表示"数据实际落在哪"。
 
-## 逐层深入
-
-#### 6.1 全局层：`struct erofs_sb_info`（`internal.h`）
+## 8.1 全局层：`struct erofs_sb_info`（`internal.h`）
 
 一句话：**一个挂载实例的全局信息中心**。代码里到处可见的 `sbi` 就是它。
 
@@ -149,7 +147,7 @@ erofs_map_blocks  ──►  erofs_map_dev  ──►  （实际读盘）
 > 位置。   
 > 可以理解为"inode 在磁盘上的编号"。详见 01/02 章。
 
-#### 6.2 设备层：一个设备 vs 多个设备
+## 8.2 设备层：一个设备 vs 多个设备
 
 ```c
 struct erofs_device_info {
@@ -178,7 +176,7 @@ struct erofs_dev_context {
 因为这样一次映射（`erofs_map_blocks`）就能同时得到"物理地址"和"在哪个设备上"，  
 不用再查表——**把二维信息压进一个数**。
 
-#### 6.3 inode 层：`struct erofs_inode`（`internal.h`）
+## 8.3 inode 层：`struct erofs_inode`（`internal.h`）
 
 一句话：**EROFS 文件的私有信息**，代码里叫 `vi`。
 
@@ -238,9 +236,9 @@ if (vi->datalayout == EROFS_INODE_FLAT_INLINE) {
 
 好处：少一次指针跳转、少一次分配。代价：`erofs_inode` 必须是最后一个成员。
 
-#### 6.4 地址映射层
+## 8.4 地址映射层
 
-###### `struct erofs_map_blocks`（`internal.h`）
+#### `struct erofs_map_blocks`（`internal.h`）
 
 **映射的结果**。所有"逻辑偏移 → 物理位置"的查询都填这个结构：
 
@@ -259,7 +257,7 @@ struct erofs_map_blocks {
 
 `m_la → m_pa` 是 EROFS 的**核心翻译结果**。读路径的一切都建立在它之上。
 
-###### `struct erofs_buf`（`internal.h`）
+#### `struct erofs_buf`（`internal.h`）
 
 **元数据游标**。读元数据时需要临时映射一页，用完释放：
 
@@ -281,9 +279,9 @@ struct erofs_buf {
 把 `map` 里的 `m_deviceid` 解析成**具体设备**：  
 得到 `bdev` / `file` / `dax_dev`加上在本设备内的偏移。多设备时必经这一步。
 
-#### 6.5 压缩层
+## 8.5 压缩层
 
-###### `struct z_erofs_pcluster`（`zdata.c`）
+#### `struct z_erofs_pcluster`（`zdata.c`）
 
 **解压的基本单位**。
 
@@ -314,7 +312,7 @@ struct z_erofs_pcluster {
 2. **`compressed_bvecs[]` 是柔性数组**：结构体后面**紧跟**着若干个
    `z_erofs_bvec`，数量由 `vcnt` 决定。这样一次分配就够，不用再单独申请数组。
 
-###### `struct z_erofs_bvec`（`zdata.c`）
+#### `struct z_erofs_bvec`（`zdata.c`）
 
 描述**一个压缩数据页**：
 
@@ -329,7 +327,7 @@ struct z_erofs_bvec {
 ⇒ 压缩数据的页就在 `page cache` 里，`pcluster` 通过 `compressed_bvecs[]`
 找到它们。
 
-###### `struct z_erofs_decompress_req`（`compress.h`）
+#### `struct z_erofs_decompress_req`（`compress.h`）
 
 **交给解压后端的请求**，代码里叫 `rq`：
 
@@ -361,7 +359,7 @@ struct z_erofs_decompress_req {
 
 它们分工明确：frontend 负责**规划**，backend 负责**执行**。
 
-## 6.6 结构体联系全景（文字版引用链）
+## 8.6 结构体联系全景（文字版引用链）
 
 从挂载到一次压缩读，结构体是这样串起来的：
 
@@ -401,7 +399,7 @@ struct z_erofs_decompress_req {
 > `erofs_map_blocks` 翻译出物理地址 → `pcluster` 组织压缩数据页 →
 > `z_erofs_decompress_req` 交给解压后端。
 
-## 核心设计（为什么会这样设计）
+## 8.7 核心设计（为什么会这样设计）
 
 #### 设计 1：通用外壳 + 私有内核
 
@@ -430,7 +428,7 @@ VFS 只定义通用行为，具体文件系统的东西挂在 `s_fs_info` / `i_p
 一次映射同时得到"地址 + 设备"。
 **好处**：少查一次表；**代价**：地址位数要分配，48-bit 地址等特性会受影响。
 
-## 动手验证
+## 8.8 动手验证
 
 > 结构体在内核内部，用户态看不到。但有几个办法**间接**验证。
 
@@ -480,7 +478,7 @@ grep -n "struct erofs_sb_info {" internal.h     # 只看行号定位，文档里
 
 对照本文档的字段表逐个看一遍，印象最深。
 
-## 常见误解（重要）
+## 8.9 常见误解（重要）
 
 #### 误解 1：`super_block` 就是磁盘上的超级块
 
@@ -488,24 +486,24 @@ grep -n "struct erofs_sb_info {" internal.h     # 只看行号定位，文档里
 磁盘上那个叫 "on-disk superblock"，读进来后填进 `erofs_sb_info`。  
 两者同名但不是一个东西。
 
-### 误解 2：`erofs_inode` 和 `inode` 是两个独立对象
+#### 误解 2：`erofs_inode` 和 `inode` 是两个独立对象
 
 不对。它们是**同一块内存**的两半：`erofs_inode` 内嵌了 `vfs_inode`，
 靠 `EROFS_I()` 宏互转。  
 不存在"两个对象同步"的问题。
 
-### 误解 3：union 里的字段可以同时用
+#### 误解 3：union 里的字段可以同时用
 
 不对。`startblk` / `chunkbits` / `z_lclusterbits` 共用内存，
 **只有与 `datalayout` 匹配的那个有意义**。  
 不先判断就读是真实 bug 来源。
 
-### 误解 4：pcluster 一定对应磁盘上连续的一段
+#### 误解 4：pcluster 一定对应磁盘上连续的一段
 
 基本对，但要注意 `from_meta` 的情况：数据可能在**元数据区**（内联），
 不在常规数据区。
 
-### 误解 5：`erofs_map_blocks` 是函数名也是结构体名
+#### 误解 5：`erofs_map_blocks` 是函数名也是结构体名
 
 是的，EROFS 里两者同名：
 
@@ -526,6 +524,7 @@ grep -n "struct erofs_sb_info {" internal.h     # 只看行号定位，文档里
 8. `z_erofs_decompress_req` 的 `fillgaps` 字段影响什么行为？
 9. 从 `super_block` 到一次解压，说出完整的结构体引用链（至少 5 个结构体）。
 10. 为什么说"不先判 `datalayout` 就读 union 成员"是 bug 来源？
+
 ## 自测答案
 
 <details>
