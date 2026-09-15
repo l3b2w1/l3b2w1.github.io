@@ -536,6 +536,8 @@ fileio 同样要处理 ishare 的情况
 
 **整条链上没有出现块设备层**，这就是文件后端的本质。
 
+![全景图](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-14-erofs-26-fileio-intent-and-design.svg)
+
 ## 七、动手验证
 
 #### 验证 1：确认配置是否启用
