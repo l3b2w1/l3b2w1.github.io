@@ -118,6 +118,26 @@ erofs_map_blocks  ──►  erofs_map_dev  ──►  （实际读盘）
 
 **怎么读**：从左到右看，箭尾是容器，箭头是被包含者。虚线表示"数据实际落在哪"。
 
+#### 图三：关键结构体 + 内部关键字段全景
+
+图中四个关键引用链（对应 8.6 节的文字版）：
+
+```
+① super_block ──s_fs_info──► sbi ──dif0──► dif0（主设备）
+                                  ├──devs──► devctx ──tree(idr)──► dif0（次设备）
+                                  └──managed_pslots[pos]──► page（managed cache）
+
+② inode ──i_private──► vi ──（datalayout 决定走哪支 union）──► map
+     定位：meta_blkaddr << blkszbits  +  nid << islotbits   （erofs_iloc）
+
+③ erofs_map_blocks(map) ──erofs_map_dev()──► mapdev（m_deviceid ──► m_dif ──► bdev/file）
+     注意：m_deviceid 是 1-based，0 表示主设备，索引要 -1
+
+④ pcluster(pcl) ──compressed_bvecs[]──► bvec ──► 压缩数据页 ──in[]──► decompress_req(rq)
+```
+
+![核心结构体字段全景](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-13-erofs-25-core-structs-fieldmap.svg)
+
 ## 8.1 全局层：`struct erofs_sb_info`（`internal.h`）
 
 一句话：**一个挂载实例的全局信息中心**。代码里到处可见的 `sbi` 就是它。
@@ -194,7 +214,7 @@ struct erofs_inode {
 		};                          /* 分块（chunk-based）*/
 		struct {
 			unsigned short z_advise;
-			unsigned char  z_algorithmtype[2];
+			unsigned char  z_algorithmtype[2];	/* upstream 已改名为 z_algofmt[2] */
 			unsigned char  z_lclusterbits;
 			union {
 				u64 z_tailextent_headlcn;
@@ -208,7 +228,7 @@ struct erofs_inode {
 };
 ```
 
-###### 为什么用 union？
+#### 为什么用 union？
 
 这是**最值得停下来想的一个设计**。
 
@@ -229,7 +249,7 @@ if (vi->datalayout == EROFS_INODE_FLAT_INLINE) {
 ⚠️ **常见错误**：不先判 `datalayout` 就直接读 union 里的成员，
 读到的是另一条路径写进去的位——这是 EROFS 里一类真实 bug 的来源。
 
-###### `vfs_inode` 为什么是内嵌而不是指针？
+#### `vfs_inode` 为什么是内嵌而不是指针？
 
 `struct inode`（VFS）和 `struct erofs_inode`（私有）**在同一块内存里**。  
 分配时一次申请两块的大小，用 `EROFS_I(inode)` 宏从 VFS 指针算出私有结构位置。
