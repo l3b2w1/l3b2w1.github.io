@@ -239,6 +239,56 @@ erofs_get_aops(struct inode *realinode)
    └ refcount_dec_and_test() → 释放 rq
 ```
 
+#### 3.4 上游演进：元数据读取机制已改变（重要）
+
+本专题正文基于 Linux 7.2。**对照 upstream 最新代码，元数据（metadata）
+的读取方式已经变了**，这是本特性在上游最值得注意的改动：
+
+| | 7.2 | upstream |
+|---|---|---|
+| fileio 模式用哪个 `mapping` | 复用**镜像文件**的页缓存（`buf->file->f_mapping`） | 改用 **managed cache**（`sbi->managed_cache->i_mapping`） |
+| 读取回调 | `read_mapping_folio(..., buf->file)` | `read_cache_folio(..., buf->mc ? erofs_read_meta_folio : NULL, NULL)` |
+| `struct erofs_buf` 的 `file` 字段 | 有 | **已移除** |
+| `struct erofs_buf` 新增字段 | — | **`bool mc`**（标记是否走 managed cache） |
+
+upstream 的 `erofs_init_metabuf()`：
+
+```c
+buf->mc = false;
+if (in_metabox) { ...; buf->mapping = sbi->metabox_inode->i_mapping; return 0; }
+if (erofs_is_fileio_mode(sbi)) {
+        buf->mapping = sbi->managed_cache->i_mapping;
+        buf->mc = true;                      /* ← 走 managed cache */
+} else {
+        buf->off = sbi->dif0.fsoff;
+        buf->mapping = sb->s_bdev->bd_mapping;
+}
+```
+
+配合新增的 `erofs_read_meta_folio()`（`fileio.c`），它把 folio 读请求
+**翻译成 fileio 的 bio** 再提交：
+
+```c
+io.rq->bio.bi_iter.bi_sector = (io.dev.m_dif->fsoff + io.dev.m_pa) >> 9;
+erofs_onlinefolio_init(folio);
+bio_add_folio_nofail(&io.rq->bio, folio, folio_size(folio), 0);
+erofs_fileio_rq_submit(io.rq);
+```
+
+⇒ 也就是说：**元数据读取也复用了 3.2 讲的 `bi_sector` 约定**，
+与数据读取走同一套 fileio 机制。
+
+**另一个变化**：7.2 里 `erofs_bread()` 开头有一段
+`rw_verify_area()` 的"数据访问范围校验"（针对 file-backed mounts），
+在 upstream 中**已被移除** —— 校验职责转移到了上面这套机制里。
+
+**再一个变化**：upstream 新增了 `source` 挂载选项
+（`fsparam_file_or_string("source", Opt_source)`，由 `erofs_fc_parse_source()`
+处理并写入 `sbi->dif0.file`），7.2 没有该选项。
+
+> 📌 小结：数据读取路径（`erofs_fileio_rq_submit()` 等）未变；
+> 变的是**元数据**读取 —— 从"复用镜像文件页缓存"改为"managed cache + fileio bio"。
+
 ## 四、关键结构体
 
 #### 4.1 `struct erofs_fileio_rq`（`fileio.c`）
@@ -517,9 +567,10 @@ cat /mnt/f/big.bin | head -c 100
 dmesg | grep -i erofs
 ```
 
-> 挂载选项的确切写法请以源码里 `erofs_fs_context` / `fs_context_operations`
-> 解析 `opt` 的部分为准（在 `super.c` 里搜索相关字符串）。
-> 由于版本演进，本文不写死某个选项名。
+> 挂载选项的确切写法请以 `super.c` 里的 **`erofs_fs_parameters[]`**
+> （`fs_parameter_spec` 数组，定义各选项名）与 **`erofs_context_ops`**
+> 解析 `opt` 的部分为准。
+>
 
 ### 验证 4：观察是否真的绕过了块设备
 
