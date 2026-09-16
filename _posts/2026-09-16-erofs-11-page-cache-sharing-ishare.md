@@ -1,0 +1,644 @@
+---
+layout:     post
+title:      EROFS page cache sharing
+subtitle:   EROFS 页缓存共享
+date:       2026-09-16
+author:     icecube
+header-img: img/bluelinux.jpg
+catalog: true
+tags:
+  - fs
+  - erofs
+  - ai
+---
+
+# 11 · 特性专题：page cache sharing（ishare）
+
+> 对应配置：`CONFIG_EROFS_FS_PAGE_CACHE_SHARE`
+> 主源码：`ishare.c`（223 行）；相关：`xattr.c`（指纹来源）、`internal.h`（`erofs_real_inode()`）
+>
+> 本文回答：**为什么同一份数据会被缓存多份** → **EROFS 怎么让多个文件共享一份页缓存** →
+> **指纹是什么、从哪来** → **关键结构体与函数** → **一次读的完整来龙去脉**。
+
+## 本专题目标（读完你应该能做到什么）
+
+1. 说清 page cache sharing 解决什么问题（**去重的不只是磁盘，还有内存**）
+2. 解释 **fingerprint（指纹）** 是什么、存在哪、怎么算成 inode 号
+3. 说清 `erofs_ishare_mnt` 这个"内部挂载点"的作用
+4. 解释 `vi->sharedentry` 与 `ishare_list` 的双向关系
+5. 解释为什么 **ishare 拒绝 `O_DIRECT`**
+6. 看懂 `backing_file_open()` 在这里扮演的角色
+7. 说清 `erofs_real_inode()` 为什么存在、谁在调用它
+
+
+## 一、特性缘由：为什么需要共享页缓存
+
+#### 1.1 场景：容器镜像的分层与重复
+
+EROFS 常用于容器镜像。考虑这个情况：
+
+```
+容器 A 的镜像里有 /usr/lib/libc.so（10 MB）
+容器 B 的镜像里也有 /usr/lib/libc.so（完全相同的 10 MB）
+```
+
+EROFS 已有的 **dedupe（rolling-hash 去重，见 06.7）** 能解决**磁盘**上的重复：
+两份内容在磁盘上只存一份。
+
+#### 1.2 但是：内存里仍然存了两份
+
+问题在于——**磁盘去重了，内存没有**。
+
+两个容器各自挂载各自的 EROFS，各自读 libc.so：
+
+```
+容器 A 读 → 页缓存里有一份 libc.so（10 MB）
+容器 B 读 → 页缓存里又有一份 libc.so（10 MB）
+```
+
+⇒ 同一份数据在内存里**存了两遍**。
+
+对一台跑几十个容器的机器，这个浪费非常可观——
+可能几百 MB 甚至上 GB 的内存被重复内容占用。
+
+#### 1.3 需求：让相同内容共享同一份页缓存
+
+> 如果两个文件**内容完全相同**，能不能让它们**共用同一份 page cache**？
+
+这就是 **page cache sharing**（EROFS 内部叫 **ishare**）：
+
+```
+容器 A 的 libc.so ┐
+                  ├──► 同一个共享 inode ──► 同一份 page cache
+容器 B 的 libc.so ┘
+```
+
+省下的不只是磁盘，还有**内存**。
+
+#### 1.4 术语
+
+| 术语 | 含义 |
+|---|---|
+| **ishare** | EROFS 内部对 page cache sharing 的叫法（inode share） |
+| **fingerprint** | 指纹——标识"文件内容"的一段数据，相同内容 ⇒ 相同指纹 |
+| **sharedinode** | 共享 inode——真正承载数据的那个 inode |
+| **backing file** | 背后的文件——ishare 用它来读共享数据 |
+
+## 二、设计理念
+
+#### 理念 1：用"指纹"识别相同内容，而不是比较数据
+
+要判断两个文件内容是否相同，最笨的办法是逐字节比——太慢。
+
+EROFS 的做法：镜像制作时（mkfs）就给每个文件算好一个 **fingerprint**，
+存在 **xattr** 里。内核读取这个 xattr 就知道"这个文件的指纹是什么"。
+
+**指纹相同 ⇒ 内容相同 ⇒ 可以共享**。
+
+#### 理念 2：造一个"共享 inode"承载真正的页缓存
+
+光知道"该共享"还不够——page cache 是挂在 `inode` 上的
+（准确说是挂在 `inode->i_mapping` 上）。要共享，就得**共享同一个 inode**。
+
+EROFS 的做法：
+
+1. 建一个**内部 vfsmount**（`erofs_ishare_mnt`），上面挂的都是"共享 inode"
+2. 按指纹的哈希值，用 `iget5_locked()` 查找或新建共享 inode
+3. 原始 inode 通过 `vi->sharedentry` 指向它
+
+⇒ 原始 inode 是"外壳"，共享 inode 是"真正存数据的地方"。
+
+#### 理念 3：读的时候换成"背后那个文件"
+
+真正读数据时，EROFS 用 `backing_file_open()` 打开共享 inode 对应的文件，
+之后的 `read` / `mmap` 都走这个 **realfile**。
+
+因为所有相同内容的原始 inode 最终都指向**同一个共享 inode**，
+它们的 `realfile` 也就共享**同一个 `i_mapping`**——
+于是 page cache 自然共享了。
+
+#### 理念 4：用 `domain_id` 划清共享边界
+
+不是所有"内容相同"都该共享（可能有安全/隔离考虑）。
+EROFS 引入 **`domain_id`**：只有同一 domain 内的文件才互相共享。
+
+`domain_id` 参与指纹计算（`erofs_xattr_fill_inode_fingerprint(&fp, inode, sbi->domain_id)`），
+所以**不同 domain 的同内容文件指纹不同**，自然不会共享。
+
+## 三、实现架构
+
+##### 3.1 对象关系
+
+```
+原始 inode（每个挂载实例各有一份）
+    vi->sharedentry ──────► dentry ──► 共享 inode（在 erofs_ishare_mnt 上）
+    vi->ishare_list ─┐                      │
+                     │                      │ i_mapping
+                     │                      ▼
+                     └─► 挂在共享 inode 的  page cache  ◄── 所有相同指纹的
+                         ishare_list 链表               原始 inode 共用这一份
+```
+
+**双向关系**：
+
+- **正向**：原始 inode 通过 `vi->sharedentry` 找到共享 inode
+- **反向**：共享 inode 通过 `EROFS_I(si)->ishare_list` 链表，
+  记录"有哪些原始 inode 指着我"
+
+反向链表的作用：**共享 inode 要释放时**，能找到所有引用者做清理。
+
+#### 3.2 关键流程：打开一个 ishare 文件
+
+```
+① erofs_fill_inode()（inode.c）
+     └ i_fop = erofs_ishare_fill_inode(inode) ? &erofs_ishare_fops : &erofs_file_fops
+        │
+② erofs_ishare_fill_inode()（ishare.c）
+     ├ erofs_get_aops(inode)                      拿 aops
+     ├ erofs_xattr_fill_inode_fingerprint(&fp, inode, sbi->domain_id)   取指纹
+     ├ iget5_locked(erofs_ishare_mnt->mnt_sb,
+     │              xxh32(fp.opaque, fp.size, 0),  ← 指纹的 xxh32 哈希当 inode 号
+     │              eq, set, &fp)                   查找/新建共享 inode
+     ├ 若新建：i_fop = &empty_fops；i_mapping->a_ops = aops；i_mode = 0444|S_IFREG
+     ├ 若已存在：校验 aops 相同 + i_size 相同（不符则警告并放弃共享）
+     ├ d_obtain_alias(si) → vi->sharedentry
+     └ 把 vi->ishare_list 挂进共享 inode 的链表
+        │
+③ 进程 open() → erofs_ishare_file_open()（ishare.c）
+     ├ O_DIRECT → 直接 -EINVAL（拒绝！）
+     └ backing_file_open(file, flags|O_NOATIME, &sharedpath, cred)
+          └ file->private_data = rf        ← 背后那个真实文件
+        │
+④ 进程 read() → erofs_ishare_file_read_iter()（ishare.c）
+     ├ kiocb_clone(&dedup_iocb, iocb, realfile)   ← 克隆但换成 realfile
+     └ filemap_read(&dedup_iocb, to, 0)           ← 读的是共享 inode 的页缓存！
+```
+
+**第 ④ 步是全部魔法所在**：读的时候把 kiocb 的文件换成 `realfile`，
+于是 `filemap_read()` 用的是共享 inode 的 `i_mapping`——
+多个原始文件因此共用同一份 page cache。
+
+#### 3.3 mmap 路径
+
+```c
+static int erofs_ishare_mmap(struct file *file, struct vm_area_struct *vma)
+{
+        struct file *realfile = file->private_data;
+        vma_set_file(vma, realfile);              /* vma 指向真实文件 */
+        err = security_mmap_backing_file(vma, realfile, file);
+        if (err)
+                return err;
+        return generic_file_readonly_mmap(file, vma);
+}
+```
+
+`vma_set_file()` 把映射区关联到 `realfile`——
+这样 mmap 之后访问的也是共享 inode 的页缓存。
+
+## 四、关键结构体
+
+#### 4.1 `struct erofs_inode_fingerprint`（`internal.h`）
+
+指纹本身，极其简单：
+
+```c
+struct erofs_inode_fingerprint {
+	u8 *opaque;     /* 指纹数据（不透明字节串）*/
+	int size;       /* 长度 */
+};
+```
+
+**它从哪来**：`erofs_xattr_fill_inode_fingerprint()`（`xattr.c`）
+从文件的 xattr 里读出来。也就是说——**指纹是 mkfs 时算好、存在镜像里的**，
+内核只是读取，不自己算。
+
+> 这与我们在 img-stable 备份里看到的现象吻合：ishare 需要
+> "on-disk ishare xattrs"，没有它内核会打印
+> `on-disk ishare xattrs not found. Turning off inode_share.` 并**关闭该特性**。
+
+#### 4.2 `erofs_inode` 中的 ishare 相关字段（`internal.h`）
+
+```c
+#ifdef CONFIG_EROFS_FS_PAGE_CACHE_SHARE
+	struct list_head ishare_list;      /* 挂在共享 inode 的链表上 */
+	union {
+		struct {
+			struct erofs_inode_fingerprint fingerprint;
+			spinlock_t ishare_lock;        /* 只有共享 inode 用 */
+		};
+		struct dentry *sharedentry;        /* 只有原始 inode 用 */
+	};
+#endif
+```
+
+**注意这里又是一个 union**，但要小心——它不是"二选一"那么简单：
+
+| 角色 | 用到的成员 |
+|---|---|
+| **原始 inode** | `sharedentry`（指向共享 inode 的 dentry） |
+| **共享 inode** | `fingerprint` + `ishare_lock`（管链表） |
+
+⇒ 同一个结构体，在"外壳"和"共享体"两种角色下用不同成员。
+
+（顺带一提：这里也是 08 专题强调过的地方——
+union 成员要用对，得先搞清楚当前 inode 扮演什么角色。）
+
+#### 4.3 `erofs_ishare_mnt`
+
+一个**内部的 vfsmount**，所有共享 inode 都挂在它的 superblock 上
+（代码里用 `erofs_ishare_mnt->mnt_sb`）。
+
+为什么需要它：共享 inode 需要"属于某个文件系统"，
+但它们不属于任何一个用户挂载的 EROFS 实例
+（否则容器 A 卸载时共享 inode 也跟着没了）。
+所以单独造一个内部挂载点来托管。
+
+#### 4.4 `erofs_ishare_fops`（`ishare.c`）
+
+ishare 文件的操作集：
+
+| 成员 | 实现 | 作用 |
+|---|---|---|
+| `.open` | `erofs_ishare_file_open` | 打开背后文件，**拒绝 O_DIRECT** |
+| `.read_iter` | `erofs_ishare_file_read_iter` | 换成 realfile 再 `filemap_read` |
+| `.mmap` | `erofs_ishare_mmap` | vma 指向 realfile |
+| `.release` | `erofs_ishare_file_release` | `fput(private_data)` |
+| `.fadvise` | `erofs_ishare_fadvise` | 转发给背后文件 |
+| `.llseek` | `erofs_file_llseek` | EROFS 自己的 llseek |
+| `.splice_read` | `erofs_ishare_splice_read` | 转发给 realfile 再 `filemap_splice_read` |
+| `.get_unmapped_area` | `thp_get_unmapped_area` | 支持 THP |
+
+> ⚠️ **上游最新代码已更新这两项**（本文档基于 Linux 7.2 时它们是另一套）：
+>
+> | 成员 | 7.2 | upstream |
+> |---|---|---|
+> | `.llseek` | `generic_file_llseek` | **`erofs_file_llseek`** |
+> | `.splice_read` | `filemap_splice_read` | **`erofs_ishare_splice_read`** |
+>
+> 其中 `erofs_ishare_splice_read()` 只是薄包装：
+>
+> ```c
+> static ssize_t erofs_ishare_splice_read(struct file *in, loff_t *ppos,
+>                                         struct pipe_inode_info *pipe,
+>                                         size_t len, unsigned int flags)
+> {
+>         return filemap_splice_read(in->private_data, ppos, pipe, len, flags);
+> }
+> ```
+>
+> ⇒ 与 `.read_iter` 的模式一致：**先换成 realfile，再调通用实现**。
+> 直接用 `filemap_splice_read` 会作用到 ishare 的 file 本身，拿不到数据。
+
+#### 4.5 上游新增：large folios 支持
+
+upstream 在共享 inode 建立时加了一行：
+
+```c
+mapping_set_large_folios(si->i_mapping);
+```
+
+⇒ 共享 inode 允许使用**大 folio**（不再硬性限制为单页）。
+这与 7.2 的行为不同（7.2 无此设置）。
+
+## 五、主要函数
+
+#### 5.1 `erofs_ishare_fill_inode()`（`ishare.c`）—— 建立共享关系
+
+最关键的函数。逐步看：
+
+```c
+aops = erofs_get_aops(inode);
+if (IS_ERR(aops))
+        return false;
+if (erofs_xattr_fill_inode_fingerprint(&fp, inode, sbi->domain_id))
+        return false;                            /* 没有指纹 → 不共享 */
+```
+
+⇒ **没有指纹就退回普通路径**。这就是为什么不是所有文件都共享。
+
+```c
+si = iget5_locked(erofs_ishare_mnt->mnt_sb,
+                  xxh32(fp.opaque, fp.size, 0),   /* ★ 指纹哈希当 inode 号 */
+                  erofs_ishare_iget5_eq,          /* 比较函数 */
+                  erofs_ishare_iget5_set,         /* 初始化函数 */
+                  &fp);
+```
+
+`iget5_locked()` 是内核的"按自定义键查找/新建 inode"接口。
+这里用 **指纹的 xxh32 哈希** 作为 inode 号——
+**指纹相同 ⇒ 哈希相同 ⇒ 找到同一个共享 inode**。
+
+新建时（`I_NEW`）：
+
+```c
+si->i_fop = &empty_fops;              /* 共享 inode 自己没有文件操作 */
+si->i_mapping->a_ops = aops;          /* ★ 页缓存用的 aops 与原始 inode 一致 */
+si->i_mode = 0444 | S_IFREG;          /* 只读常规文件 */
+si->i_size = inode->i_size;
+unlock_new_inode(si);
+```
+
+已存在时的**两道校验**：
+
+```c
+if (!si || aops != si->i_mapping->a_ops) {   /* ① aops 必须一致 */
+        iput(si);
+        return false;
+}
+if (si->i_size != inode->i_size) {           /* ② 大小必须一致 */
+        erofs_warn(inode->i_sb, "i_size mismatch (%lld != %lld) for the same fingerprint", ...);
+        iput(si);
+        return false;
+}
+```
+
+⇒ **指纹相同但大小不同 = 异常情况**（可能是哈希碰撞或镜像损坏），
+EROFS 会警告并**放弃共享**（安全回退到普通路径），而不是读错数据。
+
+最后建立双向链接：
+
+```c
+sd = d_obtain_alias(si);        /* 为共享 inode 造一个 dentry */
+vi->sharedentry = sd;
+INIT_LIST_HEAD(&vi->ishare_list);
+spin_lock(&EROFS_I(si)->ishare_lock);
+list_add(&vi->ishare_list, &EROFS_I(si)->ishare_list);   /* 挂进反向链表 */
+spin_unlock(&EROFS_I(si)->ishare_lock);
+```
+
+#### 5.2 `erofs_ishare_free_inode()`（`ishare.c`）—— 拆除共享关系
+
+`fill_inode` 的逆操作：从链表摘除 + `dput()`。
+
+```c
+svi = EROFS_I(d_inode(vi->sharedentry));
+spin_lock(&svi->ishare_lock);
+list_del(&vi->ishare_list);
+spin_unlock(&svi->ishare_lock);
+dput(vi->sharedentry);
+vi->sharedentry = NULL;
+```
+
+**为什么要加锁**：多个原始 inode 可能**同时**挂载/卸载，
+共享 inode 的链表是共享资源，必须保护。
+
+#### 5.3 `erofs_ishare_file_open()`（`ishare.c`）—— 打开（含拒绝 DIO）
+
+```c
+struct path sharedpath = {
+        .mnt = erofs_ishare_mnt,
+        .dentry = EROFS_I(inode)->sharedentry,
+};
+
+if (file->f_flags & O_DIRECT)
+        return -EINVAL;                    /* ★ 拒绝 O_DIRECT */
+
+rf = backing_file_open(file, file->f_flags | O_NOATIME,
+                       &sharedpath, current_cred());
+if (IS_ERR(rf))
+        return PTR_ERR(rf);
+file->private_data = rf;                   /* 记住背后的文件 */
+```
+
+###### 为什么拒绝 `O_DIRECT`？
+
+**因为 DIO 的意义就是绕过 page cache**——
+而 ishare 的全部目的恰恰是**共享 page cache**。
+
+两者目标直接冲突：如果允许 DIO，数据就不经过共享的页缓存，
+共享也就失去意义了。所以干脆拒绝。
+
+###### `backing_file_open()` 是什么？
+
+内核提供的"打开一个背后文件"的接口：
+新打开的 `file` 在外观上属于原文件（用于权限/审计），
+**但实际操作的是共享路径上的文件**。
+
+这正是 ishare 需要的：用户以为在打开 `/usr/lib/libc.so`，
+实际读的是共享 inode 的数据。
+
+#### 5.4 `erofs_ishare_file_read_iter()`（`ishare.c`）—— 读（核心）
+
+```c
+struct file *realfile = iocb->ki_filp->private_data;
+struct kiocb dedup_iocb;
+ssize_t nread;
+
+if (!iov_iter_count(to))
+        return 0;
+
+kiocb_clone(&dedup_iocb, iocb, realfile);      /* ★ 换成 realfile */
+nread = filemap_read(&dedup_iocb, to, 0);      /* 读共享 inode 的页缓存 */
+iocb->ki_pos = dedup_iocb.ki_pos;              /* 同步位置 */
+return nread;
+```
+
+**`kiocb_clone()` 是全部魔法**：克隆一个 kiocb，但把文件替换成 `realfile`。
+之后 `filemap_read()` 用的就是共享 inode 的 `i_mapping`——
+⇒ **所有指纹相同的文件，最终都在读同一份 page cache**。
+
+#### 5.5 `erofs_real_inode()`（`ishare.c`）—— 取"真实 inode"
+
+```c
+struct inode *erofs_real_inode(struct inode *inode, bool *need_iput)
+```
+
+**作用**：给定一个 inode，返回"真正该用来映射的 inode"。
+
+- 若不是 ishare inode（不属 `erofs_ishare_mnt`）→ 原样返回，`*need_iput = false`
+- 若是 → 从 `ishare_list` 里 igrab 一个关联的 inode，
+  `*need_iput = true`（调用者用完要 `iput()`）
+
+**谁在调用它**：读路径里凡是需要"用哪个 inode 去做地址映射"的地方：
+
+- `erofs_map_blocks()` 的调用方（data.c 的 iomap 路径）
+- `erofs_fileio_read_folio()`（09 专题里见过）
+- 压缩路径（zdata.c）
+
+## 六、来龙去脉：完整串一遍
+
+```
+① mkfs 时给文件算指纹，存进 xattr（erofs.fingerprint.v1 之类）
+        │
+② 挂载，指定 domain_id
+        │
+③ 第一次访问文件 → erofs_fill_inode()
+        │
+④ erofs_ishare_fill_inode()
+        ├ 读 xattr 拿指纹（没有 → 放弃共享，走普通路径）
+        ├ xxh32(指纹) 当 inode 号
+        ├ iget5_locked() 在 erofs_ishare_mnt 上查找/新建共享 inode
+        ├ 校验 aops 与 i_size（不符 → 警告并放弃）
+        └ 建立 vi->sharedentry + 反向链表
+        │
+⑤ 另一个容器打开"内容相同"的文件
+        └ 指纹相同 → xxh32 相同 → 命中同一个共享 inode  ← ★ 共享发生在这里
+        │
+⑥ 进程 open()
+        ├ 拒绝 O_DIRECT
+        └ backing_file_open() → private_data = realfile
+        │
+⑦ 进程 read()
+        ├ kiocb_clone(..., realfile)      ← 换成背后文件
+        └ filemap_read()                   ← 用共享 inode 的 i_mapping
+        │
+⑧ 两个容器的 read 命中同一份 page cache
+        ⇒ 内存里只存一份数据 ✓
+```
+
+## 七、动手验证
+
+#### 验证 1：确认配置
+
+```bash
+grep EROFS_FS_PAGE_CACHE_SHARE /sdd/linux/linux-stable/.config
+```
+
+#### 验证 2：观察 ishare 被自动关闭的情形
+
+在 QEMU 里挂载一个**没有 ishare xattrs** 的镜像，并指定 `inode_share`：
+
+```bash
+mount -t erofs -o inode_share,domain_id=test /host/plain.erofs /mnt/i1
+dmesg | tail
+```
+
+会看到（这是实测过的现象）：
+
+```
+erofs: (device loop0): on-disk ishare xattrs not found. Turning off inode_share.
+```
+
+⇒ **普通 mkfs 造不出 ishare 镜像**，所以该特性在本机难以实测
+（`mkfs.erofs 1.9.4` 没有生成 ishare xattrs 的选项）。
+
+这也解释了 09 号分析文档里 E9 / E1 两条缺陷**难以复现**的原因。
+
+#### 验证 3：读源码确认调用点
+
+```bash
+cd /sdd/linux/linux-stable/fs/erofs
+grep -rn "erofs_real_inode" .
+```
+
+能看到所有调用点（data.c、fileio.c、zdata.c）。
+**逐个看它们为什么需要"真实 inode"**，能加深对机制的理解。
+
+## 八、常见误解（重要）
+
+#### 误解 1：ishare 就是磁盘去重（dedupe）
+
+不是。两者解决**不同层面**的重复：
+
+| | dedupe（06.7） | ishare（本专题） |
+|---|---|---|
+| 去重对象 | **磁盘**上的数据块 | **内存**里的 page cache |
+| 依据 | rolling hash 匹配 | 文件指纹（fingerprint）+ domain_id |
+| 层级 | 数据块级 | 文件级 |
+
+**可以同时启用**：磁盘上去重一遍，内存里再共享一遍。
+
+#### 误解 2：内容相同就一定会共享
+
+不一定。还要满足：
+
+1. **有指纹 xattr**（mkfs 写入的）
+2. **同一 `domain_id`**
+3. **`aops` 相同**
+4. **`i_size` 相同**
+
+任一不满足就安全回退到普通路径。
+
+#### 误解 3：ishare 支持 `O_DIRECT`
+
+**明确不支持**，`erofs_ishare_file_open()` 第一件事就是
+`if (file->f_flags & O_DIRECT) return -EINVAL;`。
+
+原因：DIO 绕过 page cache，与共享 page cache 的目标直接冲突。
+
+#### 误解 4：`sharedentry` 和 `fingerprint` 可以同时用
+
+几乎不会。它们在 union 里，分别对应两种**角色**：
+
+- 外壳 inode（用户看到的）→ 用 `sharedentry`
+- 共享 inode（内部托管）→ 用 `fingerprint` + `ishare_lock`
+
+#### 误解 5：共享 inode 卸载后就消失了
+
+不会。共享 inode 挂在**内部的 `erofs_ishare_mnt`** 上，
+不属于任何用户挂载实例。某个容器卸载不影响其他容器继续共享。
+
+## 九、与其他特性的关系
+
+| 特性 | 关系 |
+|---|---|
+| **dedupe / rolling hash**（06.7） | 互补：一个管磁盘，一个管内存 |
+| **文件后端 fileio**（09 专题） | 可叠加——fileio 的 read_folio 里就调用了 `erofs_real_inode()` |
+| **FSDAX**（10 专题） | 正交：DAX 不经过 page cache，所以与 ishare 的共享对象无关 |
+| **xattr** | **依赖**——指纹存在 xattr 里，没有 xattr 支持就没有指纹 |
+| **压缩** | 共享 inode 的 `a_ops` 与原始 inode 一致，所以压缩文件也能共享；但校验时会比对 aops |
+
+## 自测检查点
+
+1. page cache sharing 解决什么问题？它与磁盘去重有什么区别？
+2. fingerprint（指纹）从哪来？内核自己算吗？
+3. `domain_id` 的作用是什么？
+4. 共享 inode 挂在哪个 superblock 上？为什么需要单独的内部挂载点？
+5. `iget5_locked()` 用什么当 inode 号？为什么这样能保证"相同内容找到同一个"？
+6. 命中已存在的共享 inode 时，要做哪两道校验？不一致会怎样？
+7. 为什么 ishare 拒绝 `O_DIRECT`？
+8. `backing_file_open()` 在这里起什么作用？
+9. `erofs_ishare_file_read_iter()` 里哪一行是"共享"真正发生的地方？
+10. `erofs_real_inode()` 是干什么的？谁在调用它？
+11. `sharedentry` 与 `ishare_list` 分别是什么方向的引用？
+
+## 自测答案
+
+<details>
+<summary>点击展开</summary>
+
+1. 解决"同一份内容在不同挂载实例里被缓存多份"的内存浪费。
+   与磁盘去重的区别：**dedupe 去重磁盘上的数据块**，
+   **ishare 去重内存里的 page cache**——层级不同，可同时启用。
+
+2. 来自文件的 **xattr**，由 **mkfs 时算好写入镜像**。
+   内核用 `erofs_xattr_fill_inode_fingerprint()` **读取**，不自己计算。
+
+3. 划定共享边界。它参与指纹计算，所以不同 domain 的同内容文件
+   指纹不同，不会互相共享（用于隔离/安全考虑）。
+
+4. 挂在 **`erofs_ishare_mnt->mnt_sb`**（内部 vfsmount）上。
+   需要单独挂载点是因为：共享 inode 不能属于任何用户挂载实例，
+   否则某个容器卸载时会把它带走，影响其他容器。
+
+5. 用 **指纹的 xxh32 哈希**（`xxh32(fp.opaque, fp.size, 0)`）。
+   内容相同 ⇒ 指纹相同 ⇒ 哈希相同 ⇒ `iget5_locked` 命中同一个 inode。
+
+6. 两道：**① `aops` 必须相同**；**② `i_size` 必须相同**。
+   任一不符会打印警告并 `return false`——**安全回退到普通路径**，
+   而不是冒险读错数据。
+
+7. 因为 DIO 的意义就是**绕过 page cache**，而 ishare 的全部目的是
+   **共享 page cache**。目标直接冲突，于是直接 `-EINVAL` 拒绝。
+
+8. 打开一个"背后的文件"：外观上属于用户打开的原文件（权限/审计），
+   但实际操作的是共享路径上的文件。让读/映射都落到共享 inode 上。
+
+9. **`kiocb_clone(&dedup_iocb, iocb, realfile)`** —— 把 kiocb 的文件换成
+   `realfile`，之后的 `filemap_read()` 就用的是共享 inode 的 `i_mapping`。
+   这是共享真正生效的一行。
+
+10. 给定 inode 返回"真正该用于地址映射的 inode"：
+    非 ishare 原样返回；ishare 则从链表 igrab 一个真实 inode
+    并置 `*need_iput = true`。调用方包括 data.c 的 iomap 路径、
+    `erofs_fileio_read_folio()`、压缩路径（zdata.c）等。
+
+11. **`sharedentry` 是正向**：原始 inode → 共享 inode（通过 dentry）。
+    **`ishare_list` 是反向**：共享 inode 的链表记录"哪些原始 inode 指着我"，
+    供释放时清理用。
+
+</details>
+
+## 参考
+[linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
+[EROFS 官方文档 Release 0.1](https://erofs.docs.kernel.org)
