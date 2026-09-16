@@ -23,7 +23,7 @@ tags:
 
 | 项 | 值 |
 |---|---|
-| 宿主机内核 | `5.10.0-136.12.0.86.4.nos1.x86_64`（ftrace 全开） |
+| 宿主机内核 | `5.10.0.x86_64`（ftrace 全开） |
 | VM 内核 | `/home/linux/erofs/linux-stable`，`v7.3-rc3-60-g587858367581`<br>`CONFIG_FUNCTION_TRACER` / `FUNCTION_GRAPH_TRACER` / `DYNAMIC_FTRACE` 均为 `y` |
 | VM 内核镜像 | `/home/linux/erofs/linux-stable/arch/x86/boot/bzImage` |
 | VM initrd | `/home/linux/erofs/erofs-boot-initrd.img` |
@@ -114,7 +114,7 @@ cat trace
 
 #### 2.3 脚本全文（`/trace-read-fileio.sh`）
 
-![trace-read-fileio.sh](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-16-erofs-trace-read-fileio.sh)
+[trace-read-fileio.sh](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-16-erofs-trace-read-fileio.sh)
 
 完整内容见同目录 `trace-read-fileio.sh`，核心片段：
 
@@ -292,7 +292,7 @@ cat trace
 
 #### 3.3 脚本全文（`/trace-read-bdev.sh`）
 
-![trace-read-fileio.sh](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-16-erofs-trace-read-bdev.sh)
+[trace-read-fileio.sh](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-16-erofs-trace-read-bdev.sh)
 
 与 fileio 版唯一差别在第 1 段（挂载方式）和 PROBE 列表，其余完全相同：
 
@@ -338,7 +338,7 @@ PROBE_erofs_fileio_readahead=0    ★（fileio 版是 3）
 
 #### 3.5 提炼出的读路径栈（bdev）
 
-![trace graph bdev full data](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-16-erofs-trace-graph-bdev.txt)
+[trace graph bdev full data](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-16-erofs-trace-graph-bdev.txt)
 
 ```text
 __x64_sys_read() {
