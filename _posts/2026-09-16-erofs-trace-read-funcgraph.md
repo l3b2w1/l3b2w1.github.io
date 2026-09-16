@@ -198,7 +198,7 @@ PROBE_erofs_map_dev=2
 
 #### 2.5 提炼出的读路径栈（fileio）
 
-![trace graph fileio full data](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-16-erofs-trace-graph-fileio.txt)
+[trace graph fileio full data](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-16-erofs-trace-graph-fileio.txt)
 
 ```text
 __x64_sys_read() {                          ← 根函数（不能用 do_mount/vfs_read 那类）
