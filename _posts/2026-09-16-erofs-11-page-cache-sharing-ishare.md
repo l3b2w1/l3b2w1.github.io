@@ -127,7 +127,7 @@ EROFS 引入 **`domain_id`**：只有同一 domain 内的文件才互相共享�
 
 ## 三、实现架构
 
-##### 3.1 对象关系
+#### 3.1 对象关系
 
 ```
 原始 inode（每个挂载实例各有一份）
@@ -147,7 +147,17 @@ EROFS 引入 **`domain_id`**：只有同一 domain 内的文件才互相共享�
 
 反向链表的作用：**共享 inode 要释放时**，能找到所有引用者做清理。
 
-#### 3.2 关键流程：打开一个 ishare 文件
+![双向关联图](![全景图](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-16-erofs-29-ishare-two-inodes.svg)
+
+#### 全景图（指纹来源 + 生命周期）
+
+**指纹从哪来**、**关系怎么建立/使用/拆除**：
+
+![ishare 全景：指纹来源 + 对象关系 + 生命周期](![全景图](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-16-erofs-28-ishare-struct-map.svg)
+
+四列从左到右：① 指纹来源 → ② 对象关系与字段 → ③ 建立 / 使用 / 拆除 → ④ 三个易错点。
+
+### 3.2 关键流程：打开一个 ishare 文件
 
 ```
 ① erofs_fill_inode()（inode.c）
@@ -174,7 +184,7 @@ EROFS 引入 **`domain_id`**：只有同一 domain 内的文件才互相共享�
      └ filemap_read(&dedup_iocb, to, 0)           ← 读的是共享 inode 的页缓存！
 ```
 
-**第 ④ 步是全部魔法所在**：读的时候把 kiocb 的文件换成 `realfile`，
+**第 ④ 步是全部魔法所在**：读的时候把 kiocb 的文件换成 `realfile`,     
 于是 `filemap_read()` 用的是共享 inode 的 `i_mapping`——
 多个原始文件因此共用同一份 page cache。
 
@@ -209,11 +219,10 @@ struct erofs_inode_fingerprint {
 ```
 
 **它从哪来**：`erofs_xattr_fill_inode_fingerprint()`（`xattr.c`）
-从文件的 xattr 里读出来。也就是说——**指纹是 mkfs 时算好、存在镜像里的**，
-内核只是读取，不自己算。
+从文件的 xattr 里读出来。  也就是说——**指纹是 mkfs 时算好、存在镜像里的**，内核只是读取，不自己算。
 
-> 这与我们在 img-stable 备份里看到的现象吻合：ishare 需要
-> "on-disk ishare xattrs"，没有它内核会打印
+> 这与我们在 img-stable 备份里看到的现象吻合：  
+> ishare 需要 "on-disk ishare xattrs"，没有它内核会打印
 > `on-disk ishare xattrs not found. Turning off inode_share.` 并**关闭该特性**。
 
 #### 4.2 `erofs_inode` 中的 ishare 相关字段（`internal.h`）
@@ -248,9 +257,10 @@ union 成员要用对，得先搞清楚当前 inode 扮演什么角色。）
 一个**内部的 vfsmount**，所有共享 inode 都挂在它的 superblock 上
 （代码里用 `erofs_ishare_mnt->mnt_sb`）。
 
-为什么需要它：共享 inode 需要"属于某个文件系统"，
+为什么需要它：  
+共享 inode 需要"属于某个文件系统"，
 但它们不属于任何一个用户挂载的 EROFS 实例
-（否则容器 A 卸载时共享 inode 也跟着没了）。
+（否则容器 A 卸载时共享 inode 也跟着没了）。  
 所以单独造一个内部挂载点来托管。
 
 #### 4.4 `erofs_ishare_fops`（`ishare.c`）
@@ -324,7 +334,7 @@ si = iget5_locked(erofs_ishare_mnt->mnt_sb,
                   &fp);
 ```
 
-`iget5_locked()` 是内核的"按自定义键查找/新建 inode"接口。
+`iget5_locked()` 是内核的"按自定义键查找/新建 inode"接口。  
 这里用 **指纹的 xxh32 哈希** 作为 inode 号——
 **指纹相同 ⇒ 哈希相同 ⇒ 找到同一个共享 inode**。
 
@@ -433,7 +443,7 @@ iocb->ki_pos = dedup_iocb.ki_pos;              /* 同步位置 */
 return nread;
 ```
 
-**`kiocb_clone()` 是全部魔法**：克隆一个 kiocb，但把文件替换成 `realfile`。
+**`kiocb_clone()` 是全部魔法**：克隆一个 kiocb，但把文件替换成 `realfile`。  
 之后 `filemap_read()` 用的就是共享 inode 的 `i_mapping`——
 ⇒ **所有指纹相同的文件，最终都在读同一份 page cache**。
 
@@ -640,5 +650,5 @@ grep -rn "erofs_real_inode" .
 </details>
 
 ## 参考
-[linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
+[linux-stable](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
 [EROFS 官方文档 Release 0.1](https://erofs.docs.kernel.org)
