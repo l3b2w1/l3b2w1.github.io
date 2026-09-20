@@ -27,7 +27,7 @@ tags:
 1. 说清压缩文件的"零头"问题，以及它为什么浪费空间
 2. 解释 **packed inode** 是什么、为什么能解决零头问题
 3. **清楚区分 fragment 与 tail-packing**（06 专题点名最容易混淆的一对）
-4. 看懂 `z_fragmentoff` 为什么要把 pblk 编进高 32 位
+4. 看懂 `z_fragmentoff` 是**64 位字节偏移**，以及高 32 位为什么借 `pblk` 槽位存放
 5. 解释 `z_idata_size` 的**双重作用**
 6. 说清 fragment 数据是怎么被读进 folio 的
 
@@ -45,7 +45,7 @@ EROFS 把**所有文件的零头集中到 packed inode 里紧凑排列**，几�
 | **① 问题**（淡红） | 浪费从哪来 | 100KB 文件压到 37.5KB，但要按 4KB pcluster 分配 → 10 块 = 40KB，最后一块浪费 2.5KB；× 上万个文件很可观 |
 | **② 解法**（淡绿） | 零头去哪了 | 大家凑一起共享 pcluster → **packed inode**（就是一个普通 EROFS inode，由 superblock 的 `packed_nid` 指定） |
 | **③ 两个易混概念**（淡黄） | fragment ≠ tail-packing | fragment 是「**大家凑一起**」（多文件共享，判断 `z_fragmentoff`）；tail-packing 是「**自己塞进 inode**」（单文件独有，判断 `z_idata_size != 0`） |
-| **④ 位置编码**（淡蓝） | 怎么记住位置 | `z_fragmentoff = [块号 pblk 高32位][块内偏移 低32位]`，**两步写入、条件不同** |
+| **④ 位置编码**（淡蓝） | 怎么记住位置 | `z_fragmentoff` = **packed inode 内的 64 位字节偏移**；镜像里低 32 位存 `h_fragmentoff`，高 32 位**借** `di_u.blkaddr`（内核侧 `m.pblk`）存放，读时拼回去 |
 | **⑤ 怎么读**（淡紫） | 读出来 | `buf.mapping = packed_inode->i_mapping` → `erofs_bread()` + `memcpy_to_folio()`；**不解压**（本来就是压缩后的产物） |
 
 **⚠️ 两个必须记住的澄清**（图底部红框）：
@@ -109,10 +109,16 @@ EROFS 按 **pcluster**（物理压缩簇，通常 4 KB 的整数倍）分配磁�
 | 处理对象 | 压缩后的**零头** | 文件**尾部**数据（通常是最后一块） |
 | 存放位置 | 集中到 **packed inode** | **内联在 inode 里**（inode 的变长区） |
 | 共享 | **多文件共享** pcluster | 单文件独有 |
-| 判断字段 | `z_fragmentoff` | `z_idata_size != 0` |
+| 判断字段 | `vi->z_advise & Z_EROFS_ADVISE_FRAGMENT_PCLUSTER`<br/>（另需 superblock 的 `EROFS_FEATURE_INCOMPAT_FRAGMENTS`） | `z_idata_size != 0` |
+| 位置字段 | `z_fragmentoff` | ——（就在 inode 元数据区） |
 | 目的 | 减少**跨文件**的空间浪费 | 省掉**一个数据块**的分配与寻址 |
 
 ⇒ **fragment 是"大家凑一起"，tail-packing 是"自己塞进 inode"**。
+
+> **⚠️ 别把 `z_fragmentoff` 当成判据**：它是**位置**字段（记"我的零头放在哪"），不是开关。
+> 真正的开关是两个：`zmap.c` 里 `bool fragment = vi->z_advise & Z_EROFS_ADVISE_FRAGMENT_PCLUSTER;`
+> 以及挂载时 `erofs_sb_has_fragments(sbi)`（即 superblock 的 `EROFS_FEATURE_INCOMPAT_FRAGMENTS`）
+> ——后者决定要不要去 `erofs_iget()` 那个 packed inode。
 
 两者可以**同时存在**于一个文件上。
 
@@ -133,33 +139,50 @@ packed inode 不是新机制——它就是一个**普通的 EROFS inode**，
 
 #### 理念 2：偏移编码进一个 64 位数
 
-`vi->z_fragmentoff` 需要表达 fragment 在 packed inode 里的位置。
-EROFS 把它拆成两部分塞进一个 `u64`：
+`vi->z_fragmentoff` 要表达的是「我的零头在 packed inode 里的位置」——
+**它是一个 64 位的字节偏移**（以 packed inode 的数据区起点为 0）。
 
 ```c
-/* ① ztailpacking 时：先记下块内偏移（zmap.c） */
+/* ① ztailpacking 时：先记下位置本身（zmap.c） */
 if ((flags & EROFS_GET_BLOCKS_FINDTAIL) && ztailpacking)
         vi->z_fragmentoff = m.nextpackoff;
 
-/* ② fragment 且完整压缩布局时：再把块号编进高 32 位 */
+/* ② fragment 且完整压缩布局时：再把高 32 位补上去 */
 if (fragment && vi->datalayout == EROFS_INODE_COMPRESSED_FULL)
         vi->z_fragmentoff |= (u64)m.pblk << 32;
 ```
 
-```
-z_fragmentoff = [ 块号 pblk (高 32 位) ][ 块内偏移 (低 32 位) ]
-```
-
-⚠️ **这两步的条件不一样，别当成一个整体**（上文为便于理解做了简化）：
+⚠️ **这两步的条件不一样，别当成一个整体**：
 
 | 步骤 | 条件 | 写入的部分 |
 |---|---|---|
-| ① `= m.nextpackoff` | `FINDTAIL` **且** `ztailpacking` | 低 32 位（块内偏移） |
-| ② `\|= pblk << 32` | `fragment` **且** `datalayout == COMPRESSED_FULL` | 高 32 位（块号） |
+| ① `= m.nextpackoff` | `FINDTAIL` **且** `ztailpacking` | 位置本身（元数据区内的字节偏移） |
+| ② `\|= pblk << 32` | `fragment` **且** `datalayout == COMPRESSED_FULL` | 高 32 位 |
 
-⇒ 只有 **fragment** 才需要块号（数据在 packed inode 里，跨块）；  
-单纯的 **ztailpacking** 只用到块内偏移（数据就内联在 inode 的元数据区）。
+#### ⚠️ 最关键的一点：`m.pblk` 在这里不是块号
 
+槽位名叫 `blkaddr` / `pblk`，装的却**不是块地址**——mkfs 只是**借**这个 32 位字段
+存放偏移的高半部分（`erofs-utils/lib/compress.c`）：
+
+```c
+di.di_u.blkaddr = cpu_to_le32(inode->fragmentoff >> 32);   /* 高 32 位借 blkaddr */
+h.h_fragmentoff = cpu_to_le32(inode->fragmentoff);         /* 低 32 位 */
+/* extents（简化）形态下则借 plen / pstart 两个槽位分别放低 32 位与高 32 位 */
+```
+
+内核再把它拼回高半部分，得到一个完整的字节偏移。三条独立证据：
+
+1. `erofs_bread(buf, offset)` 的参数是**字节偏移**（`internal.h`），
+   而 `z_fragmentoff` 是**直接**传给它的，中间没有任何 `erofs_pos()` 换算
+2. `zmap.c` 里 `map->m_pa = vi->z_fragmentoff` —— `m_pa` 是字节地址，同样不做换算
+3. mkfs 注释写明「packed inode 大于 4 GiB 时，完整的 fragmentoff 会改用
+   noncompact 布局记录」——若是块号，根本不会在这个量级上讨论
+
+⇒ 正确读法：**`z_fragmentoff` = packed inode 内的 64 位字节偏移**。
+「块号 + 块内偏移」是望文生义的误读（本材料早期版本也踩过，现已更正）。
+
+常见镜像里 packed inode 远小于 4 GiB，**高 32 位就是 0**，
+此时低 32 位本身就是完整偏移——这也是为什么步骤 ① 直接赋值就能用。
 读取时 `z_fragmentoff + fpos` 作为位置传给 `z_erofs_read_fragment()`。
 
 #### 理念 3：`z_idata_size` 一字段两用
@@ -180,7 +203,7 @@ bool ztailpacking = vi->z_idata_size;     /* zmap.c */
 ```
 erofs_sb_info
    ├─ packed_nid      ← 从 on-disk superblock 读来
-   └─ packed_inode    ← 按 packed_nid igot 出来的 inode
+   └─ packed_inode    ← erofs_iget(sb, packed_nid) 出来的 inode（前提：erofs_sb_has_fragments()）
                             │
                             └─ i_mapping
                                   │
@@ -191,6 +214,20 @@ erofs_sb_info
    ├─ z_fragmentoff   ← 我的 fragment 在 packed inode 里的位置
    └─ z_idata_size    ← 我的 inline 尾部数据大小（ztailpacking）
 ```
+
+###### 布局图
+
+零头在 packed inode 里怎么排、各自怎么找回自己的那段
+
+上面是对象关系，下面把它画成**磁盘布局**：
+
+![零头的家：packed inode 的布局与寻址](dot/33-fragment-packed-layout.svg)
+
+三个文件的零头用三种颜色区分，**文件 C 那段故意跨了块边界**——
+正是它逼出了 `z_erofs_read_fragment()` 里那个「按块切分」的循环
+（一次 `erofs_bread()` 只能读一块，跨块就得读两次）。
+图的下半部回答两件事：位置怎么编码（`z_fragmentoff`）、读的时候怎么拿它去取数据。
+
 
 #### 3.2 fragment 读取流程
 
@@ -240,9 +277,24 @@ erofs_nid_t packed_nid;            /* on-disk superblock 里记的 nid */
 __le64 packed_nid;      /* nid of the special packed inode */
 ```
 
-⇒ 镜像制作时 mkfs 决定 packed inode 是哪个，把 nid 写进 superblock；  
+⇒ 镜像制作时 mkfs 决定 packed inode 是哪个，把 nid 写进 superblock；
 内核挂载时读出来（`sbi->packed_nid = le64_to_cpu(dsb->packed_nid)`），
-再把它 igot 成 `packed_inode`。
+再用 `erofs_iget(sb, sbi->packed_nid)` 拿到 `packed_inode`。
+
+**注意有前提**：`super.c` 里是
+
+```c
+if (erofs_sb_has_fragments(sbi) && sbi->packed_nid) {
+        inode = erofs_iget(sb, sbi->packed_nid);
+        ...
+        sbi->packed_inode = inode;
+}
+```
+
+⇒ 镜像没开 `FRAGMENTS` 特性、或 `packed_nid` 为 0，**根本不会有 packed inode**；
+这也解释了后面 `z_erofs_read_fragment()` 里 `if (!packed_inode) return -EFSCORRUPTED` 的由来。
+
+---
 
 ## 五、主要函数
 
@@ -291,19 +343,34 @@ static int z_erofs_read_fragment(struct super_block *sb, struct folio *folio,
 |---|---|
 | `bool ztailpacking = vi->z_idata_size;` | 用 `z_idata_size` 判断是否启用 ztailpacking |
 | `vi->z_fragmentoff = m.nextpackoff;` | 记录块内偏移 |
-| `vi->z_fragmentoff \|= (u64)m.pblk << 32;` | 补上高 32 位块号 |
+| `vi->z_fragmentoff \|= (u64)m.pblk << 32;` | 补上高 32 位（借 `m.pblk` 槽位，**它不是块号**） |
 | `map->m_pa = vi->z_fragmentoff;` | 当作物理地址用 |
 | `map->m_plen = vi->z_idata_size;` | 长度 |
 
 #### 5.3 调用点（`zdata.c`）
 
 ```c
-z_erofs_read_fragment(sb, folio, cur, end,
-                      EROFS_I(inode)->z_fragmentoff + fpos);
+if (map->m_flags & EROFS_MAP_FRAGMENT) {
+        erofs_off_t fpos = offset + cur - map->m_la;
+
+        err = z_erofs_read_fragment(inode->i_sb, folio, cur,
+                        cur + min(map->m_llen - fpos, end - cur),
+                        EROFS_I(inode)->z_fragmentoff + fpos);
+        if (err)
+                break;
+}
 ```
 
-`fpos` 是 folio 内的偏移——加上它才能定位到这个 folio 对应的那段 fragment。
+两处细节（前面为便于理解做了简化，这里按源码补全）：
 
+- **`fpos` 不是"folio 内的偏移"**：它是 `offset + cur - map->m_la`，
+  即**这一次要读的数据在整个 fragment 里的起点**（相对 fragment 开头的偏移）。
+  folio 内偏移是 `cur`，映射起点是 `map->m_la`，二者相减才得到 fragment 内的位置。
+- **第四个参数不是 `end`**：是 `cur + min(map->m_llen - fpos, end - cur)`，
+  即"从 `cur` 起，取『fragment 剩余长度』与『folio 剩余空间』中的较小者"。
+
+⇒ `z_fragmentoff + fpos` 就是这一次要读的字节在 packed inode 里的绝对位置
+（`z_fragmentoff` 本身即字节偏移，直接相加，无需任何换算）。
 
 ## 六、来龙去脉：完整串一遍
 
@@ -318,7 +385,7 @@ z_erofs_read_fragment(sb, folio, cur, end,
         │
 ② 挂载
      ├ sbi->packed_nid = le64_to_cpu(dsb->packed_nid)
-     └ 按 nid 把 packed inode igot 出来 → sbi->packed_inode
+     └ erofs_iget(sb, packed_nid) → sbi->packed_inode（前提：erofs_sb_has_fragments()）
         │
 ③ 读某个压缩文件，碰到 fragment 段
         │
@@ -377,9 +444,12 @@ grep -rn "packed_inode\|packed_nid" super.c inode.c
 它还是 **ztailpacking 的开关**：`bool ztailpacking = vi->z_idata_size;`
 非 0 即表示启用。
 
-#### 误解 4：`z_fragmentoff` 只是块内偏移
+#### 误解 4：`z_fragmentoff` 是「块号 + 块内偏移」
 
-不只。它是**块号（高 32 位）+ 块内偏移（低 32 位）**打包成的 `u64`。
+**不是**（这是最容易望文生义的一处）。它整体是 **packed inode 内的 64 位字节偏移**。
+`m.pblk` 只是被 mkfs **借**来存放高 32 位的槽位——槽位名叫 `blkaddr`，装的却不是块地址。
+判据：`erofs_bread(buf, offset)` 收的是字节偏移，而 `z_fragmentoff` 是直接传给它的，
+中间没有任何换算（详见理念 2）。
 
 #### 误解 5：packed inode 是一种新的特殊 inode 类型
 
@@ -392,7 +462,7 @@ grep -rn "packed_inode\|packed_nid" super.c inode.c
 |---|---|
 | **压缩路径**（04） | fragment 是压缩的**副产物**，只读压缩文件才有 |
 | **dedupe / rolling hash**（15） | 另一个省空间机制，思路不同（块级去重 vs 零头集中） |
-| **metabox**（18） | packed inode 的数据也可能在 metabox 里 |
+| **metabox**（18） | **并列关系，不是包含关系**：xattr 长前缀表可以放在 metabox **或** packed inode 的数据区（官方文档原文 "embedded in the metabox or packed inode's data region"；`xattr.c` 里是 `if (erofs_sb_has_metabox(sbi)) ... else if (sbi->packed_inode)`）。**fragment 数据本身不经过 metabox**——它固定走 `packed_inode->i_mapping` |
 | **多设备**（13） | packed inode 可以位于任意设备上，照常走 `erofs_map_dev` |
 
 ## 自测检查点
@@ -405,7 +475,7 @@ grep -rn "packed_inode\|packed_nid" super.c inode.c
 6. 读 fragment 时为什么直接 `memcpy` 而不解压？
 7. 若映射显示有 fragment，但 `packed_inode` 为空，会发生什么？
 8. `z_erofs_read_fragment()` 里 `buf.mapping` 被设成了什么？为什么？
-9. fragment 数据可能存在哪些位置？（提示：metabox）
+9. 挂载时，满足什么条件内核才会去建立 `packed_inode`？
 10. 为什么多个文件的零头挤在一起能省空间？
 
 ## 自测答案
@@ -424,8 +494,10 @@ grep -rn "packed_inode\|packed_nid" super.c inode.c
    **②** 位置：fragment 集中到 packed inode，tail-packing 内联进自己的 inode；
    **③** 共享：fragment 多文件共享 pcluster，tail-packing 单文件独有。
 
-4. **高 32 位 = 块号（pblk）**，**低 32 位 = 块内偏移**。
-   打包成一个 `u64`：`z_fragmentoff |= (u64)m.pblk << 32;`
+4. **整体是 packed inode 内的 64 位字节偏移**。
+   镜像里低 32 位存 `h_fragmentoff`，高 32 位借 `di_u.blkaddr`（内核侧 `m.pblk`）存放，
+   内核用 `z_fragmentoff |= (u64)m.pblk << 32` 拼回去。
+   ⚠️ **不是**「块号 + 块内偏移」——`erofs_bread()` 收的是字节偏移，中间没有换算。
 
 5. **①** 表示 inline（tail-packing）数据的**大小**；
    **②** 非 0 即作为 **ztailpacking 的开关**（`bool ztailpacking = vi->z_idata_size;`）。
@@ -440,7 +512,12 @@ grep -rn "packed_inode\|packed_nid" super.c inode.c
    这样后续的 `erofs_bread(&buf, ...)` 读的就是 packed inode 的数据，
    而不是当前文件的。
 
-9. 常规数据区，也可能在 **metabox** 里（视镜像配置而定）。
+9. `super.c` 里是 `if (erofs_sb_has_fragments(sbi) && sbi->packed_nid)` 才
+   `erofs_iget(sb, sbi->packed_nid)` —— 两个条件缺一不可：
+   镜像必须开了 `EROFS_FEATURE_INCOMPAT_FRAGMENTS` 特性，且 `packed_nid` 非 0。
+   ⚠️ 早期版本这里写"还可能放在 metabox 里"是错的：fragment 数据固定走
+   `packed_inode->i_mapping`，与 metabox 无此关系（metabox 只是 xattr 长前缀表的
+   另一处**并列**落点）。
 
 10. 因为单个文件的零头填不满一个 pcluster（分配粒度），
     多个零头**拼在一起**就能把 pcluster 填满，
