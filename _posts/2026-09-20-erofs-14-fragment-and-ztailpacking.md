@@ -217,17 +217,12 @@ erofs_sb_info
 
 ###### 布局图
 
-零头在 packed inode 里怎么排、各自怎么找回自己的那段
-
-上面是对象关系，下面把它画成**磁盘布局**：
-
-![零头的家：packed inode 的布局与寻址](dot/33-fragment-packed-layout.svg)
-
+零头在 packed inode 里怎么排、各自怎么找回自己的那段，上面是对象关系，下面把它画成**磁盘布局**：  
+![布局图](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-20-erofs-33-fragment-packed-layout.dot)
 三个文件的零头用三种颜色区分，**文件 C 那段故意跨了块边界**——
 正是它逼出了 `z_erofs_read_fragment()` 里那个「按块切分」的循环
 （一次 `erofs_bread()` 只能读一块，跨块就得读两次）。
 图的下半部回答两件事：位置怎么编码（`z_fragmentoff`）、读的时候怎么拿它去取数据。
-
 
 #### 3.2 fragment 读取流程
 
