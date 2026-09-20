@@ -179,10 +179,10 @@ h.h_fragmentoff = cpu_to_le32(inode->fragmentoff);         /* 低 32 位 */
    noncompact 布局记录」——若是块号，根本不会在这个量级上讨论
 
 ⇒ 正确读法：**`z_fragmentoff` = packed inode 内的 64 位字节偏移**。
-「块号 + 块内偏移」是望文生义的误读（本材料早期版本也踩过，现已更正）。
 
 常见镜像里 packed inode 远小于 4 GiB，**高 32 位就是 0**，
 此时低 32 位本身就是完整偏移——这也是为什么步骤 ① 直接赋值就能用。
+
 读取时 `z_fragmentoff + fpos` 作为位置传给 `z_erofs_read_fragment()`。
 
 #### 理念 3：`z_idata_size` 一字段两用
@@ -219,7 +219,7 @@ erofs_sb_info
 
 零头在 packed inode 里怎么排、各自怎么找回自己的那段，上面是对象关系，下面把它画成**磁盘布局**：
 
-![](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-20-erofs-33-fragment-packed-layout.dot)
+![disk layout](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-20-erofs-33-fragment-packed-layout.dot)
 三个文件的零头用三种颜色区分，**文件 C 那段故意跨了块边界**——
 正是它逼出了 `z_erofs_read_fragment()` 里那个「按块切分」的循环
 （一次 `erofs_bread()` 只能读一块，跨块就得读两次）。
