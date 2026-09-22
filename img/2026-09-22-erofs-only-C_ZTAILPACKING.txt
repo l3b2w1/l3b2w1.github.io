@@ -1,0 +1,60 @@
+# EROFS 内部调用图（已过滤 lock / sched / alloc / tty / RCU 等非 EROFS 函数）
+# 来源: graph-C_ZTAILPACKING.log   缩进 = 调用层级
+#
+        erofs_file_read_iter() {
+                        z_erofs_readahead() {
+                          erofs_real_inode();
+                          z_erofs_pcluster_readmore() {
+                            z_erofs_map_blocks_iter();
+                          } /* z_erofs_pcluster_readmore */
+                          z_erofs_scan_folio() {
+                            erofs_onlinefolio_init();
+                            z_erofs_pcluster_end();
+                            z_erofs_map_blocks_iter() {
+                              erofs_read_metabuf() {
+                                erofs_bread() {
+                                } /* erofs_bread */
+                              } /* erofs_read_metabuf */
+                              z_erofs_map_blocks_fo() {
+                                z_erofs_load_lcluster_from_disk() {
+                                  erofs_read_metabuf() {
+                                    erofs_bread() {
+                                    } /* erofs_bread */
+                                  } /* erofs_read_metabuf */
+                                } /* z_erofs_load_lcluster_from_disk */
+                                erofs_unmap_metabuf();
+                              } /* z_erofs_map_blocks_fo */
+                              erofs_put_metabuf();
+                              z_erofs_map_blocks_fo() {
+                                z_erofs_load_lcluster_from_disk() {
+                                  erofs_read_metabuf() {
+                                    erofs_bread();
+                                  } /* erofs_read_metabuf */
+                                } /* z_erofs_load_lcluster_from_disk */
+                                erofs_unmap_metabuf();
+                              } /* z_erofs_map_blocks_fo */
+                            } /* z_erofs_map_blocks_iter */
+                            erofs_init_metabuf();
+                            erofs_bread();
+                            erofs_onlinefolio_split();
+                            erofs_onlinefolio_end();
+                          } /* z_erofs_scan_folio */
+                          z_erofs_pcluster_readmore();
+                          z_erofs_pcluster_end();
+                          z_erofs_runqueue() {
+                            z_erofs_decompress_queue() {
+                              z_erofs_do_decompressed_bvec();
+                              z_erofs_lz4_decompress() {
+                              } /* z_erofs_lz4_decompress */
+                              erofs_onlinefolio_end() {
+                              } /* erofs_onlinefolio_end */
+                              z_erofs_free_pcluster() {
+                              } /* z_erofs_free_pcluster */
+                            } /* z_erofs_decompress_queue */
+                          } /* z_erofs_runqueue */
+                          erofs_put_metabuf();
+                          erofs_release_pages();
+                        } /* z_erofs_readahead */
+        } /* erofs_file_read_iter */
+        erofs_file_read_iter() {
+        } /* erofs_file_read_iter */
