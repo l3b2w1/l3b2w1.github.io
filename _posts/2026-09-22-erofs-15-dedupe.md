@@ -405,7 +405,7 @@ rq->fillgaps = true;    /* 后端不支持 NULL 输出缓冲（ZSTD） */
 
 | 位置 | 说明 |
 |---|---|
-| `erofs_sb_has_dedupe()` | 由 `internal.h` 的 `EROFS_FEATURE_FUNCS(dedupe, ...)` 宏生成，  但 **`fs/erofs/` 里没有任何调用点** —— 内核判断某段数据是否去重，靠的是 lcluster index 的 advise 位 / extent 的 m_plen 高位 的标志位，不是这个 superblock 特性位 |
+| `erofs_sb_has_dedupe()` | 由 `internal.h` 的 `EROFS_FEATURE_FUNCS(dedupe, ...)` 宏生成，但 **`fs/erofs/` 里没有任何调用点** —— 内核判断某段数据是否去重，靠的是 lcluster index 的 advise 位 / extent 的 m_plen 高位 的标志位，不是这个 superblock 特性位 |
 | `EROFS_ATTR_FEATURE(dedupe)` | 只把 `dedupe` 这个名字暴露到 sysfs（`/sys/fs/erofs/<dev>/features`），方便运维确认 |
 
 ⇒ 这也解释了 15 专题为什么说"内核侧代码量很小"：  
@@ -523,8 +523,8 @@ grep -rn "fillgaps" /sdd/linux/linux-stable/fs/erofs/
 后果：开了 dedupe 的镜像，`erofs_sb_has_fragments()` 同样返回真，
 挂载时也会去 igot packed inode（只要 `packed_nid` 非 0）。
 
-内核真正的区分发生在**更细的层面**：per-lcluster / per-extent 的
-`Z_EROFS_LI_PARTIAL_REF`、`Z_EROFS_EXTENT_PLEN_PARTIAL` 标志位。
+内核真正的区分发生在**更细的层面**：  
+lcluster index 的 advise 位 `Z_EROFS_LI_PARTIAL_REF`、 / extent 的 m_plen 高位 `Z_EROFS_EXTENT_PLEN_PARTIAL` 标志位。
 
 #### 误解 6：去重会让解压变慢
 
