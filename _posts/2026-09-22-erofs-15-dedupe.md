@@ -145,7 +145,7 @@ EROFS_FEATURE_FUNCS(dedupe, incompat, INCOMPAT_DEDUPE)
 
 ```
 ① 挂载时：识别 INCOMPAT_DEDUPE 特性
-      └ 不认识 → 拒绝挂载（incompat 语义）
+      └ 不认识 → 拒绝挂载（incompat 语义）（见宏定义 EROFS_ALL_FEATURE_INCOMPAT）
 
 ② 映射时（zmap.c）：从磁盘标志位认出"这段是引用"
       └ m->partialref = !!(advise & Z_EROFS_LI_PARTIAL_REF)
@@ -405,7 +405,7 @@ rq->fillgaps = true;    /* 后端不支持 NULL 输出缓冲（ZSTD） */
 
 | 位置 | 说明 |
 |---|---|
-| `erofs_sb_has_dedupe()` | 由 `internal.h` 的 `EROFS_FEATURE_FUNCS(dedupe, ...)` 宏生成，但 **`fs/erofs/` 里没有任何调用点** —— 内核判断某段数据是否去重，靠的是 per-lcluster / per-extent 的标志位，不是这个 superblock 特性位 |
+| `erofs_sb_has_dedupe()` | 由 `internal.h` 的 `EROFS_FEATURE_FUNCS(dedupe, ...)` 宏生成，  但 **`fs/erofs/` 里没有任何调用点** —— 内核判断某段数据是否去重，靠的是 lcluster index 的 advise 位 / extent 的 m_plen 高位 的标志位，不是这个 superblock 特性位 |
 | `EROFS_ATTR_FEATURE(dedupe)` | 只把 `dedupe` 这个名字暴露到 sysfs（`/sys/fs/erofs/<dev>/features`），方便运维确认 |
 
 ⇒ 这也解释了 15 专题为什么说"内核侧代码量很小"：  
