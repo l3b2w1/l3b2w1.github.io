@@ -576,7 +576,6 @@ lcluster index 的 advise 位 `Z_EROFS_LI_PARTIAL_REF`、 / extent 的 m_plen �
 
 6. **D12**：`z_erofs_decompress_queue()` 中 `be.keepxcpy` 未初始化，
    而它被当作 `rq.fillgaps` 传下去，栈垃圾值导致处理错误。
-   （见 `erofs-analysis/09-八个补丁详解.md`）
 
 7. **①** dedupe 消除跨文件相同块，fragment 处理压缩零头；
    **②** dedupe 靠 rolling hash 匹配，fragment 靠集中到 packed inode；
