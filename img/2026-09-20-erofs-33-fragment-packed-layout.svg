@@ -10,7 +10,7 @@
 <title>fragment_packed_layout</title>
 <polygon fill="white" stroke="transparent" points="-4,4 -4,-797 1061,-797 1061,4 -4,4"/>
 <text text-anchor="middle" x="528.5" y="-776.2" font-family="Droid Sans Fallback" font-size="16.00">33 · 零头的家：packed inode 的布局与寻址</text>
-<text text-anchor="middle" x="528.5" y="-758.2" font-family="Droid Sans Fallback" font-size="16.00">u3000所有文件的零头紧凑排列　·　每个文件用 z_fragmentoff 记住自己那段在哪</text>
+<text text-anchor="middle" x="528.5" y="-758.2" font-family="Droid Sans Fallback" font-size="16.00">所有文件的零头紧凑排列　·　每个文件用 z_fragmentoff 记住自己那段在哪</text>
 <g id="clust1" class="cluster">
 <title>cluster_files</title>
 <polygon fill="#fafafa" stroke="#90a4ae" stroke-dasharray="5,2" points="448,-623 448,-741 868,-741 868,-623 448,-623"/>
