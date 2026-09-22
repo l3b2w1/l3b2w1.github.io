@@ -120,6 +120,23 @@ erofs_map_blocks  ──►  erofs_map_dev  ──►  （实际读盘）
 
 #### 图三：关键结构体 + 内部关键字段全景
 
+![核心结构体字段全景](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-13-erofs-25-core-structs-fieldmap.svg)
+
+前两张图只画了"谁连谁"，这张图把**每个结构体内部的关键字段**也写进节点，并且每条边上标注的是**持有方的字段名**——也就是说，你看到
+
+```
+sbi ──dif0──► erofs_device_info
+```
+
+就应该读作"`erofs_sb_info` 里有一个叫 `dif0` 的字段，指向 `erofs_device_info`"。
+
+**怎么读**：
+
+- **节点内**是字段名。斜体/带 `*` 的是版本差异提示（见下）。
+- **边上的文字**是引用方的字段/访问方式，例如 `s_fs_info`、`i_private`、`m_dif`、`managed_pslots[pos]`。
+- **虚线**表示"间接索引/运行时解析"，例如 `erofs_map_dev()` 把 `m_deviceid` 解析成 `m_dif`。
+- 节点背景色分组：淡蓝 = VFS 通用层与地址映射，淡绿 = 全局与设备，淡橙 = `erofs_inode` 与压缩层，淡黄 = `erofs_buf`，红 = 易错点。
+
 图中四个关键引用链（对应 8.6 节的文字版）：
 
 ```
@@ -136,7 +153,7 @@ erofs_map_blocks  ──►  erofs_map_dev  ──►  （实际读盘）
 ④ pcluster(pcl) ──compressed_bvecs[]──► bvec ──► 压缩数据页 ──in[]──► decompress_req(rq)
 ```
 
-![核心结构体字段全景](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-13-erofs-25-core-structs-fieldmap.svg)
+
 
 ## 8.1 全局层：`struct erofs_sb_info`（`internal.h`）
 
@@ -361,12 +378,13 @@ struct z_erofs_decompress_req {
 	unsigned int alg;              /* 算法 */
 	bool inplace_io;               /* 是否原地解压 */
 	bool partial_decoding;
-	bool fillgaps;                 /* ★ 是否为空隙填零 */
+	bool fillgaps;                 /* ★ 空隙（未被整页认领的输出槽）是否分配临时页 */
 	gfp_t gfp;
 };
 ```
 
-⚠️ `fillgaps` 是个容易踩的字段：它决定"输出里有空隙时是否补零"。  
+⚠️ `fillgaps` 是个容易踩的字段：它决定"输出里有空隙（未被整页认领的输出槽）时，
+是否分配一个临时页作为解压落点 / 后续拷贝源"。
 `fillgaps` 传错会导致数据错误（这正是 09 文档里 D12 那条缺陷的由来——
 `keepxcpy` 未初始化，而它会被当作 `fillgaps` 传下去）。
 
@@ -574,8 +592,8 @@ grep -n "struct erofs_sb_info {" internal.h     # 只看行号定位，文档里
 7. 借用它的 **`address_space`** —— 把压缩数据缓存挂进 VFS 的 page cache，
    从而复用内核的缓存与回收机制，不用自己写一套。
 
-8. `fillgaps` 决定**输出里有空隙时是否补零**。传错会导致读到错误数据
-   （例如 deduped 页未填零）。
+8. `fillgaps` 决定**输出里有空隙（未被整页认领的输出槽）时是否分配临时页**。传错会导致读到错误数据
+   （例如该给的临时页没分配，后续拷贝就没有源）。
 
 9. 一条完整链（示例）：
    `super_block` →(`s_fs_info`)-> `erofs_sb_info`

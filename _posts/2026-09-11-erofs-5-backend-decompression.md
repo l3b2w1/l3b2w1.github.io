@@ -266,7 +266,7 @@ static struct z_erofs_crypto_engine *z_erofs_crypto[Z_EROFS_COMPRESSION_MAX] = {
 |---|---|
 | `inplace_io` | 是否允许原地解压（省一次拷贝） |
 | `partial_decoding` | 只要部分输出即可 |
-| `fillgaps` | 输出有空隙时是否补零 |
+| `fillgaps` | 输出有空隙（未被整页认领的输出槽）时，是否分配临时页作为解压落点 / 后续拷贝源 |
 
 ### 算法怎么选：每 inode 指定，不是全局
 
@@ -431,7 +431,7 @@ LZ4 / LZMA / ZSTD 三档的数组都是空的 `{}`。
 |---|---|
 | `inplace_io` | 是否允许原地解压（可省一次拷贝与额外页） |
 | `partial_decoding` | 只解出部分输出即可，不必全部 |
-| `fillgaps` | 输出存在"空隙"时是否补零（去重/共享页场景会用到） |
+| `fillgaps` | 输出存在"空隙"（未被整页认领的输出槽）时，是否分配临时页作为解压落点 / 后续拷贝源（去重场景会用到） |
 
 **11. 加一种新算法要改什么？**
 
