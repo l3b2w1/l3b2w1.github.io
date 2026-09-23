@@ -394,9 +394,9 @@ erofs_ishare_file_read_iter() {     × 8
 
 **D4：之后读 dedupe/shared.bin（不同 domain）—— 和 D1 一样完整**
 
-[graph-D3_DIFFDOMAIN_A.log](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-23-erofs-graph-D3_DIFFDOMAIN_A.log)
+[graph-D3_DIFFDOMAIN_A.log](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-23-erofs-graph-D3_DIFFDOMAIN_A.log)  
 
-[graph-D4_DIFFDOMAIN_B.log](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-23-erofs-graph-D4_DIFFDOMAIN_B.log）
+[graph-D4_DIFFDOMAIN_B.log](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-23-erofs-graph-D4_DIFFDOMAIN_B.log)
 
 ```
 erofs_ishare_file_read_iter() {
