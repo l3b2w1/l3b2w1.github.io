@@ -1,0 +1,328 @@
+# tracer: function_graph
+#
+#     TIME        CPU  DURATION                  FUNCTION CALLS
+#      |          |     |   |                     |   |   |   |
+   12.053612 |   3)               |  __x64_sys_read() {
+   12.053613 |   3)               |    ksys_read() {
+   12.053613 |   3)   0.164 us    |      fdget_pos();
+   12.053613 |   3)               |      vfs_read() {
+   12.053614 |   3)   0.324 us    |        rw_verify_area();
+   12.053614 |   3)               |        ext4_file_read_iter() {
+   12.053614 |   3)               |          generic_file_read_iter() {
+   12.053614 |   3)               |            filemap_read() {
+   12.053615 |   3)               |              filemap_get_pages() {
+   12.053615 |   3)   0.382 us    |                filemap_get_read_batch();
+   12.053615 |   3)   0.724 us    |              }
+   12.053616 |   3)   0.129 us    |              folio_mark_accessed();
+   12.053616 |   3)               |              lock_mm_and_find_vma() {
+   12.053616 |   3)               |                down_read_trylock() {
+   12.053616 |   3)   0.153 us    |                  preempt_count_add();
+   12.053617 |   3)   0.125 us    |                  preempt_count_sub();
+   12.053617 |   3)   0.709 us    |                }
+   12.053617 |   3)   0.410 us    |                find_vma();
+   12.053618 |   3)   1.577 us    |              }
+   12.053618 |   3)               |              handle_mm_fault() {
+   12.053618 |   3)               |                __handle_mm_fault() {
+   12.053618 |   3)               |                  pte_offset_map_rw_nolock() {
+   12.053618 |   3)   0.231 us    |                    __pte_offset_map();
+   12.053619 |   3)   0.497 us    |                  }
+   12.053619 |   3)   0.144 us    |                  __vmf_anon_prepare();
+   12.053619 |   3)               |                  vma_alloc_folio_noprof() {
+   12.053619 |   3)   0.154 us    |                    get_vma_policy();
+   12.053620 |   3)               |                    alloc_pages_mpol() {
+   12.053620 |   3)   0.138 us    |                      policy_nodemask();
+   12.053620 |   3)               |                      __alloc_frozen_pages_noprof() {
+   12.053620 |   3)               |                        get_page_from_freelist() {
+   12.053621 |   3)   0.127 us    |                          preempt_count_add();
+   12.053621 |   3)               |                          _raw_spin_trylock() {
+   12.053621 |   3)   0.135 us    |                            preempt_count_add();
+   12.053621 |   3)   0.419 us    |                          }
+   12.053621 |   3)               |                          _raw_spin_unlock() {
+   12.053622 |   3)   0.133 us    |                            preempt_count_sub();
+   12.053622 |   3)   0.412 us    |                          }
+   12.053622 |   3)   0.143 us    |                          preempt_count_sub();
+   12.053622 |   3)   0.155 us    |                          clear_highpages_kasan_tagged();
+   12.053623 |   3)   2.262 us    |                        }
+   12.053623 |   3)   2.587 us    |                      }
+   12.053623 |   3)   3.158 us    |                    }
+   12.053623 |   3)   3.744 us    |                  }
+   12.053623 |   3)               |                  pte_offset_map_lock() {
+   12.053623 |   3)   0.210 us    |                    __pte_offset_map();
+   12.053624 |   3)               |                    _raw_spin_lock() {
+   12.053624 |   3)   0.144 us    |                      preempt_count_add();
+   12.053624 |   3)   0.420 us    |                    }
+   12.053624 |   3)   1.063 us    |                  }
+   12.053624 |   3)               |                  map_anon_folio_pte_nopf() {
+   12.053625 |   3)   0.125 us    |                    pte_mkwrite();
+   12.053625 |   3)               |                    folio_add_new_anon_rmap() {
+   12.053625 |   3)   0.125 us    |                      mod_node_page_state();
+   12.053625 |   3)   0.405 us    |                    }
+   12.053625 |   3)               |                    folio_add_lru_vma() {
+   12.053626 |   3)               |                      __folio_batch_add_and_move() {
+   12.053626 |   3)   0.132 us    |                        preempt_count_add();
+   12.053626 |   3)   0.133 us    |                        preempt_count_sub();
+   12.053626 |   3)   0.697 us    |                      }
+   12.053626 |   3)   0.965 us    |                    }
+   12.053627 |   3)   2.105 us    |                  }
+   12.053627 |   3)               |                  _raw_spin_unlock() {
+   12.053627 |   3)   0.138 us    |                    preempt_count_sub();
+   12.053627 |   3)   0.402 us    |                  }
+   12.053627 |   3)   9.366 us    |                }
+   12.053628 |   3)   9.650 us    |              }
+   12.053628 |   3)   0.127 us    |              raw_irqentry_exit_cond_resched();
+   12.053629 |   3) + 14.196 us   |            }
+   12.053629 |   3) + 14.448 us   |          }
+   12.053629 |   3) + 14.723 us   |        }
+   12.053629 |   3) + 15.601 us   |      }
+   12.053629 |   3) + 16.518 us   |    }
+   12.053629 |   3) + 17.413 us   |  }
+   12.053680 |   3)               |  __x64_sys_read() {
+   12.053680 |   3)               |    ksys_read() {
+   12.053680 |   3)   0.160 us    |      fdget_pos();
+   12.053681 |   3)               |      vfs_read() {
+   12.053681 |   3)   0.345 us    |        rw_verify_area();
+   12.053682 |   3)               |        ext4_file_read_iter() {
+   12.053682 |   3)               |          generic_file_read_iter() {
+   12.053682 |   3)               |            filemap_read() {
+   12.053682 |   3)               |              filemap_get_pages() {
+   12.053682 |   3)   0.427 us    |                filemap_get_read_batch();
+   12.053683 |   3)   0.770 us    |              }
+   12.053683 |   3)   0.130 us    |              folio_mark_accessed();
+   12.053683 |   3)               |              lock_mm_and_find_vma() {
+   12.053684 |   3)               |                down_read_trylock() {
+   12.053684 |   3)   0.125 us    |                  preempt_count_add();
+   12.053684 |   3)   0.125 us    |                  preempt_count_sub();
+   12.053684 |   3)   0.707 us    |                }
+   12.053684 |   3)   0.393 us    |                find_vma();
+   12.053685 |   3)   1.537 us    |              }
+   12.053685 |   3)               |              handle_mm_fault() {
+   12.053685 |   3)               |                __handle_mm_fault() {
+   12.053686 |   3)               |                  pte_offset_map_rw_nolock() {
+   12.053686 |   3)   0.240 us    |                    __pte_offset_map();
+   12.053686 |   3)   0.516 us    |                  }
+   12.053686 |   3)   0.138 us    |                  __vmf_anon_prepare();
+   12.053687 |   3)               |                  vma_alloc_folio_noprof() {
+   12.053687 |   3)   0.157 us    |                    get_vma_policy();
+   12.053687 |   3)               |                    alloc_pages_mpol() {
+   12.053687 |   3)   0.125 us    |                      policy_nodemask();
+   12.053687 |   3)               |                      __alloc_frozen_pages_noprof() {
+   12.053688 |   3)               |                        get_page_from_freelist() {
+   12.053688 |   3)   0.123 us    |                          preempt_count_add();
+   12.053688 |   3)               |                          _raw_spin_trylock() {
+   12.053688 |   3)   0.135 us    |                            preempt_count_add();
+   12.053688 |   3)   0.402 us    |                          }
+   12.053689 |   3)               |                          _raw_spin_unlock() {
+   12.053689 |   3)   0.133 us    |                            preempt_count_sub();
+   12.053689 |   3)   0.424 us    |                          }
+   12.053689 |   3)   0.140 us    |                          preempt_count_sub();
+   12.053690 |   3)   0.191 us    |                          clear_highpages_kasan_tagged();
+   12.053690 |   3)   2.243 us    |                        }
+   12.053690 |   3)   2.564 us    |                      }
+   12.053690 |   3)   3.113 us    |                    }
+   12.053690 |   3)   3.685 us    |                  }
+   12.053690 |   3)               |                  pte_offset_map_lock() {
+   12.053691 |   3)   0.228 us    |                    __pte_offset_map();
+   12.053691 |   3)               |                    _raw_spin_lock() {
+   12.053691 |   3)   0.140 us    |                      preempt_count_add();
+   12.053691 |   3)   0.418 us    |                    }
+   12.053692 |   3)   1.067 us    |                  }
+   12.053692 |   3)               |                  map_anon_folio_pte_nopf() {
+   12.053692 |   3)   0.123 us    |                    pte_mkwrite();
+   12.053692 |   3)               |                    folio_add_new_anon_rmap() {
+   12.053692 |   3)   0.136 us    |                      mod_node_page_state();
+   12.053693 |   3)   0.429 us    |                    }
+   12.053693 |   3)               |                    folio_add_lru_vma() {
+   12.053693 |   3)               |                      __folio_batch_add_and_move() {
+   12.053693 |   3)   0.132 us    |                        preempt_count_add();
+   12.053693 |   3)   0.131 us    |                        preempt_count_sub();
+   12.053694 |   3)   0.689 us    |                      }
+   12.053694 |   3)   0.958 us    |                    }
+   12.053694 |   3)   2.140 us    |                  }
+   12.053694 |   3)               |                  _raw_spin_unlock() {
+   12.053694 |   3)   0.139 us    |                    preempt_count_sub();
+   12.053694 |   3)   0.420 us    |                  }
+   12.053695 |   3)   9.310 us    |                }
+   12.053695 |   3)   9.578 us    |              }
+   12.053695 |   3)   0.127 us    |              raw_irqentry_exit_cond_resched();
+   12.053696 |   3) + 14.020 us   |            }
+   12.053696 |   3) + 14.270 us   |          }
+   12.053696 |   3) + 14.542 us   |        }
+   12.053696 |   3) + 15.787 us   |      }
+   12.053696 |   3) + 16.433 us   |    }
+   12.053697 |   3) + 16.789 us   |  }
+   12.053906 |   3)               |  __x64_sys_read() {
+   12.053907 |   3)               |    ksys_read() {
+   12.053907 |   3)   0.153 us    |      fdget_pos();
+   12.053907 |   3)               |      vfs_read() {
+   12.053907 |   3)   0.279 us    |        rw_verify_area();
+   12.053908 |   3)               |        erofs_file_read_iter() {
+   12.053908 |   3)               |          filemap_read() {
+   12.053908 |   3)               |            filemap_get_pages() {
+   12.053908 |   3)   0.471 us    |              filemap_get_read_batch();
+   12.053909 |   3)   0.795 us    |            }
+   12.053909 |   3)               |            folio_mark_accessed() {
+   12.053909 |   3)               |              __folio_batch_add_and_move() {
+   12.053910 |   3)   0.142 us    |                preempt_count_add();
+   12.053910 |   3)   0.140 us    |                preempt_count_sub();
+   12.053910 |   3)   0.722 us    |              }
+   12.053910 |   3)   0.386 us    |              workingset_activation();
+   12.053911 |   3)   1.574 us    |            }
+   12.053911 |   3)   3.452 us    |          }
+   12.053912 |   3)   3.733 us    |        }
+   12.053912 |   3)   4.555 us    |      }
+   12.053912 |   3)   5.195 us    |    }
+   12.053912 |   3)   5.561 us    |  }
+   12.053915 |   3)               |  __x64_sys_read() {
+   12.053915 |   3)               |    ksys_read() {
+   12.053915 |   3)   0.168 us    |      fdget_pos();
+   12.053915 |   3)               |      vfs_read() {
+   12.053915 |   3)   0.253 us    |        rw_verify_area();
+   12.053916 |   3)               |        erofs_file_read_iter() {
+   12.053916 |   3)               |          filemap_read() {
+   12.053916 |   3)               |            filemap_get_pages() {
+   12.053916 |   3)   0.355 us    |              filemap_get_read_batch();
+   12.053917 |   3)   0.638 us    |            }
+   12.053917 |   3)               |            folio_mark_accessed() {
+   12.053917 |   3)               |              __folio_batch_add_and_move() {
+   12.053917 |   3)   0.127 us    |                preempt_count_add();
+   12.053917 |   3)   0.124 us    |                preempt_count_sub();
+   12.053918 |   3)   0.671 us    |              }
+   12.053918 |   3)   0.324 us    |              workingset_activation();
+   12.053918 |   3)   1.394 us    |            }
+   12.053919 |   3)   2.779 us    |          }
+   12.053919 |   3)   3.034 us    |        }
+   12.053919 |   3)   3.745 us    |      }
+   12.053919 |   3)   4.326 us    |    }
+   12.053919 |   3)   4.622 us    |  }
+   12.053921 |   3)               |  __x64_sys_read() {
+   12.053921 |   3)               |    ksys_read() {
+   12.053921 |   3)   0.150 us    |      fdget_pos();
+   12.053922 |   3)               |      vfs_read() {
+   12.053922 |   3)   0.262 us    |        rw_verify_area();
+   12.053922 |   3)               |        erofs_file_read_iter() {
+   12.053922 |   3)               |          filemap_read() {
+   12.053923 |   3)               |            filemap_get_pages() {
+   12.053923 |   3)   0.382 us    |              filemap_get_read_batch();
+   12.053923 |   3)   0.662 us    |            }
+   12.053923 |   3)               |            folio_mark_accessed() {
+   12.053923 |   3)               |              __folio_batch_add_and_move() {
+   12.053924 |   3)   0.127 us    |                preempt_count_add();
+   12.053924 |   3)   0.128 us    |                preempt_count_sub();
+   12.053924 |   3)   0.688 us    |              }
+   12.053924 |   3)   0.327 us    |              workingset_activation();
+   12.053925 |   3)   1.419 us    |            }
+   12.053925 |   3)   2.826 us    |          }
+   12.053925 |   3)   3.080 us    |        }
+   12.053925 |   3)   3.792 us    |      }
+   12.053926 |   3)   4.368 us    |    }
+   12.053926 |   3)   4.673 us    |  }
+   12.053927 |   3)               |  __x64_sys_read() {
+   12.053928 |   3)               |    ksys_read() {
+   12.053928 |   3)   0.155 us    |      fdget_pos();
+   12.053928 |   3)               |      vfs_read() {
+   12.053928 |   3)   0.264 us    |        rw_verify_area();
+   12.053929 |   3)               |        erofs_file_read_iter() {
+   12.053929 |   3)               |          filemap_read() {
+   12.053929 |   3)               |            filemap_get_pages() {
+   12.053929 |   3)   0.359 us    |              filemap_get_read_batch();
+   12.053929 |   3)   0.635 us    |            }
+   12.053930 |   3)               |            folio_mark_accessed() {
+   12.053930 |   3)               |              __folio_batch_add_and_move() {
+   12.053930 |   3)   0.132 us    |                preempt_count_add();
+   12.053930 |   3)   0.127 us    |                preempt_count_sub();
+   12.053930 |   3)   0.681 us    |              }
+   12.053931 |   3)   0.326 us    |              workingset_activation();
+   12.053931 |   3)   1.408 us    |            }
+   12.053932 |   3)   2.865 us    |          }
+   12.053932 |   3)   3.122 us    |        }
+   12.053932 |   3)   3.844 us    |      }
+   12.053932 |   3)   4.526 us    |    }
+   12.053932 |   3)   4.824 us    |  }
+   12.053934 |   3)               |  __x64_sys_read() {
+   12.053934 |   3)               |    ksys_read() {
+   12.053934 |   3)   0.154 us    |      fdget_pos();
+   12.053934 |   3)               |      vfs_read() {
+   12.053935 |   3)   0.259 us    |        rw_verify_area();
+   12.053935 |   3)               |        erofs_file_read_iter() {
+   12.053935 |   3)               |          filemap_read() {
+   12.053935 |   3)               |            filemap_get_pages() {
+   12.053935 |   3)   0.340 us    |              filemap_get_read_batch();
+   12.053936 |   3)   0.623 us    |            }
+   12.053936 |   3)               |            folio_mark_accessed() {
+   12.053936 |   3)               |              __folio_batch_add_and_move() {
+   12.053936 |   3)   0.130 us    |                preempt_count_add();
+   12.053937 |   3)   0.127 us    |                preempt_count_sub();
+   12.053937 |   3)   0.684 us    |              }
+   12.053937 |   3)   0.321 us    |              workingset_activation();
+   12.053937 |   3)   1.405 us    |            }
+   12.053938 |   3)   2.765 us    |          }
+   12.053938 |   3)   3.024 us    |        }
+   12.053938 |   3)   3.735 us    |      }
+   12.053938 |   3)   4.311 us    |    }
+   12.053938 |   3)   4.612 us    |  }
+   12.053940 |   3)               |  __x64_sys_read() {
+   12.053940 |   3)               |    ksys_read() {
+   12.053940 |   3)   0.153 us    |      fdget_pos();
+   12.053941 |   3)               |      vfs_read() {
+   12.053941 |   3)   0.263 us    |        rw_verify_area();
+   12.053941 |   3)               |        erofs_file_read_iter() {
+   12.053941 |   3)               |          filemap_read() {
+   12.053941 |   3)               |            filemap_get_pages() {
+   12.053942 |   3)   0.343 us    |              filemap_get_read_batch();
+   12.053942 |   3)   0.618 us    |            }
+   12.053942 |   3)               |            folio_mark_accessed() {
+   12.053942 |   3)               |              __folio_batch_add_and_move() {
+   12.053942 |   3)   0.127 us    |                preempt_count_add();
+   12.053943 |   3)   0.127 us    |                preempt_count_sub();
+   12.053943 |   3)   0.680 us    |              }
+   12.053943 |   3)   0.321 us    |              workingset_activation();
+   12.053944 |   3)   1.402 us    |            }
+   12.053944 |   3)   2.798 us    |          }
+   12.053944 |   3)   3.078 us    |        }
+   12.053944 |   3)   3.794 us    |      }
+   12.053945 |   3)   4.373 us    |    }
+   12.053945 |   3)   4.670 us    |  }
+   12.053946 |   3)               |  __x64_sys_read() {
+   12.053946 |   3)               |    ksys_read() {
+   12.053947 |   3)   0.152 us    |      fdget_pos();
+   12.053947 |   3)               |      vfs_read() {
+   12.053947 |   3)   0.256 us    |        rw_verify_area();
+   12.053947 |   3)               |        erofs_file_read_iter() {
+   12.053947 |   3)               |          filemap_read() {
+   12.053948 |   3)               |            filemap_get_pages() {
+   12.053948 |   3)   0.339 us    |              filemap_get_read_batch();
+   12.053948 |   3)   0.612 us    |            }
+   12.053948 |   3)               |            folio_mark_accessed() {
+   12.053949 |   3)               |              __folio_batch_add_and_move() {
+   12.053949 |   3)   0.125 us    |                preempt_count_add();
+   12.053949 |   3)   0.128 us    |                preempt_count_sub();
+   12.053949 |   3)   0.675 us    |              }
+   12.053949 |   3)   0.323 us    |              workingset_activation();
+   12.053950 |   3)   1.397 us    |            }
+   12.053950 |   3)   2.741 us    |          }
+   12.053950 |   3)   2.993 us    |        }
+   12.053951 |   3)   3.695 us    |      }
+   12.053951 |   3)   4.276 us    |    }
+   12.053951 |   3)   4.574 us    |  }
+   12.053952 |   3)               |  __x64_sys_read() {
+   12.053953 |   3)               |    ksys_read() {
+   12.053953 |   3)   0.153 us    |      fdget_pos();
+   12.053953 |   3)               |      vfs_read() {
+   12.053953 |   3)   0.260 us    |        rw_verify_area();
+   12.053954 |   3)               |        erofs_file_read_iter() {
+   12.053954 |   3)               |          filemap_read() {
+   12.053954 |   3)               |            filemap_get_pages() {
+   12.053954 |   3)   0.456 us    |              filemap_get_read_batch();
+   12.053955 |   3)   0.740 us    |            }
+   12.053955 |   3)               |            folio_mark_accessed() {
+   12.053955 |   3)               |              __folio_batch_add_and_move() {
+   12.053955 |   3)   0.126 us    |                preempt_count_add();
+   12.053955 |   3)   0.125 us    |                preempt_count_sub();
+   12.053956 |   3)   0.873 us    |              }
+   12.053956 |   3)   0.325 us    |              workingset_activation();
+   12.053956 |   3)   1.604 us    |            }
+   12.053957 |   3)   3.115 us    |          }
+   12.053957 |   3)   3.372 us    |        }
+   12.053957 |   3)   4.086 us    |      }
+   12.053957 |   3)   4.663 us    |    }
+   12.053957 |   3)   4.964 us    |  }
