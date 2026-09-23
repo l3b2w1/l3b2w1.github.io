@@ -58,7 +58,7 @@ tags:
 
 | 项 | 值 |
 |---|---|
-| 工作机 | Linux系统工作目录 `/home/linux/erofs/dedupe` |
+| 宿主机内核 | `5.10.0`（本机，**不是**被测内核，别混） |
 | VM 内核 | `/home/linux/erofs/linux-stable`，`v7.3-rc3-60-g587858367581` |
 | initrd / rootfs | `/home/linux/erofs/erofs-boot-initrd.img`、`erofs-rootfs-ext4.img` |
 | 被测镜像 | 打包进 rootfs 的 `/images/{plain,dedupe}.erofs` |
@@ -465,4 +465,4 @@ awk -F"|" "{print \$NF}" graph-X.log | grep -aE "erofs_|z_erofs_"
 
 ## 10. 跟踪脚本
 
-[trace-all.sh](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-23-erofs-trace-all.sh）
+[trace shell script](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-23-erofs-trace-all.sh）
