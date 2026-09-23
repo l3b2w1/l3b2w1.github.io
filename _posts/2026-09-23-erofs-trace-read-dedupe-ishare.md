@@ -222,6 +222,7 @@ cat trace > /host/dedupe/graph-<段>.log        # ★ 写 9p，别 cat 到串口
 ## 5. A / B / C 三段实验
 
 [graph-A_PLAIN.log](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-23-erofs-graph-A_PLAIN.log)
+
 [graph-B_DEDUPE.log](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-23-erofs-graph-B_DEDUPE.log)
 
 | 段 | 镜像 | 怎么读 | 目的 |
@@ -382,7 +383,7 @@ erofs_ishare_file_read_iter() {          ← ★ ishare 的读入口
 
 **D2：之后读 dedupe/shared.bin（同 domain）—— 只剩 ishare 入口**
 
-[graph-D2_ISHARE_B.log](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-23-erofs-graph-D2_ISHARE_B.log）
+[graph-D2_ISHARE_B.log](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-23-erofs-graph-D2_ISHARE_B.log)
 
 ```
 erofs_ishare_file_read_iter() {     × 8
@@ -393,7 +394,8 @@ erofs_ishare_file_read_iter() {     × 8
 
 **D4：之后读 dedupe/shared.bin（不同 domain）—— 和 D1 一样完整**
 
-[graph-D3_DIFFDOMAIN_A.log](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-23-erofs-graph-D3_DIFFDOMAIN_A.log）
+[graph-D3_DIFFDOMAIN_A.log](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-23-erofs-graph-D3_DIFFDOMAIN_A.log)
+
 [graph-D4_DIFFDOMAIN_B.log](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-23-erofs-graph-D4_DIFFDOMAIN_B.log）
 
 ```
@@ -465,4 +467,4 @@ awk -F"|" "{print \$NF}" graph-X.log | grep -aE "erofs_|z_erofs_"
 
 ## 10. 跟踪脚本
 
-[trace shell script](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-23-erofs-trace-all.sh）
+[trace shell script](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-23-erofs-trace-all.sh)
