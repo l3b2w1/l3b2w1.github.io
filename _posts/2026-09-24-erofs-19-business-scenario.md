@@ -176,6 +176,7 @@ Android 手机上有几个分区装的是**系统资源**：
   小文件或文件尾部直接内联，省掉一次寻址
 - **dedupe**（15 专题）：`INCOMPAT_DEDUPE` 特性；
   系统分区里重复内容（多架构 .so、多语言资源）只存一份。
+  
   ⚠️ 论文**并未把它算作 2019 年手机部署的机制** —— 论文 §7 把 deduplication
    与 fiemap、EROFS-fuse 一起列为“未来版本中持续新增的特性”（“continuously adding new
    features, such as deduplication…”）。
