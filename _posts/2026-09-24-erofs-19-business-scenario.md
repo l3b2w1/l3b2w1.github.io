@@ -289,15 +289,13 @@ Android 手机上有几个分区装的是**系统资源**：
 6. **其他厂商/其他产品线的使用情况**：论文只讲华为，不推断其他厂商。
 
 ## 参考
-**[1]** 《**EROFS: A Compression-friendly Readonly File System for
-Resource-scarce Devices**》
-Xiang Gao, Mingkai Dong, Xie Miao, Wei Du, Chao Yu, Haibo Chen
-华为技术有限公司 + 上海交通大学
-**2019 USENIX Annual Technical Conference (ATC19)**
+[《EROFS: A Compression-friendly Readonly File System for
+Resource-scarce Devices》 - **2019 USENIX Annual Technical Conference (ATC19)**](https://www.usenix.org/system/files/atc19-gao.pdf)  
+[EROFS 官方文档 Release 0.1](https://erofs.docs.kernel.org)
 
 #### 延伸阅读
 
-> 📌 **有一份例外值得注意**：**EROFS 官方文档**对各个特性（ishare、
+> **EROFS 官方文档**对各个特性（ishare、
 > metabox、fileio、FSDAX、48-bit、dedupe、多设备、硬件加速、packed inode 等）
 > 都有明确说明，甚至有专门章节（如 §3.2、§5.3 讲 dedupe，Device Table 讲多设备）。
 
