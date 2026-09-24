@@ -1,3 +1,17 @@
+---
+layout:     post
+title:      EROFS Business Scenario
+subtitle:   EROFS 业务场景
+date:       2026-09-24
+author:     icecube
+header-img: img/bluelinux.jpg
+catalog: true
+tags:
+  - fs
+  - erofs
+  - ai
+---
+
 # 19 · 业务场景：EROFS 在智能手机系统分区的应用
 
 > **本文档讲什么**：把前面 10 份特性专题串到一个真实业务里——
