@@ -570,6 +570,139 @@ si = iget5_locked(erofs_ishare_mnt->mnt_sb,
 > 这也解释了为什么 EROFS 的"共享缓存"方案出现过两次不同的实现
 > （fscache 版 → ishare 版）。
 
+
+
+## 6.10 特性之间的互斥与叠加（叠加矩阵）
+
+本章前面 6.1–6.9 逐个讲了九种特性。它们彼此能不能一起用？
+答案**取决于问的是哪一层**——很多"互斥"其实是把文件级、镜像级、挂载级混在一起问了。
+
+#### 先分清三个层级
+
+| 层级 | 问的是 | 判定依据 |
+|---|---|---|
+| **文件级** | 同一个 inode 的数据怎么放 | `datalayout`，五选一，`erofs_fs.h:105-110` |
+| **镜像级** | superblock 里置了哪些特性位 | `feature_incompat` / `feature_compat` |
+| **挂载级** | mount 时传了什么选项 | `sbi->opt`，如 `dax=always`、`inode_share` |
+
+⇒ 同一文件级互斥的东西，**镜像里不同文件仍可以各用一种**；
+   镜像级的位大多可自由叠加；挂载级才有真正的硬互斥。
+
+#### 第 1 层：同一文件只能五选一
+
+| 值 | 布局 | 说明 |
+|---|---|---|
+| 0 | `FLAT_PLAIN` | 非压缩 |
+| 1 | `COMPRESSED_FULL` | 压缩 |
+| 2 | `FLAT_INLINE` | 非压缩 + 尾部 inline |
+| 3 | `COMPRESSED_COMPACT` | 压缩 compact |
+| 4 | `CHUNK_BASED` | chunk-based（多设备 / 稀疏文件） |
+
+⇒ 同一个文件不能既压缩又 chunk-based。但一个镜像里可以同时存在压缩文件、
+   chunk-based 文件和非压缩文件，这是常态。
+
+#### 第 2 层：镜像级特性位——可叠加，但有三组"位别名"
+
+⚠️ 最容易误读的一点：下面三组**是同一个位**，dump 会把两个名字都打印出来，
+**不代表同时开了两个特性**：
+
+```
+INCOMPAT_FRAGMENTS    0x20  ==  INCOMPAT_DEDUPE       0x20
+INCOMPAT_COMPR_CFGS   0x02  ==  INCOMPAT_BIG_PCLUSTER 0x02
+INCOMPAT_DEVICE_TABLE 0x08  ==  INCOMPAT_COMPR_HEAD2  0x08
+```
+
+⇒ 这就是为什么开了 `-Eall-fragments` 的镜像，dump 会显示 `fragments dedupe`。
+
+其余特性位互不冲突，可自由叠加：**48-bit + 多设备 + 压缩 + metabox + xattr 前缀**
+可以同时出现在一个镜像上。
+
+两条依赖关系：
+
+- `COMPAT_SHARED_EA_IN_METABOX`(0x8) **依赖** `INCOMPAT_METABOX`(0x100)
+  —— shared xattr 要放进 metabox，没有 metabox 就没有 shared EA 的容器
+- 挂载 `inode_share` 时若镜像没有 `COMPAT_ISHARE_XATTRS`(0x20)，内核**自动关掉** ishare
+
+#### 第 3 层：挂载选项——硬互斥与软降级
+
+**硬互斥（直接 `-EINVAL`，挂载失败）**：
+
+| 组合 | 报错信息 |
+|---|---|
+| `inode_share` 但不给 `domain_id` | `domain_id is needed when inode_share is on` |
+| `dax=always` + `inode_share` | `FSDAX is not allowed when inode_share is on` |
+
+**软降级（自动关闭，只打 info 不失败）**：
+
+| 条件 | 结果 |
+|---|---|
+| `dax=always` 但块大小 ≠ PAGE_SIZE | 关 DAX（`unsupported blocksize for DAX`） |
+| `dax=always` 但设备没有 `dax_dev` | 关 DAX（`DAX unsupported by block device`） |
+| `inode_share` 但镜像没有 ISHARE_XATTRS | 关 ishare（`on-disk ishare xattrs not found`） |
+
+#### FSDAX 的白名单（最容易踩的一条）
+
+`inode.c` 里对 DAX 的判定：
+
+```c
+inode->i_flags &= ~S_DAX;
+if (test_opt(&sbi->opt, DAX_ALWAYS) && S_ISREG(inode->i_mode) &&
+    (vi->datalayout == EROFS_INODE_FLAT_PLAIN ||
+     vi->datalayout == EROFS_INODE_CHUNK_BASED))
+        inode->i_flags |= S_DAX;
+```
+
+⇒ **只有 flat plain 和 chunk-based 能拿到 DAX**。由此得出 FSDAX 的边界：
+
+| 与 FSDAX | 能否共存 | 原因 |
+|---|---|---|
+| 压缩文件 | ❌ | 数据要解压后才在内存里，无法直接映射持久内存 |
+| flat inline 尾部 | ❌ | 尾部在 inode 元数据里，不在块设备上 |
+| ishare | ❌ | 硬互斥，`-EINVAL` |
+| fileio 文件后端 | ❌ | 文件后端没有 `dax_dev`，自动降级 |
+| chunk-based + 多设备 | ✅ | 容器场景的典型用法 |
+
+#### ztailpacking 优先于 fragment
+
+两者都管"文件尾部"，但不是报错，而是**优先级**。`zmap.c` 里：
+
+```c
+if (fragment && !(flags & EROFS_GET_BLOCKS_FINDTAIL) &&
+    !vi->z_tailextent_headlcn) {      /* 用了 ztailpacking 就不走 fragment */
+        map->m_la = 0;
+        map->m_llen = inode->i_size;
+        map->m_flags = EROFS_MAP_FRAGMENT;
+        return 0;
+}
+```
+
+⇒ 同一文件：尾部要么 inline（ztailpacking），要么进 packed inode（fragment），
+   **ztailpacking 优先**。但两个特性位可以同时置在镜像上，让不同文件各用一种。
+
+#### 速查矩阵
+
+读法：横竖相交处是两者能否共存在同一个镜像 / 同一次挂载里。
+
+|  | 压缩 | 多设备 | 48-bit | dedupe/fragment | metabox | ishare | FSDAX | fileio |
+|---|---|---|---|---|---|---|---|---|
+| **压缩** | — | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
+| **多设备** | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **48-bit** | ✅ | ✅ | — | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **dedupe/fragment** | ✅ | ✅ | ✅ | — | ✅ | ✅ | ❌ | ✅ |
+| **metabox** | ✅ | ✅ | ✅ | ✅ | — | ✅ | ✅ | ✅ |
+| **ishare** | ✅ | ✅ | ✅ | ✅ | ✅ | — | ❌ | ✅ |
+| **FSDAX** | ❌ | ✅ | ✅ | ❌ | ✅ | ❌ | — | ❌ |
+| **fileio** | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ | — |
+
+几点解释：
+
+- **ishare 与几乎所有镜像特性都兼容**——它是挂载层的页缓存共享机制，
+  不改动磁盘布局，属于正交叠加
+- **FSDAX 与 fileio 互斥**：fileio 的镜像是普通文件，没有 `dax_dev`
+- **48-bit / 多设备与 fileio 互斥**：fileio 走文件读，不涉及块设备地址与设备表
+- **压缩与 FSDAX 互斥**、**dedupe/fragment 与 FSDAX 互斥**：根因都在 DAX 的白名单
+  （fragment 只出现在压缩文件上，所以一并受限）
+  
 ## 术语速查
 
 | 术语 | 含义 | 出处 |
