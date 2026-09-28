@@ -103,6 +103,46 @@ if (sbi->blkszbits < 9 || sbi->blkszbits > PAGE_SHIFT) {
 
 ---
 
+
+#### superblock 的扩展：`sb_extslots` 与 16 字节槽
+
+superblock 的固定头是 **128 字节**。后来不断加特性（xattr 前缀、ishare、metabox、
+fragment……），128 字节根本装不下新字段——怎么办？   
+答案是 `sb_extslots`：在 128 字节之后，再接 `sb_extslots` 个 **16 字节**的扩展槽。
+
+```c
+/* erofs_fs.h */
+#define EROFS_SB_EXTSLOT_SIZE    16
+__u8 sb_extslots;    /* superblock size = 128 + sb_extslots * 16 */
+
+/* super.c 挂载时 */
+sbi->sb_size = 128 + dsb->sb_extslots * EROFS_SB_EXTSLOT_SIZE;
+if (sbi->sb_size > PAGE_SIZE - EROFS_SUPER_OFFSET) {
+        erofs_err(sb, "invalid sb_extslots %u (more than a fs block)", sbi->sb_size);
+        goto out;
+}
+```
+
+⇒ 这是一种**向后兼容的扩展手法**：老内核只认固定 128 字节，新内核通过 `sb_extslots` 知道"后面还跟着多少扩展字段"。  
+superblock 总大小不能超过一个块（`PAGE_SIZE - EROFS_SUPER_OFFSET`），否则报错。
+
+**扩展槽里现在放什么**（`super.c` 挂载时读取）：
+
+| 字段 | 用途 |
+|---|---|
+| `xattr_prefix_start` / `xattr_prefix_count` | xattr 前缀表的位置与条数（12 专题） |
+| `xattr_filter_reserved` | xattr filter 预留 |
+| `ishare_xattr_prefix_id` | ishare 指纹用哪个前缀（11 专题） |
+| `metabox_nid` | metabox 那个"假 inode"的 nid（18 专题；含 self-loop 检测） |
+| `packed_nid` | fragment 的 packed inode 的 nid（14 专题） |
+
+⇒ 记住一条：**凡是不在固定 128 字节头里的 superblock 字段，基本都在扩展槽里**。
+看某个新特性（metabox、fragment、ishare）的挂载代码时，
+它读的 `dsb->xxx` 大多来自 `sb_extslots` 之后。
+
+**怎么对上号**：dump.erofs 的 `-s` 会显示 `sb_extslots`；
+挂载代码里凡是先判断 `erofs_sb_has_xxx()` 再读 `dsb->yyy` 的，
+通常就是在从扩展槽取该特性的字段。
 ## 2.3 `sbi`：EROFS 的运行时状态
 
 `sbi`（`struct erofs_sb_info`，`internal.h`）是 EROFS 挂在 `super_block` 上的私有数据。
