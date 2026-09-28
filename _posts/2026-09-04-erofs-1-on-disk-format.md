@@ -332,6 +332,11 @@ NID: 42   Layout: 4
 
 同样的 1MB 稀疏文件，**省了 93%**。
 
+> 📌 **"五选一"是 per-inode 的，不是 per-image 的**。
+> 一个镜像里可以同时存在压缩文件、chunk-based 文件和非压缩文件。
+> 所以"CHUNK_BASED 能不能和压缩叠加"要分两层答：**同一文件不行，整镜像可以混装**。
+> 依据与实测见 6 专题的"叠加矩阵"。
+
 ## 1.6 `union erofs_inode_i_u`：一个字段，四种含义
 
 inode 里有一个 union，定义在 `fs/erofs/erofs_fs.h`：

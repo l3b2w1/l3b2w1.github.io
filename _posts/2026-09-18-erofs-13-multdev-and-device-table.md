@@ -360,6 +360,27 @@ EROFS 只看到"多个设备 + 地址指向哪个设备"。
 | **48-bit 地址**（16） | 设备号占用高位 ⇒ 偏移位数受限，两者直接相关 |
 | **ishare**（11） | 多设备下指纹相同的文件同样可共享页缓存 |
 | **xattr**（12） | shared xattr 区也可跨设备 |
+| **压缩**（04 / 05 专题） | ⚠️ 见下方：多设备靠 chunk-based，而 `-z` 会改变文件的数据归属 |
+
+#### 多设备与压缩：`--blobdev` 必须配 `--chunksize`
+
+多设备（blob device）依赖 **chunk-based** 布局：`--blobdev` 要求同时给出 `--chunksize`
+（`mkfs/main.c` 的报错 "--blobdev must be used together with --chunksize"）。
+而 chunk-based 与压缩在**同一个文件上互斥**（见 6 专题"叠加矩阵"的第 1 层），
+于是开不开 `-z` 会让数据的落点完全不同。
+
+实测（256K 可压缩文本 + 256K 随机数，`--blobdev` + `--chunksize=65536`）：
+
+| 参数 | 主镜像 | blob 设备 |
+|---|---|---|
+| 不加 `-z` | 4096 B | **524288 B**（两个文件都在 blob） |
+| 加 `-zlz4` | 8192 B | **262144 B**（只剩压不动的那个） |
+
+⇒ 加了 `-z` 之后，压得动的 text.bin 变成 COMPRESSED_COMPACT，
+  **它的压缩数据留在主镜像里**，不再进 blob；只有 rand.bin 仍是 CHUNK_BASED 进 blob。
+
+所以：想要"数据全在 blob 设备"就别开 `-z`；两头都要的话接受这个混合结果，
+或用 `--compress-hints` 精确指定哪些文件压缩。
 
 ---
 

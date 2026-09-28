@@ -601,6 +601,55 @@ si = iget5_locked(erofs_ishare_mnt->mnt_sb,
 ⇒ 同一个文件不能既压缩又 chunk-based。但一个镜像里可以同时存在压缩文件、
    chunk-based 文件和非压缩文件，这是常态。
 
+###### 为什么"五选一"不等于"整镜像只能一种"
+
+关键：`datalayout` 是 **per-inode** 的。它是 `i_format` 里的 3 个位
+（`fs/erofs/erofs_fs.h` 的 `EROFS_I_DATALAYOUT_MASK`，值 0x07），
+每个 inode 各填各的值，互不影响。内核读的时候也按 inode 分发：
+
+| 判据 / 分发点 | 出处 | 行为 |
+|---|---|---|
+| `erofs_inode_is_data_compressed()` | `erofs_fs.h` | 只认 COMPRESSED_FULL / COMPACT，CHUNK_BASED 不算"压缩" |
+| `erofs_get_aops()` | `internal.h` | 压缩 → `z_erofs_aops`；否则 → `erofs_aops` / `erofs_fileio_aops` |
+| `erofs_map_blocks()` | `data.c` | CHUNK_BASED → `erofs_map_chunks()`；压缩文件不走这里，走 `zmap.c` 的 `z_erofs_map_blocks_iter()` |
+
+chunk 自己的 `format` 字段只有三个标志（`erofs_fs.h` 的 `EROFS_CHUNK_FORMAT_*`）：
+chunk blkbits、`INDEXES`、`48BIT`——**没有压缩位**，
+所以不存在"压缩的 chunk"，chunk 里的数据原样存放。
+
+###### mkfs 怎么决定每个文件用哪种
+
+erofs-utils 在 `lib/inode.c` 里逐文件判定（简化）：
+
+```c
+if (sbi->available_compr_algs && erofs_file_is_compressible(im, inode)) {
+        /* 压缩 → COMPRESSED_FULL / COMPACT */
+} else {
+        erofs_write_unencoded_file();   /* 内部 if (cfg.c_chunkbits) → CHUNK_BASED */
+}
+```
+
+即：**开了压缩且文件压得动 → 压缩；否则才落回 chunk-based**（前提是你给了 `--chunksize`）。
+源码里**没有**"chunk 与压缩冲突"的检查，两个选项可以同时给。
+
+实测（一个 256K 可压缩文本 + 一个 256K 随机数）：
+
+| mkfs 参数 | text.bin | rand.bin |
+|---|---|---|
+| `-zlz4` | Layout 3（压缩，占 1.56%） | Layout 0（FLAT_PLAIN） |
+| `--chunksize=65536` | Layout 4（CHUNK_BASED） | Layout 4（CHUNK_BASED） |
+| `-zlz4 --chunksize=65536` | Layout 3（压缩，1.56%） | Layout 4（CHUNK_BASED） |
+
+第三种构建成功、无报错，镜像里两种 layout 并存——这就是"第 1 层互斥、镜像里混装"的真实样子。
+
+###### ⚠️ 两个容易踩的坑
+
+- **开 `-z` 会"抢走" chunk-based 文件**：压得动的文件被压成 COMPRESSED_*，
+  就不再走 chunk、也不会进 `--blobdev`。想要"所有文件都按 chunk 存进 blob 设备"就别加 `-z`；
+  要精确控制哪些文件压缩，用 `--compress-hints`。
+- **`--blobdev` 强制配 `--chunksize`**（`mkfs/main.c` 报错
+  "--blobdev must be used together with --chunksize"），后果见 13 专题。
+
 #### 第 2 层：镜像级特性位——可叠加，但有三组"位别名"
 
 ⚠️ 最容易误读的一点：下面三组**是同一个位**，dump 会把两个名字都打印出来，
