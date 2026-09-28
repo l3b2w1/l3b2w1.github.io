@@ -409,6 +409,65 @@ z_erofs_pcluster_end()   zdata.c    ← 释放、唤醒等待者
 不走 pcluster 机制，直接用 `erofs_bread` 读（`zdata.c`）。
 
 
+
+#### 页级同步：`erofs_onlinefolio` 三件套
+
+pcluster 状态机管的是"这个压缩簇解到哪儿、谁来解"，但它没说清一件事：  
+**多个 pcluster 的解压输出要往同一个 folio（读缓存页）的不同偏移写时，什么时候才能
+`folio_end_read()` 告诉 VFS「这页好了」**？——必须等最后一个写完。  
+`erofs_onlinefolio` 三件套就是用 `folio->private` 当**引用计数**来协调的
+（`data.c`，不在 zdata.c，找的时候容易找错位置）。
+
+```c
+void erofs_onlinefolio_init(struct folio *folio)
+{
+        union { atomic_t o; void *v; } u = { .o = ATOMIC_INIT(1) };
+        folio->private = u.v;            /* 把 private 借用为原子计数器，置 1 */
+}
+
+void erofs_onlinefolio_split(struct folio *folio)
+{
+        atomic_inc((atomic_t *)&folio->private);   /* 又来一个写入者，计数 +1 */
+}
+
+void erofs_onlinefolio_end(struct folio *folio, int err, bool dirty)
+{
+        do {
+                orig = atomic_read(...);
+                v = dirty << EROFS_ONLINEFOLIO_DIRTY;
+                v |= (orig - 1) | (!!err << EROFS_ONLINEFOLIO_EIO);
+        } while (atomic_cmpxchg(...) != orig);             /* 原子减 1 */
+
+        if (v & (BIT(EROFS_ONLINEFOLIO_DIRTY) - 1))
+                return;                                    /* 不是最后一个，直接走 */
+        folio->private = 0;
+        if (v & BIT(EROFS_ONLINEFOLIO_DIRTY))
+                flush_dcache_folio(folio);
+        folio_end_read(folio, !(v & BIT(EROFS_ONLINEFOLIO_EIO)));  /* 最后一个：解锁 */
+}
+```
+
+三个要点：
+
+1. `folio->private` 被**借用**为 `atomic_t` + 两个标志位（`DIRTY` / `EIO`）——
+   内核里用 private 存引用计数的经典手法
+2. `init` 置 1 → 每来一个写入者 `split` +1 → 每写完一个 `end` −1
+3. **计数归零的那一个才真正 `folio_end_read()`**（`!(v & EIO)` 表示「没出错才标记成功」）
+
+**怎么对 trace 对上号**：抓 `__x64_sys_read` 的 function_graph，压缩读路径里会看到
+
+```
+z_erofs_scan_folio() {
+  erofs_onlinefolio_init();
+  erofs_onlinefolio_split();
+  erofs_onlinefolio_end();
+}
+```
+
+这一串就是上面三个函数——`z_erofs_scan_folio` 每处理一个 folio，就
+「登记一个写入者（split）→ 写完（end）」。如果没这套引用计数，
+先写完的 pcluster 会过早解锁那页，后面的写入者就往已解锁的页里写，数据会乱。
+
 ## 4.6 in-place 解压 vs cached 解压
 
 ![in-place vs cached](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-09-erofs-12-inplace-vs-cached.svg)
@@ -456,6 +515,39 @@ LZ4 对应 `LZ4_DECOMPRESS_INPLACE_MARGIN` 等常量（阶段 5 详讲）。
 > （2019 年第一份官方演讲就专门有一页讲 "Decompression In-place"）。
 > 它的价值是**省一次内存拷贝**——在手机这种内存带宽紧张的设备上很关键。
 
+
+#### 避免自盖：`z_erofs_bvset_flip`
+
+上一节讲 in-place 解压要 margin，但它没说**具体怎么不把自己的输入盖掉**。
+答案在 `zdata.c` 的 `z_erofs_bvset_flip()`——压缩数据的 bvec（小块描述符）
+**存在两个页里**，读完一页就翻页：
+
+```c
+static struct page *z_erofs_bvset_flip(struct z_erofs_bvec_iter *iter)
+{
+        /* have to access nextpage in advance, otherwise it will be unmapped */
+        struct page *nextpage = iter->bvset->nextpage;   /* ← 必须先取下一页地址！ */
+        struct page *oldpage;
+
+        oldpage = z_erofs_bvec_iter_end(iter);           /* 当前这页结束 */
+        iter->bvpage = nextpage;                          /* 切到下一页 */
+        iter->bvset = kmap_local_page(nextpage);
+        iter->nr = (PAGE_SIZE - base) / sizeof(struct z_erofs_bvec);
+        iter->cur = 0;
+        return oldpage;                                   /* 旧页放回页池复用 */
+}
+```
+
+那行注释是灵魂：
+
+> have to access nextpage in advance, otherwise it will be unmapped
+
+翻页前**必须先把下一页的地址存下来**——因为旧页一旦 flip 就会失效（会被解映射）。  
+这就是 in-place 解压避免「输出盖掉还没读完的输入」的具体手法：一边解压一边往前翻页，写完的旧页立刻腾出来。
+
+**怎么和 trace 对上号**：  
+抓压缩读路径时，`z_erofs_scan_folio()` 内部会出现`z_erofs_bvset_flip()`——出现它，说明这一簇是 in-place 解压（数据要解压回原位），  
+而且压缩数据跨了 bvec 页边界、正在翻页。出现得越频繁，说明 pcluster 越大、bvec 越多。
 
 ## 4.7 常见误解
 
