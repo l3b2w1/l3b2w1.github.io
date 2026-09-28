@@ -55,12 +55,6 @@ tags:
 3. **标志不是"查一次就扔"** —— `erofs_read_metabuf(&buf, sb, pos, in_metabox)` 的最后一个参数
    要一路传下去（`inode.c` / `xattr.c` / `zdata.c` / `data.c` 都要传），因为每层都可能重新定位。
 
-**动手改图**：源文件 `dot/37-metabox-design.dot`，改完执行
-
-```bash
-cd /sdd/erofs/study && dot -Tsvg dot/37-metabox-design.dot -o dot/37-metabox-design.svg
-```
-
 ## 一、特性缘由：元数据也会很大
 
 #### 1.1 问题：文件多 ⇒ 元数据多
