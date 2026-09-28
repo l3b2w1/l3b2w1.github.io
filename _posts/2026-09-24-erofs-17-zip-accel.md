@@ -499,7 +499,7 @@ grep -n "down_read\|up_read\|down_write\|up_write" decompressor_crypto.c
 
 ## 自测答案
 
-<details>
+<details markdown="1">
 <summary>点击展开</summary>
 
 1. 解压消耗 CPU，在**高并发读**、**高压缩率算法（LZMA）**、

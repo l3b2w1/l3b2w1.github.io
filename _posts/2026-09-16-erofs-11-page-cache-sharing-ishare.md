@@ -604,7 +604,7 @@ grep -rn "erofs_real_inode" .
 
 ## 自测答案
 
-<details>
+<details markdown="1">
 <summary>点击展开</summary>
 
 1. 解决"同一份内容在不同挂载实例里被缓存多份"的内存浪费。

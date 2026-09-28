@@ -449,7 +449,7 @@ int erofs_map_dev(struct super_block *sb, struct erofs_map_dev *map)
 
 ## 自测答案
 
-<details>
+<details markdown="1">
 <summary>点击展开答案</summary>
 
 **1. 几个入口？为什么都走 iomap？**

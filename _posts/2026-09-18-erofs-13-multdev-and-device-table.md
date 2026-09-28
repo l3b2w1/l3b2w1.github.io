@@ -380,7 +380,7 @@ EROFS 只看到"多个设备 + 地址指向哪个设备"。
 
 ## 自测答案
 
-<details>
+<details markdown="1">
 <summary>点击展开</summary>
 
 1. 一个镜像放不下单个设备；或想把数据/元数据分到不同介质；

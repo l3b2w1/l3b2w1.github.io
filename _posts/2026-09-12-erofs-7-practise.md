@@ -452,7 +452,7 @@ Signed-off-by: Your Name <your.email@example.com>
 
 ## 自测答案
 
-<details>
+<details markdown="1">
 <summary>点击展开答案</summary>
 
 **1. 本环境能挂载吗？**

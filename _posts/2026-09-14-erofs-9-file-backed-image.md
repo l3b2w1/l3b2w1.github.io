@@ -636,7 +636,7 @@ losetup -a      # 应看不到与本次挂载相关的 loop 设备
 
 ## 自测答案
 
-<details>
+<details markdown="1">
 <summary>点击展开</summary>
 
 1. 解决"镜像是文件但无法/不便用 loop 设备"的问题。  

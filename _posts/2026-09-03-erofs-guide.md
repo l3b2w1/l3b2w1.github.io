@@ -441,7 +441,7 @@ EROFS = 不可变（immutable）的块设备文件系统
 
 ## 自测答案
 
-<details>
+<details markdown="1">
 <summary>点击展开答案</summary>
 
 **1. page cache 命中时会到磁盘吗？**

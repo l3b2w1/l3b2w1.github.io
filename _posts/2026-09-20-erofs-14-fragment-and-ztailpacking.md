@@ -477,7 +477,7 @@ grep -rn "packed_inode\|packed_nid" super.c inode.c
 
 ## 自测答案
 
-<details>
+<details markdown="1">
 <summary>点击展开</summary>
 
 1. 压缩文件剩下的"零头"填不满一个 pcluster，

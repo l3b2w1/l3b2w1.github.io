@@ -390,7 +390,7 @@ z_erofs_put_shortlivedpage(be->pagepool, old_bvpage);
 
 ## 自测答案
 
-<details>
+<details markdown="1">
 <summary>点击展开答案</summary>
 
 **1. 接口成员？**

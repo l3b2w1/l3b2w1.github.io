@@ -555,7 +555,7 @@ lcluster index 的 advise 位 `Z_EROFS_LI_PARTIAL_REF`、 / extent 的 m_plen �
 
 ## 自测答案
 
-<details>
+<details markdown="1">
 <summary>点击展开</summary>
 
 1. 压缩只消除**单文件内部**冗余，管不了**跨文件**的相同数据块。

@@ -606,7 +606,7 @@ grep -rn "erofs_inode_in_metabox" /sdd/linux/linux-stable/fs/erofs/*.c
 
 ## 自测答案
 
-<details>
+<details markdown="1">
 <summary>点击展开</summary>
 
 1. 元数据（inode / dirent / xattr / 索引）**本身也很大**，

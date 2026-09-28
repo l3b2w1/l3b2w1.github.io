@@ -577,7 +577,7 @@ cat /sys/fs/erofs/*/features
 
 ## 自测答案
 
-<details>
+<details markdown="1">
 <summary>点击展开</summary>
 
 1. 32 位块号 × 4 KB = 16 TB。

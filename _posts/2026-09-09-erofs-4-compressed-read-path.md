@@ -671,7 +671,7 @@ static bool z_erofs_should_alloc_cache(struct z_erofs_frontend *fe)
 
 ## 自测答案
 
-<details>
+<details markdown="1">
 <summary>点击展开答案</summary>
 
 **1. 为什么不能算术定位？**

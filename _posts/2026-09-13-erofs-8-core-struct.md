@@ -565,7 +565,7 @@ grep -n "struct erofs_sb_info {" internal.h     # 只看行号定位，文档里
 
 ## 自测答案
 
-<details>
+<details markdown="1">
 <summary>点击展开答案</summary>
 
 1. `super_block.s_fs_info` 指向 `erofs_sb_info`；反过来是 `sbi` 所属的 sb

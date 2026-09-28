@@ -337,7 +337,7 @@ erofs_put_metabuf(&buf);            /* ← 别忘了这一步 */
 
 ## 自测答案
 
-<details>
+<details markdown="1">
 <summary>点击展开答案</summary>
 
 **1. 为什么找不到 erofs_mount()？**  

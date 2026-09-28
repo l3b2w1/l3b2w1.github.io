@@ -741,7 +741,7 @@ if (fragment && !(flags & EROFS_GET_BLOCKS_FINDTAIL) &&
 
 ## 自测答案
 
-<details>
+<details markdown="1">
 <summary>点击展开答案</summary>
 
 **1. xattr 的两种形式？**
