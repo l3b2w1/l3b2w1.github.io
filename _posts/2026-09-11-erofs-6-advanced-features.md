@@ -686,20 +686,20 @@ if (fragment && !(flags & EROFS_GET_BLOCKS_FINDTAIL) &&
 |  | 压缩 | 多设备 | 48-bit | dedupe/fragment | metabox | ishare | FSDAX | fileio |
 |---|---|---|---|---|---|---|---|---|
 | **压缩** | — | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| **多设备** | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **多设备** | ✅ | — | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **48-bit** | ✅ | ✅ | — | ✅ | ✅ | ✅ | ✅ | ❌ |
 | **dedupe/fragment** | ✅ | ✅ | ✅ | — | ✅ | ✅ | ❌ | ✅ |
 | **metabox** | ✅ | ✅ | ✅ | ✅ | — | ✅ | ✅ | ✅ |
 | **ishare** | ✅ | ✅ | ✅ | ✅ | ✅ | — | ❌ | ✅ |
 | **FSDAX** | ❌ | ✅ | ✅ | ❌ | ✅ | ❌ | — | ❌ |
-| **fileio** | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ | — |
+| **fileio** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | — |
 
 几点解释：
 
 - **ishare 与几乎所有镜像特性都兼容**——它是挂载层的页缓存共享机制，
   不改动磁盘布局，属于正交叠加
 - **FSDAX 与 fileio 互斥**：fileio 的镜像是普通文件，没有 `dax_dev`
-- **48-bit / 多设备与 fileio 互斥**：fileio 走文件读，不涉及块设备地址与设备表
+- **48-bit / 多设备与 fileio 可并存**：48-bit 还改 rootnid 布局（super.c:320），fileio 下额外设备用文件打开（erofs_init_device），两者照常生效；真正与 fileio 互斥的是 **FSDAX**（fileio 无 dax_dev）
 - **压缩与 FSDAX 互斥**、**dedupe/fragment 与 FSDAX 互斥**：根因都在 DAX 的白名单
   （fragment 只出现在压缩文件上，所以一并受限）
   
