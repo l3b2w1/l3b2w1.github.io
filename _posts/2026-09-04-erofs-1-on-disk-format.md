@@ -122,7 +122,7 @@ EROFS 官方材料对这个设计的描述是：
 ## 1.3 superblock：唯一位置固定的东西
 
 superblock 永远在偏移 0，大小 128 字节起（`sb_size` 字段可让它更大）。
-结构定义在 `erofs_fs.h:54`。
+结构定义在 `fs/erofs/erofs_fs.h`。
 
 全字段有二十多个，**现在只需要记住这 6 个**：
 
@@ -144,7 +144,7 @@ superblock 永远在偏移 0，大小 128 字节起（`sb_size` 字段可让它�
 内核里对应的写法是 `erofs_pos()` / `erofs_blknr()` / `erofs_blkoff()`。
 
 > ⚠️ **不要以为块大小永远是 4096。** 阶段 0 讲过：
-> `super.c:272` 校验的合法范围是 `[9, PAGE_SHIFT]`，即 512 字节到页大小。
+> `super.c` 里校验的合法范围是 `[9, PAGE_SHIFT]`，即 512 字节到页大小。
 > 4096 只是 mkfs 的默认值。
 
 ## 1.4 nid → 磁盘偏移：一行公式
@@ -153,7 +153,7 @@ superblock 永远在偏移 0，大小 128 字节起（`sb_size` 字段可让它�
 
 EROFS 里**没有 inode 表**。给你一个 nid，你得**算**出它在哪。
 
-公式在 `internal.h:306-315`：
+公式在 `fs/erofs/internal.h`：
 
 ```c
 static inline erofs_off_t erofs_iloc(struct inode *inode)
@@ -177,7 +177,7 @@ inode 的磁盘偏移 = meta_blkaddr × 块大小  +  nid × inode槽大小
 
 **部件 2 里的 `islotbits` 是什么？**
 
-它是"inode 槽大小"的位偏移，在 `super.c:319` 初始化：
+它是"inode 槽大小"的位偏移，在 `super.c` 里初始化：
 
 ```c
 sbi->islotbits = ilog2(sizeof(struct erofs_inode_compact));
@@ -187,7 +187,7 @@ inode 有两种尺寸：
 
 | 类型 | 大小 | islotbits | 什么时候用 |
 |---|---|---|---|
-| compact（`erofs_fs.h:161`） | 32 字节 | 5 | 时间戳较短、uid/gid 较小的普通情况 |
+| compact（`fs/erofs/erofs_fs.h`） | 32 字节 | 5 | 时间戳较短、uid/gid 较小的普通情况 |
 | extended | 64 字节 | 6 | 需要完整时间戳/大 uid-gid 时 |
 
 **用真实数字验证一遍**：
@@ -205,7 +205,7 @@ root inode 偏移 = 0 × 4096 + 128 × 32 = 4096
 > 不需要插入删除，就不需要 B 树或位图。
 > 一次乘法定位一个 inode，这是只读文件系统换来的最大红利。
 
-**metabox 例外**（`internal.h:311-312`）：nid 最高位为 1 时，
+**metabox 例外**（`fs/erofs/internal.h`）：nid 最高位为 1 时，
 该 inode 存放在 metabox 里，此时公式**不加**元数据区起点。
 这个先记住有这回事，阶段 6 讲。
 
@@ -215,7 +215,7 @@ root inode 偏移 = 0 × 4096 + 128 × 32 = 4096
 
 **这是理解 EROFS on-disk 格式最关键的一节。**
 
-datalayout 是 inode 里 `i_format` 字段的低 3 位，定义在 `erofs_fs.h:105-110`：
+datalayout 是 inode 里 `i_format` 字段的低 3 位，定义在 `fs/erofs/erofs_fs.h`：
 
 ```c
 EROFS_INODE_FLAT_PLAIN         = 0,
@@ -229,7 +229,7 @@ EROFS_INODE_CHUNK_BASED        = 4,
 
 逐一来看，每个都配上实测案例：
 
-### 0 — FLAT_PLAIN：数据在独立块
+#### 0 — FLAT_PLAIN：数据在独立块
 
 最朴素的一种：文件数据放在若干独立块里，inode 只记起始块号。
 
@@ -245,7 +245,7 @@ NID: 41   Layout: 0
 注意 `On-disk size` 等于 `Size`——**空洞也被分配了**，占了整整 1MB。
 （后面 CHUNK_BASED 会解决这个浪费。）
 
-### 2 — FLAT_INLINE：尾部数据内联
+#### 2 — FLAT_INLINE：尾部数据内联
 
 ⚠️ **这是最容易搞错的一种**。名字里的 "inline" **不是**"整个文件内联"，
 而是"**尾部不足一块的数据**内联"。
@@ -274,7 +274,7 @@ NID: 38   Layout: 2
 这个设计叫 **tail-packing**。EROFS 早在 2019 年的第一份官方演讲里就把它列为特性：
 "Support tail-end data inline"（T1:198）。
 
-### 3 — COMPRESSED_COMPACT：压缩 + 紧凑索引
+#### 3 — COMPRESSED_COMPACT：压缩 + 紧凑索引
 
 **实测**（400KB 高度可压缩的文本）：
 ```
@@ -292,14 +292,14 @@ NID: 41   Layout: 3   Compression ratio: 1.02%
 索引本身也要占空间，所以有小索引（compact）和大索引（non-compact）两种格式。
 **区别留到阶段 4 讲**，现在只知道有这回事。
 
-### 1 — COMPRESSED_FULL：压缩 + 完整索引
+#### 1 — COMPRESSED_FULL：压缩 + 完整索引
 
 与 3 的区别只在索引格式：索引用完整（非紧凑）格式。
 当索引项太多、紧凑格式装不下时就用它。
 
 （本章的实测样例里没触发到它，阶段 4 会补上。）
 
-### 4 — CHUNK_BASED：按块分块
+#### 4 — CHUNK_BASED：按块分块
 
 把文件切成固定大小的 chunk，每个 chunk 独立寻址。
 **它的关键能力是表达"空洞"**。
@@ -320,7 +320,7 @@ NID: 42   Layout: 4
 17592186040320 = 0xFFFFFFFF × 4096
 ```
 
-即块号是 `0xFFFFFFFF`，正是 `EROFS_NULL_ADDR`（`erofs_fs.h:265` 定义它为 -1）。
+即块号是 `0xFFFFFFFF`，正是 `EROFS_NULL_ADDR`（`fs/erofs/erofs_fs.h` 定义它为 -1）。
 **这是"空洞"的表示法：这个 chunk 没有对应的磁盘块。**
 
 效果非常实在：
@@ -334,7 +334,7 @@ NID: 42   Layout: 4
 
 ## 1.6 `union erofs_inode_i_u`：一个字段，四种含义
 
-inode 里有一个 union，定义在 `erofs_fs.h:147`：
+inode 里有一个 union，定义在 `fs/erofs/erofs_fs.h`：
 
 ```c
 union erofs_inode_i_u {
@@ -370,7 +370,7 @@ inode 每大 4 字节，几百万个文件就多占几 MB。
 
 目录在 EROFS 里也是**一个文件**，它的内容就是一串目录项（dirent）。
 
-dirent 是**定长 12 字节**，定义在 `erofs_fs.h:281`：
+dirent 是**定长 12 字节**，定义在 `fs/erofs/erofs_fs.h`：
 
 ```c
 struct erofs_dirent {
@@ -477,13 +477,13 @@ $D -s plain.erofs
 | 术语 | 含义 | 出处 |
 |---|---|---|
 | nid | inode 编号，用于算出 inode 的磁盘位置 | 1.4 |
-| `meta_blkaddr` | 元数据区起始块 | `erofs_fs.h:68` |
-| `islotbits` | inode 槽大小的位偏移（32B→5，64B→6） | `super.c:319` |
-| datalayout | inode 里决定"数据怎么找"的 3 位字段 | `erofs_fs.h:105-110` |
+| `meta_blkaddr` | 元数据区起始块 | `fs/erofs/erofs_fs.h` |
+| `islotbits` | inode 槽大小的位偏移（32B→5，64B→6） | `super.c` |
+| datalayout | inode 里决定"数据怎么找"的 3 位字段 | `fs/erofs/erofs_fs.h` |
 | tail-packing | 尾部不足一块的数据内联到 inode 后 | 1.5 |
 | chunk | chunk-based 文件里的固定大小分块 | 1.5 |
-| `EROFS_NULL_ADDR` | 空块地址，值为 -1，表示"没有对应块" | `erofs_fs.h:265` |
-| dirent | 定长 12 字节的目录项，名字靠 `nameoff` 索引 | `erofs_fs.h:281` |
+| `EROFS_NULL_ADDR` | 空块地址，值为 -1，表示"没有对应块" | `fs/erofs/erofs_fs.h` |
+| dirent | 定长 12 字节的目录项，名字靠 `nameoff` 索引 | `fs/erofs/erofs_fs.h` |
 | compact / extended inode | 32 字节 / 64 字节两种 inode 尺寸 | 1.4 |
 
 
@@ -518,7 +518,7 @@ $D -s plain.erofs
 
 `blkszbits = 12` → 块大小 = 1<<12 = **4096 字节**。
 
-- 512（1<<9）：**可以**，`super.c:272` 允许下限为 9
+- 512（1<<9）：**可以**，`super.c` 允许下限为 9
 - 8192（1<<13）：**在 4K 页的系统上不行**，因为上限是 `PAGE_SHIFT`（x86_64 上为 12）
 
 注意上限是**页大小**而不是固定值，所以在大页系统（如 arm64 64K 页）上块可以更大。
@@ -596,4 +596,4 @@ hash 的作用只是**快速缩小候选范围**，
 </details>
 
 ## 参考
-[linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)
+[linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)

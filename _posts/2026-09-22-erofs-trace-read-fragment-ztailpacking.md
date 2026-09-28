@@ -249,7 +249,7 @@ z_erofs_read_folio()
     z_erofs_decompress_kickoff()
 ```
 
-### ★ `z_erofs_read_fragment` 抓不到，但能认定它确实在跑
+#### ★ `z_erofs_read_fragment` 抓不到，但能认定它确实在跑
 
 它是 `static` 且被编译器内联 —— `nm vmlinux` 里**根本没有这个符号**，  
 所以 ftrace 永远抓不到它的独立函数体（跟 `vfs_read` 那类问题同源）。
@@ -366,7 +366,7 @@ erofs 调用的 VFS 函数（`filemap_*`、`page_cache_*`、`workingset_*`…）
 
 > 前面各节的命令已可按阶段执行，这里再按「从 0 到拿到结果」串一遍，方便直接照抄。
 
-### 阶段 1：造镜像
+#### 阶段 1：造镜像
 
 ```bash
 mkdir -p src
@@ -379,7 +379,7 @@ $MKFS -b4096 -zlz4 -Eall-fragments frag.erofs  src
 $MKFS -b4096 -zlz4 -Eztailpacking  ztail.erofs src
 ```
 
-### 阶段 2：打包进 ext4
+#### 阶段 2：打包进 ext4
 
 ```bash
 cd /home/linux/erofs
@@ -394,11 +394,11 @@ cp /home/linux/erofs/fragment/{plain,frag,ztail}.erofs /mnt/ext4root/images/
 umount /mnt/ext4root
 ```
 
-### 阶段 3：起 VM —— 见 §3
+#### 阶段 3：起 VM —— 见 §3
 
-### 阶段 4：VM 内挂载 + 三段抓取 —— 见 §4 / §5 / §6 / §7
+#### 阶段 4：VM 内挂载 + 三段抓取 —— 见 §4 / §5 / §6 / §7
 
-### 阶段 5：宿主机侧统计与去噪
+#### 阶段 5：宿主机侧统计与去噪
 
 ```bash
 cd /home/linux/erofs/fragment

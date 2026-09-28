@@ -229,14 +229,14 @@ int erofs_init_metabuf(struct erofs_buf *buf, struct super_block *sb,
 ```c
 void *erofs_bread(struct erofs_buf *buf, erofs_off_t offset, bool need_kmap)
 {
-        pgoff_t index = (buf->off + offset) >> PAGE_SHIFT;      /* :31 */
+        pgoff_t index = (buf->off + offset) >> PAGE_SHIFT;
         ...
         if (buf->page) {
                 folio = page_folio(buf->page);
-                if (folio_file_page(folio, index) != buf->page)  /* :50 */
+                if (folio_file_page(folio, index) != buf->page)
                         erofs_unmap_metabuf(buf);
         }
-        if (!folio || !folio_contains(folio, index)) {           /* :53 */
+        if (!folio || !folio_contains(folio, index)) {
                 erofs_put_metabuf(buf);
                 folio = read_mapping_folio(buf->mapping, index, buf->file);
                 ...
@@ -246,17 +246,17 @@ void *erofs_bread(struct erofs_buf *buf, erofs_off_t offset, bool need_kmap)
                 return NULL;
         if (!buf->base)
                 buf->base = kmap_local_page(buf->page);
-        return buf->base + (offset & ~PAGE_MASK);                /* :64 */
+        return buf->base + (offset & ~PAGE_MASK);
 }
 ```
 
 流程是：
 
-1. **算页号**：`index = (buf->off + offset) >> PAGE_SHIFT`（:31）
-2. **能复用吗**：看上一页是不是就是这一页（:48-53）
+1. **算页号**：`index = (buf->off + offset) >> PAGE_SHIFT`
+2. **能复用吗**：看上一页是不是就是这一页
    - 是 → 直接返回，省一次 IO
-   - 否 → `put` 旧的，重新 `read_mapping_folio()`（:55）
-3. **返回指针**：`buf->base + (offset & ~PAGE_MASK)`（:64）
+   - 否 → `put` 旧的，重新 `read_mapping_folio()`
+3. **返回指针**：`buf->base + (offset & ~PAGE_MASK)`
 
 第 2 步就是"复用"的意义所在：连续读同一页内的多处元数据，只读一次磁盘。
 
@@ -421,4 +421,4 @@ metabox 的引入让系统里出现了**第二个** `mapping`（之前基本只�
 </details>
 
 ## 参考
-[linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)
+[linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)

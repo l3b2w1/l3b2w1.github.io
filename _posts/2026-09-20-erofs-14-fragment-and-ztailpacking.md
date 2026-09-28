@@ -436,7 +436,7 @@ grep -rn "packed_inode\|packed_nid" super.c inode.c
 不会。fragment 本身就是压缩的产物，再压收益极小。
 `z_erofs_read_fragment()` 里只有 `memcpy`，没有解压。
 
-### 误解 3：`z_idata_size` 只是个大小
+#### 误解 3：`z_idata_size` 只是个大小
 
 它还是 **ztailpacking 的开关**：`bool ztailpacking = vi->z_idata_size;`
 非 0 即表示启用。
@@ -523,5 +523,5 @@ grep -rn "packed_inode\|packed_nid" super.c inode.c
 </details>
 
 ## 参考
-[linux-stable](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
+[linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
 [EROFS 官方文档 Release 0.1](https://erofs.docs.kernel.org)

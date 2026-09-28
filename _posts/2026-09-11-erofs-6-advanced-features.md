@@ -107,9 +107,9 @@ shared 的价值：容器镜像里成千上万个文件常有相同的 SELinux �
         vi->xattr_shared_count = ih->h_shared_count;                 /* xattr.c */
         if ((u32)vi->xattr_shared_count * sizeof(__le32) > ...)
                 ...  /* 边界检查 */
-        vi->xattr_shared_xattrs = kmalloc_objs(uint, vi->xattr_shared_count);  /* :95 */
+        vi->xattr_shared_xattrs = kmalloc_objs(uint, vi->xattr_shared_count);
         ...
-        for (i = 0; i < vi->xattr_shared_count; ++i) {               /* :103 */
+        for (i = 0; i < vi->xattr_shared_count; ++i) {
                 ...
         }
 ```
@@ -166,10 +166,10 @@ struct erofs_deviceslot {
                 dif = idr_find(&devs->tree, map->m_deviceid - 1);   /* data.c */
                 ...
                 if (devs->flatdev) {
-                        map->m_pa += erofs_pos(sb, dif->uniaddr);    /* :226 */
+                        map->m_pa += erofs_pos(sb, dif->uniaddr);
                         return 0;      /* 扁平模式：还是主设备，只加偏移 */
                 }
-                erofs_fill_from_devinfo(map, sb, dif);               /* :230 换设备 */
+                erofs_fill_from_devinfo(map, sb, dif);               /* 换设备 */
         }
 ```
 
@@ -357,9 +357,9 @@ bool ztailpacking = vi->z_idata_size;                              /* internal.h
 ```c
 /* zmap.c */
 } else if (fragment && m.lcn == vi->z_tailextent_headlcn) {
-        map->m_flags = EROFS_MAP_FRAGMENT;                 /* :477 */
+        map->m_flags = EROFS_MAP_FRAGMENT;
 } else {
-        map->m_pa = erofs_pos(sb, m.pblk);                 /* :479 常规压缩数据 */
+        map->m_pa = erofs_pos(sb, m.pblk);                 /* 常规压缩数据 */
         ...
 }
 ```
@@ -546,8 +546,8 @@ metabox 引入了**第二个 `mapping`**，
 /* ishare.c */
 si = iget5_locked(erofs_ishare_mnt->mnt_sb,
                   ...,
-                  erofs_ishare_iget5_eq,      /* :14 比较指纹 */
-                  erofs_ishare_iget5_set,     /* :23 设置指纹 */
+                  erofs_ishare_iget5_eq,      /* 比较指纹 */
+                  erofs_ishare_iget5_set,     /* 设置指纹 */
                   &fp);
 ```
 
@@ -581,7 +581,7 @@ si = iget5_locked(erofs_ishare_mnt->mnt_sb,
 
 | 层级 | 问的是 | 判定依据 |
 |---|---|---|
-| **文件级** | 同一个 inode 的数据怎么放 | `datalayout`，五选一，`erofs_fs.h:105-110` |
+| **文件级** | 同一个 inode 的数据怎么放 | `datalayout`，五选一，`fs/erofs/erofs_fs.h` |
 | **镜像级** | superblock 里置了哪些特性位 | `feature_incompat` / `feature_compat` |
 | **挂载级** | mount 时传了什么选项 | `sbi->opt`，如 `dax=always`、`inode_share` |
 
@@ -699,7 +699,7 @@ if (fragment && !(flags & EROFS_GET_BLOCKS_FINDTAIL) &&
 - **ishare 与几乎所有镜像特性都兼容**——它是挂载层的页缓存共享机制，
   不改动磁盘布局，属于正交叠加
 - **FSDAX 与 fileio 互斥**：fileio 的镜像是普通文件，没有 `dax_dev`
-- **48-bit / 多设备与 fileio 可并存**：48-bit 还改 rootnid 布局（super.c:320），fileio 下额外设备用文件打开（erofs_init_device），两者照常生效；真正与 fileio 互斥的是 **FSDAX**（fileio 无 dax_dev）
+- **48-bit / 多设备与 fileio 可并存**：48-bit 还改 rootnid 布局（`super.c`），fileio 下额外设备用文件打开（erofs_init_device），两者照常生效；真正与 fileio 互斥的是 **FSDAX**（fileio 无 dax_dev）
 - **压缩与 FSDAX 互斥**、**dedupe/fragment 与 FSDAX 互斥**：根因都在 DAX 的白名单
   （fragment 只出现在压缩文件上，所以一并受限）
   

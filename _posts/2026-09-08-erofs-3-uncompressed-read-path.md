@@ -56,7 +56,7 @@ EROFS 现在的读路径**全部**通过 iomap 框架。入口有四个，都在
 | `erofs_read_folio` | `data.c` | 单页读（缓存未命中时） |
 | `erofs_readahead` | `data.c` 附近 | 预读（内核猜测你接下来要读） |
 | `erofs_file_read_iter` | `data.c` | 直接 IO（`O_DIRECT`） |
-| `erofs_fiemap` / `erofs_bmap` | `data.c` / `:444` | 查询用（FIEMAP、FIBMAP） |
+| `erofs_fiemap` / `erofs_bmap` | `data.c` | 查询用（FIEMAP、FIBMAP） |
 
 它们都通过 `erofs_iomap_ops`（`data.c`）把工作交给 iomap 框架。
 
@@ -81,18 +81,18 @@ static int erofs_iomap_begin(struct inode *inode, loff_t offset, loff_t length,
                 unsigned int flags, struct iomap *iomap, struct iomap *srcmap)
 {
         ...
-        map.m_la = offset;                      /* :310 要翻译的逻辑地址 */
+        map.m_la = offset;                      /* 要翻译的逻辑地址 */
         map.m_llen = length;
-        ret = erofs_map_blocks(realinode, &map); /* :312 调 EROFS 自己的映射 */
+        ret = erofs_map_blocks(realinode, &map); /* 调 EROFS 自己的映射 */
         if (ret < 0)
                 return ret;
 
-        iomap->offset = map.m_la;               /* :316 */
+        iomap->offset = map.m_la;
         iomap->length = map.m_llen;
         iomap->flags = 0;
         iomap->addr = IOMAP_NULL_ADDR;
 
-        if (!(map.m_flags & EROFS_MAP_MAPPED)) { /* :320 */
+        if (!(map.m_flags & EROFS_MAP_MAPPED)) {
                 iomap->type = IOMAP_HOLE;        /* 空洞：没有对应磁盘块 */
                 return 0;
         }
@@ -106,16 +106,16 @@ static int erofs_iomap_begin(struct inode *inode, loff_t offset, loff_t length,
 `IOMAP_HOLE` 表示"这段文件范围没有对应的磁盘数据"。
 读它会得到全 0，且不产生任何 IO。
 
-**第 3 步：确定设备**（`:325-341`，3.6 节细讲）
+**第 3 步：确定设备**（3.6 节细讲）
 
-**第 4 步：按标志决定 iomap 类型**（`:343-360`）
+**第 4 步：按标志决定 iomap 类型**
 
 ```c
         if (map.m_flags & EROFS_MAP_META) {
-                iomap->type = IOMAP_INLINE;     /* :344 内联数据 */
+                iomap->type = IOMAP_INLINE;     /* 内联数据 */
                 ...
         } else {
-                iomap->type = IOMAP_MAPPED;     /* :359 正常映射 */
+                iomap->type = IOMAP_MAPPED;     /* 正常映射 */
         }
 ```
 
@@ -138,33 +138,33 @@ static int erofs_iomap_begin(struct inode *inode, loff_t offset, loff_t length,
 int erofs_map_blocks(struct inode *inode, struct erofs_map_blocks *map)
 {
         ...
-        bool tailinline = (vi->datalayout == EROFS_INODE_FLAT_INLINE);   /* :164 */
+        bool tailinline = (vi->datalayout == EROFS_INODE_FLAT_INLINE);
         ...
-        if (map->m_la >= inode->i_size)                                   /* :171 */
+        if (map->m_la >= inode->i_size)
                 goto out;
-        if (vi->datalayout == EROFS_INODE_CHUNK_BASED) {                  /* :173 */
+        if (vi->datalayout == EROFS_INODE_CHUNK_BASED) {
                 err = erofs_map_chunks(inode, map);
-        } else if (tailinline || vi->startblk != EROFS_NULL_ADDR) {       /* :175 */
-                pos = erofs_pos(sb, erofs_iblks(inode) - tailinline);     /* :176 */
+        } else if (tailinline || vi->startblk != EROFS_NULL_ADDR) {
+                pos = erofs_pos(sb, erofs_iblks(inode) - tailinline);
                 map->m_flags = EROFS_MAP_MAPPED;
-                if (map->m_la < pos) {                                    /* :178 */
+                if (map->m_la < pos) {
                         map->m_pa = erofs_pos(sb, vi->startblk) + map->m_la;
                         map->m_llen = pos - map->m_la;
-                } else {                                                  /* :181 */
+                } else {
                         map->m_pa = erofs_iloc(inode) + vi->inode_isize +
                                 vi->xattr_isize + erofs_blkoff(sb, map->m_la);
                         map->m_llen = inode->i_size - map->m_la;
-                        map->m_flags |= EROFS_MAP_META;                   /* :185 */
+                        map->m_flags |= EROFS_MAP_META;
                         ...
                 }
         }
 ```
 
-### 分支一：chunk-based
+#### 分支一：chunk-based
 
 `datalayout == 4` 时走 `erofs_map_chunks()`（`data.c`），见 3.5 节。
 
-### 分支二：flat 布局（PLAIN / INLINE）
+#### 分支二：flat 布局（PLAIN / INLINE）
 
 关键是 `data.c` 那个判断：
 
@@ -202,12 +202,12 @@ pos = (25 - 1) × 4096 = 98304          ← 正好是第一个 extent 的边界�
 **与 `dump.erofs` 的输出完全吻合**：第一个 extent 到 98304 为止，
 第二个 extent 从 98304 开始，长度 1696（= 100000 - 98304）。
 
-### 尾部分支的细节
+#### 尾部分支的细节
 
 ```c
 map->m_pa = erofs_iloc(inode) + vi->inode_isize +
-        vi->xattr_isize + erofs_blkoff(sb, map->m_la);      /* :182-183 */
-map->m_flags |= EROFS_MAP_META;                              /* :185 */
+        vi->xattr_isize + erofs_blkoff(sb, map->m_la);
+map->m_flags |= EROFS_MAP_META;
 ```
 
 拆解：
@@ -298,24 +298,24 @@ else
 int erofs_map_dev(struct super_block *sb, struct erofs_map_dev *map)
 {
         ...
-        erofs_fill_from_devinfo(map, sb, &EROFS_SB(sb)->dif0);  /* :216 默认主设备 */
-        map->m_bdev = sb->s_bdev;                                /* :217 */
+        erofs_fill_from_devinfo(map, sb, &EROFS_SB(sb)->dif0);  /* 默认主设备 */
+        map->m_bdev = sb->s_bdev;
         if (map->m_deviceid) {
                 down_read(&devs->rwsem);
-                dif = idr_find(&devs->tree, map->m_deviceid - 1); /* :220 按 id 找 */
+                dif = idr_find(&devs->tree, map->m_deviceid - 1); /* 按 id 找 */
                 if (!dif) {
                         up_read(&devs->rwsem);
                         return -ENODEV;
                 }
                 if (devs->flatdev) {
-                        map->m_pa += erofs_pos(sb, dif->uniaddr); /* :226 扁平模式：只加偏移 */
+                        map->m_pa += erofs_pos(sb, dif->uniaddr); /* 扁平模式：只加偏移 */
                         up_read(&devs->rwsem);
                         return 0;
                 }
-                erofs_fill_from_devinfo(map, sb, dif);            /* :230 换成该设备 */
+                erofs_fill_from_devinfo(map, sb, dif);            /* 换成该设备 */
                 up_read(&devs->rwsem);
         } else if (devs->extra_devices && !devs->flatdev) {
-                /* 没有显式设备号时，遍历区间判断落在哪台设备（:232-247） */
+                /* 没有显式设备号时，遍历区间判断落在哪台设备 */
         }
         return 0;
 }
@@ -326,8 +326,8 @@ int erofs_map_dev(struct super_block *sb, struct erofs_map_dev *map)
 | 情况 | 处理 |
 |---|---|
 | `m_deviceid == 0` | 用主设备（`dif0`） |
-| `m_deviceid != 0`，flatdev 模式 | 仍用主设备，但地址加上该设备的起始偏移（`:226`） |
-| `m_deviceid != 0`，正常模式 | 换成对应设备的 `bdev`（`:230`） |
+| `m_deviceid != 0`，flatdev 模式 | 仍用主设备，但地址加上该设备的起始偏移 |
+| `m_deviceid != 0`，正常模式 | 换成对应设备的 `bdev` |
 
 设备信息存在 **idr 树**里（`devs->tree`），按设备号索引。
 
@@ -338,10 +338,10 @@ int erofs_map_dev(struct super_block *sb, struct erofs_map_dev *map)
                 iomap->dax_dev = mdev.m_dif->dax_dev;
         else
                 iomap->bdev = mdev.m_bdev;
-        iomap->addr = mdev.m_dif->fsoff + mdev.m_pa;     /* :338 */
+        iomap->addr = mdev.m_dif->fsoff + mdev.m_pa;
 ```
 
-注意 `:338` **加了 `fsoff`**——把"文件系统内地址"转换成"设备内地址"。
+注意 `iomap->addr` **加了 `fsoff`**——把"文件系统内地址"转换成"设备内地址"。
 
 ## 3.7 内联数据怎么读出来：`erofs_buf` 用上了
 
@@ -455,7 +455,7 @@ int erofs_map_dev(struct super_block *sb, struct erofs_map_dev *map)
 **1. 几个入口？为什么都走 iomap？**
 
 四个：`erofs_read_folio`（`data.c`）、`erofs_readahead`（`data.c` 附近）、
-`erofs_file_read_iter`（DIO）、`erofs_fiemap`/`erofs_bmap`（`data.c`/`:444`）。
+`erofs_file_read_iter`（DIO）、`erofs_fiemap`/`erofs_bmap`（`data.c`）。
 
 都走 iomap 是因为：iomap 框架统一处理了预读策略、IO 提交、DAX、FIEMAP 等，
 EROFS 只需实现"地址翻译"这一件事。这是 EROFS 代码量小的重要原因。
@@ -543,4 +543,4 @@ pos = (25 - 1) × 4096 = 24 × 4096 = 98304   ✓
 </details>
 
 ## 参考
-[linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)
+[linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)

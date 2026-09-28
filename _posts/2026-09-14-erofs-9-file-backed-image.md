@@ -312,7 +312,7 @@ struct erofs_fileio_rq {
 | `iocb` | 用于 `vfs_iocb_iter_read()`。`ki_filp` 指向镜像文件 |
 | `ref` | **初始为 2**：一个引用给"提交者"，一个给"完成回调" |
 
-##### 为什么 `ref` 初始为 2 ？
+###### 为什么 `ref` 初始为 2 ？
 
 这是理解并发的关键。
 
@@ -547,7 +547,7 @@ grep EROFS_FS_BACKED_BY_FILE /home/linux/linux-stable/.config
 # CONFIG_EROFS_FS_BACKED_BY_FILE=y
 ```
 
-### 验证 2：看 fileio 的操作集被注册在哪
+#### 验证 2：看 fileio 的操作集被注册在哪
 
 ```bash
 cd /home/linux/linux-stable/fs/erofs
@@ -557,7 +557,7 @@ grep -rn "erofs_fileio_aops" .
 应该能看到它在 `inode.c`（或 `super.c`）里按后端类型被选中——
 **对照一下选中条件**，就能确认"什么时候走文件后端"。
 
-### 验证 3：在 QEMU 里实测文件后端挂载
+#### 验证 3：在 QEMU 里实测文件后端挂载
 
 这是最有说服力的验证（需要镜像文件而非块设备）：
 
@@ -574,7 +574,7 @@ dmesg | grep -i erofs
 > 解析 `opt` 的部分为准。
 >
 
-### 验证 4：观察是否真的绕过了块设备
+#### 验证 4：观察是否真的绕过了块设备
 
 若挂载成功且能读数据，而**没有**创建任何 loop 设备，即证明走的是文件后端：
 
@@ -584,29 +584,29 @@ losetup -a      # 应看不到与本次挂载相关的 loop 设备
 
 ## 八、常见误解（重要）
 
-### 误解 1：文件后端就是把镜像当普通文件读，所以性能一定差
+#### 误解 1：文件后端就是把镜像当普通文件读，所以性能一定差
 
 不对。它**仍然可以聚合 I/O**（一次 `rq` 最多 16 个 bvec），
 也**可以用 `O_DIRECT`** 绕过双重缓存。
 真正的差异在于少了块设备层的一层转换——某些场景反而更快。
 
-### 误解 2：`bvecs[16]` 意味着一次只能读 16 个页
+#### 误解 2：`bvecs[16]` 意味着一次只能读 16 个页
 
 不完全对。16 是**一次 `bio` 的 bvec 上限**；
 `readahead` 会在 bio 满时**先提交、再开新的**（`goto io_retry`），
 所以总量不受 16 限制。
 
-### 误解 3：`bi_sector` 还是扇区号
+#### 误解 3：`bi_sector` 还是扇区号
 
 在 `fileio.c` 里**不是**。它被用作"文件内偏移 ÷ 512"，
 提交时再乘回来。**这个 bio 绝不能交给块设备层**。
 
-### 误解 4：`refcount` 初始为 2 是笔误
+#### 误解 4：`refcount` 初始为 2 是笔误
 
 不是。它对应"提交方"和"完成回调"两个持有者，
 谁最后结束谁释放。改成 1 会导致 use-after-free。
 
-### 误解 5：文件后端与 ishare 互斥
+#### 误解 5：文件后端与 ishare 互斥
 
 不互斥。`erofs_fileio_read_folio()` 里就调用了 `erofs_real_inode()`，
 说明**两者可以叠加**——文件后端提供"从哪读"，ishare 决定"用谁的页缓存"。
@@ -618,7 +618,7 @@ losetup -a      # 应看不到与本次挂载相关的 loop 设备
 | **ishare / page cache sharing**（11 专题） | 可叠加。fileio 的入口就调用了 `erofs_real_inode()` |
 | **FSDAX**（10 专题） | 另一种"绕开块设备/页缓存"的方案，思路不同但目标相近 |
 | **多设备** | fileio 也走 `erofs_map_dev()`，所以多设备逻辑**照常工作**（每个设备可以是各自的镜像文件） |
-| **压缩路径** | 压缩数据的读取也走同一套后端抽象，`z_erofs_submit_bio` 类接口会分发到 fileio |
+| **压缩路径** | 压缩数据的读取也走同一套后端抽象：`z_erofs_submit_queue()`（`zdata.c`）提交 bio 时会判断 `erofs_is_fileio_mode()`，是 fileio 就走 `erofs_fileio_submit_bio()`（`fileio.c`）而不是 `submit_bio()` |
 | **DIRECT_IO 选项** | fileio 专用优化，避免双重页缓存 |
 
 ## 自测检查点
@@ -680,5 +680,5 @@ losetup -a      # 应看不到与本次挂载相关的 loop 设备
 </details>
 
 ## 参考
-[linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
+[linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
 [EROFS 官方文档 Release 0.1](https://erofs.docs.kernel.org)

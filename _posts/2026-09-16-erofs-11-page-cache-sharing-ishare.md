@@ -650,5 +650,5 @@ grep -rn "erofs_real_inode" .
 </details>
 
 ## 参考
-[linux-stable](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
+[linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
 [EROFS 官方文档 Release 0.1](https://erofs.docs.kernel.org)

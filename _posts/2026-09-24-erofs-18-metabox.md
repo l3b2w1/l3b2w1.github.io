@@ -273,7 +273,7 @@ erofs_nid_t nid;          /* ★ 最高位（METABOX_BIT）表示在 metabox 内
 两个常量都定义在 **`erofs_fs.h`**（不是 `internal.h`），因为它们属于 **on-disk 格式**：
 
 ```c
-/* fs/erofs/erofs_fs.h:277 */
+/* fs/erofs/erofs_fs.h */
 #define EROFS_DIRENT_NID_METABOX_BIT	63
 #define EROFS_DIRENT_NID_MASK	(BIT_ULL(EROFS_DIRENT_NID_METABOX_BIT) - 1)
 ```
@@ -640,5 +640,5 @@ grep -rn "erofs_inode_in_metabox" /sdd/linux/linux-stable/fs/erofs/*.c
 </details>
 
 ## 参考
-[linux-stable](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
+[linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
 [EROFS 官方文档 Release 0.1](https://erofs.docs.kernel.org)

@@ -351,9 +351,9 @@ DIO 路径漏了这一步。
 **位置**：`data.c` vs `data.c`
 
 ```c
-pgoff_t index = (buf->off + offset) >> PAGE_SHIFT;   /* :31 加了 buf->off */
+pgoff_t index = (buf->off + offset) >> PAGE_SHIFT;   /* 加了 buf->off */
 ...
-return buf->base + (offset & ~PAGE_MASK);            /* :64 没加 buf->off */
+return buf->base + (offset & ~PAGE_MASK);            /* 没加 buf->off */
 ```
 
 **问题**：算页号时计入了 `fsoff`，算页内偏移时没有。

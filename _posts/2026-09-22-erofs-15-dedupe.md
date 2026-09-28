@@ -494,7 +494,7 @@ grep -rn "fillgaps" /sdd/linux/linux-stable/fs/erofs/
 
 在内核里找"rolling hash 实现"是找不到的。
 
-### 误解 2：dedupe 与 fragment 是一回事
+#### 误解 2：dedupe 与 fragment 是一回事
 
 **不是**（06 专题点名最容易混淆）：
 
@@ -600,5 +600,5 @@ lcluster index 的 advise 位 `Z_EROFS_LI_PARTIAL_REF`、 / extent 的 m_plen �
 </details>
 
 ## 参考
-[linux-stable](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
+[linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
 [EROFS 官方文档 Release 0.1](https://erofs.docs.kernel.org)

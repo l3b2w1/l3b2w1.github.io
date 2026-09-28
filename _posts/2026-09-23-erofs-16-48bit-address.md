@@ -242,7 +242,7 @@ if (unlikely(check_add_overflow(map->m_pa, map->m_plen, &pend) ||
 
 （另见 3.1：superblock 的 `union rb` 在 48BIT 开启时把 `rootnid_2b` 复用为 `blocks_hi`。）
 
-### 4.2 `erofs_sb_info`（`internal.h`）
+#### 4.2 `erofs_sb_info`（`internal.h`）
 
 ```c
 u32 feature_incompat;      /* INCOMPAT_48BIT 位 */
@@ -344,7 +344,7 @@ if (!sbi->devs->flatdev && !dif->path) {
 当路径去开设备。  
 13 专题里我们显式给了 `device=/dev/vdc`，走的是另一条路。
 
-### 5.4 `super.c`：设备号到底占几位（`erofs_scan_devices()`）
+#### 5.4 `super.c`：设备号到底占几位（`erofs_scan_devices()`）
 
 "64 位地址 = 高 16 位设备号 + 低 48 位块地址"这个分配不是写死的，是**算出来的**：
 
@@ -495,7 +495,7 @@ grep -n -A3 "48-bit physical block" zmap.c
 确认是 `(pend >> sbi->blkszbits) >= BIT_ULL(48)` ——
 **注意右移 blkszbits**，这是"块地址而非字节地址"的直接证据。
 
-### 验证 3：看高位字段怎么拼
+#### 验证 3：看高位字段怎么拼
 
 ```bash
 grep -n "blocks_hi\|uniaddr_hi" /sdd/linux/linux-stable/fs/erofs/super.c
@@ -617,5 +617,5 @@ cat /sys/fs/erofs/*/features
 </details>
 
 ## 参考
-[linux-stable](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
+[linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
 [EROFS 官方文档 Release 0.1](https://erofs.docs.kernel.org)

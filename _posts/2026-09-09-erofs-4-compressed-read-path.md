@@ -118,22 +118,22 @@ map->m_pa = erofs_pos(sb, vi->startblk) + map->m_la;
 ```c
 /* z_erofs_load_full_lcluster，zmap.c */
 advise = le16_to_cpu(di->di_advise);
-m->type = advise & Z_EROFS_LI_LCLUSTER_TYPE_MASK;      /* :41 取类型 */
-if (m->type == Z_EROFS_LCLUSTER_TYPE_NONHEAD) {        /* :42 */
+m->type = advise & Z_EROFS_LI_LCLUSTER_TYPE_MASK;      /* 取类型 */
+if (m->type == Z_EROFS_LCLUSTER_TYPE_NONHEAD) {
         /* NONHEAD：不记地址，只记"距离头多远" */
         m->clusterofs = 1 << vi->z_lclusterbits;
         m->delta[0] = le16_to_cpu(di->di_u.delta[0]);
         ...
         m->delta[1] = le16_to_cpu(di->di_u.delta[1]);
-} else {                                                /* :55 */
+} else {
         /* HEAD：记真正的物理地址 */
-        m->partialref = !!(advise & Z_EROFS_LI_PARTIAL_REF);   /* :56 */
-        m->clusterofs = le16_to_cpu(di->di_clusterofs);        /* :57 */
-        if (advise & Z_EROFS_LI_HOLE) {                        /* :58 */
+        m->partialref = !!(advise & Z_EROFS_LI_PARTIAL_REF);
+        m->clusterofs = le16_to_cpu(di->di_clusterofs);
+        if (advise & Z_EROFS_LI_HOLE) {
                 m->compressedblks = 0;
                 m->pblk = EROFS_NULL_ADDR;                     /* 空洞 */
         } else {
-                m->pblk = le32_to_cpu(di->di_u.blkaddr);       /* :62 物理块号 */
+                m->pblk = le32_to_cpu(di->di_u.blkaddr);       /* 物理块号 */
         }
 }
 ```
@@ -157,19 +157,19 @@ int z_erofs_map_blocks_iter(struct inode *inode, struct erofs_map_blocks *map,
                             int flags)
 {
         ...
-        if (map->m_la >= inode->i_size) {              /* :763 超出文件末尾 */
+        if (map->m_la >= inode->i_size) {              /* 超出文件末尾 */
                 ...
         } else {
-                err = z_erofs_fill_inode(inode, map);   /* :768 首次访问时填元数据 */
+                err = z_erofs_fill_inode(inode, map);   /* 首次访问时填元数据 */
                 if (!err) {
                         if (vi->datalayout == EROFS_INODE_COMPRESSED_FULL &&
                             (vi->z_advise & Z_EROFS_ADVISE_EXTENTS))
-                                err = z_erofs_map_blocks_ext(inode, map, flags);  /* :772 */
+                                err = z_erofs_map_blocks_ext(inode, map, flags);
                         else
-                                err = z_erofs_map_blocks_fo(inode, map, flags);   /* :774 */
+                                err = z_erofs_map_blocks_fo(inode, map, flags);
                 }
                 if (!err)
-                        err = z_erofs_map_sanity_check(inode, map);   /* :777 */
+                        err = z_erofs_map_sanity_check(inode, map);
         }
 }
 ```
@@ -187,8 +187,8 @@ int z_erofs_map_blocks_iter(struct inode *inode, struct erofs_map_blocks *map,
 /* zmap.c, :423-424 */
 ofs = flags & EROFS_GET_BLOCKS_FINDTAIL ? inode->i_size - 1 : map->m_la;
 ...
-initial_lcn = ofs >> lclusterbits;                    /* :423 逻辑簇号 */
-endoff = ofs & ((1 << lclusterbits) - 1);             /* :424 簇内偏移 */
+initial_lcn = ofs >> lclusterbits;                    /* 逻辑簇号 */
+endoff = ofs & ((1 << lclusterbits) - 1);             /* 簇内偏移 */
 ```
 
 这一步和阶段 3 的"算块号"一样是算术——
@@ -210,7 +210,7 @@ err = z_erofs_load_lcluster_from_disk(&m, initial_lcn, false);
 if (m.type != Z_EROFS_LCLUSTER_TYPE_NONHEAD && endoff >= m.clusterofs) {
         /* 情况 A：这个 lcluster 就是某个 pcluster 的头 */
         m.headtype = m.type;
-        map->m_la = (m.lcn << lclusterbits) | m.clusterofs;    /* :437 */
+        map->m_la = (m.lcn << lclusterbits) | m.clusterofs;
         ...
 } else {
         /* 情况 B：不是头，要往回找它所属 pcluster 的头 */
@@ -219,7 +219,7 @@ if (m.type != Z_EROFS_LCLUSTER_TYPE_NONHEAD && endoff >= m.clusterofs) {
                 map->m_flags &= ~EROFS_MAP_PARTIAL_MAPPED;
                 m.delta[0] = 1;
         }
-        err = z_erofs_extent_lookback(&m, m.delta[0]);          /* :452 往回找 */
+        err = z_erofs_extent_lookback(&m, m.delta[0]);          /* 往回找 */
         ...
 }
 ```
@@ -327,15 +327,15 @@ if (fragment && vi->datalayout == EROFS_INODE_COMPRESSED_FULL)
 ```c
 enum z_erofs_pclustermode {
         /* 已被链接到另一个处理链 */
-        Z_EROFS_PCLUSTER_INFLIGHT,                    /* :479 */
+        Z_EROFS_PCLUSTER_INFLIGHT,
         /*
          * 弱化的 FOLLOWED：可能因 uptodated managed folios
          * 被分派到旁路队列，所以相关 folio 不能用于 in-place IO
          * （pcluster 可能在另一个队列里乱序解码）
          */
-        Z_EROFS_PCLUSTER_FOLLOWED_NOINPLACE,          /* :487 */
+        Z_EROFS_PCLUSTER_FOLLOWED_NOINPLACE,
         /* 刚链接到当前处理链，相关 folio 可用于 in-place IO */
-        Z_EROFS_PCLUSTER_FOLLOWED,                    /* :493 */
+        Z_EROFS_PCLUSTER_FOLLOWED,
 };
 ```
 
@@ -361,9 +361,9 @@ if (fe->mode < Z_EROFS_PCLUSTER_FOLLOWED)    /* 不能 in-place */
 
         if (pcl) {
                 fe->pcl = pcl;
-                ret = -EEXIST;                        /* :840 已存在 */
+                ret = -EEXIST;                        /* 已存在 */
         } else {
-                ret = z_erofs_register_pcluster(fe);   /* :842 新建 */
+                ret = z_erofs_register_pcluster(fe);   /* 新建 */
         }
 
         /* ② 抢：原子地争抢"谁负责解压"（zdata.c） */
@@ -371,9 +371,9 @@ if (fe->mode < Z_EROFS_PCLUSTER_FOLLOWED)    /* 不能 in-place */
                 mutex_lock(&fe->pcl->lock);
                 if (!cmpxchg(&fe->pcl->next, NULL, fe->head)) {
                         fe->head = fe->pcl;
-                        fe->mode = Z_EROFS_PCLUSTER_FOLLOWED;   /* :851 我接管 */
+                        fe->mode = Z_EROFS_PCLUSTER_FOLLOWED;   /* 我接管 */
                 } else {
-                        fe->mode = Z_EROFS_PCLUSTER_INFLIGHT;   /* :853 别人在处理 */
+                        fe->mode = Z_EROFS_PCLUSTER_INFLIGHT;   /* 别人在处理 */
                 }
         }
 ```
@@ -795,4 +795,4 @@ mkfs 侧（`erofs-utils/lib/compress.c`）复用了这个原本存块地址的�
 </details>
 
 ## 参考
-[linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)
+[linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)

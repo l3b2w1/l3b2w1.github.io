@@ -610,4 +610,4 @@ grep -n "struct erofs_sb_info {" internal.h     # 只看行号定位，文档里
 </details>
 
 ## 参考
-[linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)
+[linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)

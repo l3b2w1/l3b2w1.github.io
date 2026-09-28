@@ -103,17 +103,17 @@ struct z_erofs_decompressor {
 static int z_erofs_runqueue(struct z_erofs_frontend *f, unsigned int rabytes)
 {
         ...
-        int syncmode = sbi->sync_decompress;                        /* :1790 */
+        int syncmode = sbi->sync_decompress;
         bool force_fg;
 
-        force_fg = (syncmode == EROFS_SYNC_DECOMPRESS_AUTO && !rabytes) ||   /* :1794 */
+        force_fg = (syncmode == EROFS_SYNC_DECOMPRESS_AUTO && !rabytes) ||
                 (syncmode == EROFS_SYNC_DECOMPRESS_FORCE_ON &&
-                        (rabytes <= Z_EROFS_MAX_SYNC_DECOMPRESS_BYTES));     /* :1796 */
+                        (rabytes <= Z_EROFS_MAX_SYNC_DECOMPRESS_BYTES));
         ...
 }
 ```
 
-### 三种策略
+#### 三种策略
 
 `sbi->sync_decompress`（`internal.h`）可以取三个值：
 
@@ -123,7 +123,7 @@ static int z_erofs_runqueue(struct z_erofs_frontend *f, unsigned int rabytes)
 | `FORCE_ON` | 请求大小 ≤ 12288 字节 → 前台；否则后台 |
 | `FORCE_OFF` | 一律后台 |
 
-### 阈值 12288 从哪来？
+#### 阈值 12288 从哪来？
 
 ```c
 /* zdata.c */
@@ -142,7 +142,7 @@ static int z_erofs_runqueue(struct z_erofs_frontend *f, unsigned int rabytes)
 > 这个数不是理论推导出来的，是实测调优的结果。  
 > 遇到这类"魔法数字"时，合理的做法是：理解它权衡的是什么，而不是纠结为什么不是 12000。
 
-### 可以亲手调
+#### 可以亲手调
 
 sysfs 接口（`sysfs.c`）：
 
@@ -160,7 +160,7 @@ EROFS 可以借用内核 crypto 子系统的 **acompress**（异步压缩/解压
 **先澄清一个常见的困惑**：这里的 "crypto" 是内核的密码学/压缩算法框架
 （`crypto/acompress`），**不是加密**。EROFS 不做加密。
 
-### 现实限制
+#### 现实限制
 
 ```c
 /* decompressor_crypto.c */
@@ -199,7 +199,7 @@ static struct z_erofs_crypto_engine *z_erofs_crypto[Z_EROFS_COMPRESSION_MAX] = {
 > 演讲自己也说 "In-kernel decompression support is still ongoing"。
 > **演讲里的数字不等于内核路径的能力**——读材料时要留意这一点。
 
-### 一个附带的可用性缺陷
+#### 一个附带的可用性缺陷
 
 `z_erofs_crypto_enable_engine()`（`decompressor_crypto.c`）
 在**名字没匹配任何表项**时，返回 `0`（成功）：
@@ -236,7 +236,7 @@ static struct z_erofs_crypto_engine *z_erofs_crypto[Z_EROFS_COMPRESSION_MAX] = {
 
 把本章涉及的设计决策汇总一下——**这些才是后端实现的主干**。
 
-### 算法怎么抽象：函数指针表 + 一个算法一个文件
+#### 算法怎么抽象：函数指针表 + 一个算法一个文件
 
 `struct z_erofs_decompressor`（`compress.h`）用五个成员把算法差异收拢：
 
@@ -250,7 +250,7 @@ static struct z_erofs_crypto_engine *z_erofs_crypto[Z_EROFS_COMPRESSION_MAX] = {
 好处是**可插拔**：加一种新算法只需写一个 `decompressor_xxx.c`
 实现这几个函数并注册，调用方（`zdata.c`）完全不用改。
 
-### 请求怎么描述：统一 req
+#### 请求怎么描述：统一 req
 
 所有后端共用 `struct z_erofs_decompress_req`（`compress.h`）
 描述一次解压：  
@@ -268,26 +268,26 @@ static struct z_erofs_crypto_engine *z_erofs_crypto[Z_EROFS_COMPRESSION_MAX] = {
 | `partial_decoding` | 只要部分输出即可 |
 | `fillgaps` | 输出有空隙（未被整页认领的输出槽）时，是否分配临时页作为解压落点 / 后续拷贝源 |
 
-### 算法怎么选：每 inode 指定，不是全局
+#### 算法怎么选：每 inode 指定，不是全局
 
 算法存在 inode 里（`vi->z_algorithmtype[0]` / `[1]`），
 所以**同一个镜像里不同文件可以用不同算法**。  
 映射阶段 `z_erofs_map_blocks_fo()` 把算法格式填进 `map->m_algorithmformat`，
 后端据此分派。
 
-### 同步还是异步：看请求特征
+#### 同步还是异步：看请求特征
 
 `z_erofs_runqueue()`（`zdata.c`）按"是否预读"与"请求大小"（阈值 12288 = 3 页）决定：  
 小请求 / 同步读 → 前台解压（降延迟）；
 预读 → 后台队列（不干扰前台）。
 
-### 硬件加速：白名单 + 异步接口
+#### 硬件加速：白名单 + 异步接口
 
 通过内核 crypto 子系统的 `acomp`（异步压缩）接入，
 但引擎来自**静态白名单** `z_erofs_crypto[]`（`decompressor_crypto.c`），  
 其中只有 DEFLATE 档填了 `"qat_deflate"`，其余三档为空。
 
-### 两条容易踩的约定（重点）
+#### 两条容易踩的约定（重点）
 
 **① 错误返回：`decompress` 返回"字符串或 NULL"**
 
@@ -505,4 +505,4 @@ microLZMA 的 `xz_dec_microlzma_run()` **不会返回 `XZ_BUF_ERROR`**。
 
 
 ## 参考
-[linux-7.2](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)
+[linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)
