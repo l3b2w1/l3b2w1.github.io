@@ -549,6 +549,65 @@ static struct page *z_erofs_bvset_flip(struct z_erofs_bvec_iter *iter)
 抓压缩读路径时，`z_erofs_scan_folio()` 内部会出现`z_erofs_bvset_flip()`——出现它，说明这一簇是 in-place 解压（数据要解压回原位），  
 而且压缩数据跨了 bvec 页边界、正在翻页。出现得越频繁，说明 pcluster 越大、bvec 越多。
 
+
+#### 解压后要不要缓存：`cache_strategy`
+
+上一节讲 cached 解压，但没说**要不要把解压好的物理簇数据留下来复用**——这由挂载选项 `cache_strategy` 决定。   
+它影响的是：解压过一次的数据，下次再读到相邻部分时，**要不要重新解压一遍**。
+
+`super.c` 里的三档（默认 `readaround`）：
+
+```c
+static const struct constant_table erofs_param_cache_strategy[] = {
+        {"disabled",   EROFS_ZIP_CACHE_DISABLED},
+        {"readahead",  EROFS_ZIP_CACHE_READAHEAD},
+        {"readaround", EROFS_ZIP_CACHE_READAROUND},   /* 默认 */
+};
+
+/* 挂载默认 */
+sbi->opt.cache_strategy = EROFS_ZIP_CACHE_READAROUND;
+```
+
+落到代码里是 `zdata.c` 的 `z_erofs_should_alloc_cache()`——
+每个解压请求都要问一次"这次要不要把物理簇数据存进 managed cache"：
+
+```c
+static bool z_erofs_should_alloc_cache(struct z_erofs_frontend *fe)
+{
+        unsigned int cachestrategy = EROFS_I_SB(fe->inode)->opt.cache_strategy;
+
+        if (cachestrategy <= EROFS_ZIP_CACHE_DISABLED)
+                return false;                          /* disabled：一律不缓存 */
+
+        if (fe->map.m_flags & EROFS_MAP_PARTIAL_MAPPED)
+                return true;                           /* 部分映射（fragment/dedupe 引用）→ 缓存 */
+
+        if (cachestrategy >= EROFS_ZIP_CACHE_READAROUND &&
+            fe->map.m_la < fe->headoffset)
+                return true;                           /* readaround：往回读（m_la < headoffset）→ 缓存 */
+
+        return false;
+}
+```
+
+三档的实际差别：
+
+| 档位 | 缓存什么 | 适合 |
+|---|---|---|
+| `disabled` | 什么都不缓存（每次重解压） | 只读一遍的场景，省内存 |
+| `readahead` | 只缓存 **partial_mapped**（被引用的部分，如 dedupe/fragment） | 顺序读为主 |
+| `readaround`（默认） | partial + **往回读**（`m_la < headoffset`，读到文件前部） | 通用，局部性好的场景 |
+
+⇒ 名字里的 "around" 指的是**向后（往回）**——读到了文件靠前的部分，很可能很快又会再读那一带，所以把解压结果留下来。   
+"ahead" 则只管**向前**（被引用的部分）。
+
+**怎么对上号**：`mount -o cache_strategy=readaround`（可改）；  
+挂载后 `/sys/fs/erofs/<dev>/cache_strategy` 能看到当前值（`super.c` 的 seq_printf）。   
+抓 `z_erofs_scan_folio` 的 trace，看它后面跟不跟 `z_erofs_bind_cache()`（把解压结果绑进 managed cache）——跟了说明这次走了缓存。
+
+> 注意它和 `erofs_buf` 的区别：`erofs_buf` 是**元数据**的读取缓冲，  
+> `cache_strategy` 管的是**解压后的物理簇数据**要不要复用——两个是不同的缓存。
+
 ## 4.7 常见误解
 
 **误解一：以为一个 lcluster 对应一个 pcluster**
