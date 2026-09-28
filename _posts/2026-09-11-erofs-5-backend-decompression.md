@@ -313,6 +313,52 @@ microLZMA 的 `xz_dec_microlzma_run()` **不会返回 `XZ_BUF_ERROR`**，
 > 📌 这不是某个后端的特例，而是一条通用设计原则：
 > **循环的正确性不能只依赖被调函数"一定会报错"。**
 
+
+
+## 5.6 资源管理：临时页与页池
+
+论文里 EROFS 主打的「内存高效解压」，落地就靠这一节讲的**页池（pagepool）**。  
+但它在文档里几乎是盲区——它在实测 trace 里却以 `__erofs_allocpage` 的身份反复出现。
+
+#### 问题：解压要临时页，但"用完就 free"太浪费
+
+解压器需要**临时页（scratch buffer）**：  
+in-place 解压的双缓冲、`z_erofs_stream_switch_bufs()` 里为 deduped 空隙分配的页、以及 `z_erofs_bvset_flip` 翻页时腾出来的旧页。   
+如果每次用完都 `__free_pages()`，高峰时内存抖动会很大。
+
+#### 解法：标记"短命页"，归还到页池循环复用
+
+```c
+/* 分配临时页时，给它打上短命标记 */
+set_page_private(nextpage, Z_EROFS_SHORTLIVED_PAGE);
+
+/* 用完不归还给伙伴系统，而是还回页池，供下一次解压复用 */
+z_erofs_put_shortlivedpage(be->pagepool, old_bvpage);
+```
+
+两个配套的标记（`folio->private` 上的值）：
+
+| 标记 | 含义 |
+|---|---|
+| `Z_EROFS_SHORTLIVED_PAGE` | 临时页：用完即弃，进页池等复用 |
+| `Z_EROFS_PREALLOCATED_PAGE` | 预分配页：pagepool 里常备的页，取来就用 |
+
+#### 为什么这样省内存
+
+`pagepool` 是个**临时页的回收站**——解压高峰时需要的一批临时页，在这里转一圈又出来，
+不用每次都向伙伴系统要。它把"临时页的生命周期"从 `alloc → 用 → free`
+改成了 `alloc → 用 → 还池 → 复用 → …`，把峰值内存和分配开销都压住了。
+
+#### 怎么对 trace 对上号
+
+抓 `__x64_sys_read` 时，`__erofs_allocpage()` 会出现（它是 `erofs_allocpage()` 这个
+`static inline` 的底层真函数，`erofs_allocpage` 本身被内联、抓不到）。
+但要注意它的**调用栈**——从 `z_erofs_scan_folio()` 进来的是**常规输出页分配**，
+只有从解压后端（LZ4 的 plain 后端、`z_erofs_stream_switch_bufs()`）进来的
+才是**临时页**。别把所有 `__erofs_allocpage` 都当成页池的临时页。
+
+> 这也是为什么 05 章讲「内存高效解压」时，最好顺带看一次 `pagepool`——
+> 它不是一句口号，是实打实的临时页复用。
 ## 术语速查
 
 | 术语 | 含义 | 出处 |
