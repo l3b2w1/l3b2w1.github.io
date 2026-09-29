@@ -8,7 +8,7 @@ header-img: img/bluelinux.jpg
 catalog: true
 tags:
     - fs
-	- erofs
+    - erofs
     - ai
 ---
 
