@@ -33,7 +33,7 @@ tags:
 | 宿主机 | `cmp` / `od` 比对内容 | blob 里装的是不是原始数据 |
 | 虚拟机 | 三种 `mount` 组合 + 读文件 | 内核侧挂载与跨设备读的真实行为 |
 
-## 1. 阶段零：环境清场（必须先做）
+## 1. 阶段零：环境清场
 
 #### 1.1 检查残留 VM 进程 —— 本次实际踩到的坑
 
@@ -226,7 +226,7 @@ grep -a "TEST._START\|MOUNT_RC\|erofs (device\|ALL_DONE\|rnd4m\|text1m" $LOG | s
 echo "=== 日志行数: $(wc -l < $LOG) ==="
 ```
 
-## 4. 阶段三：VM 内测试（命令文件全文）
+## 4. 阶段三：VM 内测试
 
 文件 `vm-cmds-twoblob.txt`：
 
@@ -357,16 +357,7 @@ mkfs.erofs -b4096 --chunksize=65536 -zlz4 \
 mount -t erofs -o device=/dev/sdb1 /dev/sda1 /mnt/erofs
 ```
 
-## 8. 本次踩到的坑汇总
-
-1. **残留 qemu 进程占 rootfs 写锁** → `Failed to get "write" lock`。
-   跑之前先 `ps -eo pid,etime,cmd | grep qemu` 检查并清理。
-2. **`-append` 的值漏引号** → QEMU 把 `rdinit=/init` 当文件路径。必须引号包裹。
-3. **ssh 单引号 + heredoc 写远端脚本不稳** → 出现「写成功但执行时说找不到」。
-   写脚本要单独调用验证，或干脆内联命令不落盘。
-4. **源数据必须含不可压缩内容** → 否则 blob 为 0 字节，测不出分流行为。
-
-## 9. 产物清单（`/home/linux/erofs/multidev/twoblob/`）
+## 8. 产物清单（`/home/linux/erofs/multidev/twoblob/`）
 
 | 文件 | 说明 |
 |---|---|
@@ -381,5 +372,5 @@ mount -t erofs -o device=/dev/sdb1 /dev/sda1 /mnt/erofs
 
 
 ## 参考
-[erofs-utils](https://git.kernel.org/pub/scm/linux/kernel/git/xiang/erofs-utils.git)
+[erofs-utils](https://git.kernel.org/pub/scm/linux/kernel/git/xiang/erofs-utils.git)  
 [linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
