@@ -335,25 +335,25 @@ grep -rn "device_id_mask" /sdd/linux/linux-stable/fs/erofs/
 看它在哪被设置、在哪被使用，验证"设备号编在高位"的说法。
 
 
-#### 验证 4：完整 mkfs + mount 命令（三设备示例）
+#### 验证 4：完整 mkfs + mount 命令（单 blob 设备示例）
 
-假设主设备 `/dev/sda1`，两个额外设备 `/dev/sdb1`、`/dev/sdc1`：
+假设主设备 /dev/sda1，额外设备 /dev/sdb1（当前 mkfs 只支持一个 blob 设备）：
 
 ```bash
-# ① 造镜像：主镜像写 sda1，chunk 数据分流到 sdb1 / sdc1
+# ① 造镜像：主镜像写 sda1，chunk 数据分流到 sdb1
 mkfs.erofs -b4096 --chunksize=65536 -zlz4 \
-    --blobdev=/dev/sdb1 --blobdev=/dev/sdc1 \
+    --blobdev=/dev/sdb1 \
     /dev/sda1 /path/to/srcdir
 
 # ② 挂载：主设备走源参数，额外设备用 -o device= 逐个给
-mount -t erofs -o device=/dev/sdb1,device=/dev/sdc1 /dev/sda1 /mnt/erofs
+mount -t erofs -o device=/dev/sdb1 /dev/sda1 /mnt/erofs
 ```
 
 三个坑：
 
-1. **顺序必须一致** —— `device=` 的第 1 个对应 mkfs 的第 1 个 `--blobdev`（device id 1），  
-   第 2 个对应第 2 个。顺序错了不会报错，但会读到错误的设备（数据静默错乱）。   
-2. **数量必须对上** —— 少给一个，内核直接报 `extra devices don't match (ondisk N, given M)`，挂载失败。  
+1. **当前只支持一个 blob 设备** —— 实测：mkfs 侧 c_blobdev_path 是单变量，多次 --blobdev 只有最后一个生效；  
+   镜像 superblock 里 extra_devices 实测为 1，因此挂载时只给一个 device=。
+2. **数量必须对上** —— 少给一个，内核直接报 `extra devices don't match (ondisk N, given M)`，挂载失败。
 3. **`--blobdev` 要配 `--chunksize`** —— 因为它只存 chunk-based 数据（详见九）。
 
 挂载后在 `dmesg` 里确认：`erofs (device sda1): mounted with root inode @ nid N`。  
