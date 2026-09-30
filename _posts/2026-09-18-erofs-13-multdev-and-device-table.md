@@ -285,6 +285,21 @@ u16 device_id_mask;                    /* 设备号占多少位 */
 ⑥ 数据读出
 ```
 
+
+#### 上面①和④到底在说什么：统一地址空间（uniaddr）
+
+"mkfs 侧已把哪些数据在哪个设备写进镜像"，写的就是**主镜像里的 device table**：  
+每个额外设备占一条 `erofs_deviceslot`，记 `blocks`（这个设备有多少块）和`uniaddr`（它在统一地址空间里的起始块号），外加 `tag`（sha256 摘要）。  
+**镜像里不记设备路径** —— 路径是挂载时才由 `-o device=` 给的。
+
+于是多个设备的块被拼成一条**连续的地址带**，文件里存的 `m_pa` 是这条带上的统一地址：
+
+![统一地址空间：多个设备拼成一条地址带](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-18-erofs-39-uniaddr-multidev.svg)
+
+读的时候，`erofs_map_dev()` 判断 `m_pa` 落在哪个 `[uniaddr, uniaddr + blocks)` 区间，  
+减去该设备的 `uniaddr` 得到**设备内偏移**，再把 `m_dif` 切到那个设备的后端  
+（上图橙色主干：1500 落在设备 1，减去 uniaddr 1000 → 设备内偏移 500）。
+
 ⇒ **多设备逻辑是"后端无关"的**：解析出 `m_dif` 之后，
 具体怎么读由后端（bdev / fileio / DAX）决定。
 
@@ -319,7 +334,30 @@ grep -rn "device_id_mask" /sdd/linux/linux-stable/fs/erofs/
 
 看它在哪被设置、在哪被使用，验证"设备号编在高位"的说法。
 
----
+
+#### 验证 4：完整 mkfs + mount 命令（三设备示例）
+
+假设主设备 `/dev/sda1`，两个额外设备 `/dev/sdb1`、`/dev/sdc1`：
+
+```bash
+# ① 造镜像：主镜像写 sda1，chunk 数据分流到 sdb1 / sdc1
+mkfs.erofs -b4096 --chunksize=65536 -zlz4 \
+    --blobdev=/dev/sdb1 --blobdev=/dev/sdc1 \
+    /dev/sda1 /path/to/srcdir
+
+# ② 挂载：主设备走源参数，额外设备用 -o device= 逐个给
+mount -t erofs -o device=/dev/sdb1,device=/dev/sdc1 /dev/sda1 /mnt/erofs
+```
+
+三个坑：
+
+1. **顺序必须一致** —— `device=` 的第 1 个对应 mkfs 的第 1 个 `--blobdev`（device id 1），  
+   第 2 个对应第 2 个。顺序错了不会报错，但会读到错误的设备（数据静默错乱）。   
+2. **数量必须对上** —— 少给一个，内核直接报 `extra devices don't match (ondisk N, given M)`，挂载失败。  
+3. **`--blobdev` 要配 `--chunksize`** —— 因为它只存 chunk-based 数据（详见九）。
+
+挂载后在 `dmesg` 里确认：`erofs (device sda1): mounted with root inode @ nid N`。  
+要验证跨设备读是否真的发生，用 ftrace 抓 `erofs_map_dev` ——多设备读路径与单设备**只差一个** `erofs_map_dev()`。  
 
 ## 八、常见误解（重要）
 
