@@ -494,7 +494,7 @@ $D -s plain.erofs
 | 压缩 | `-zlz4` | inode 里的 zmap 压缩索引 | pcluster（压缩后的数据） |
 | chunk-based | `--chunksize` | inode 里的 chunk index 数组 | 各个 chunk 的数据块 |
 
-读这张图抓住一条主线：**指向数据的"索引或引用"留在 inode 记录里（元数据区），数据本体搬到数据区。**
+读这张图抓住一条主线：**指向数据的"索引或引用"留在 inode 记录里（元数据区），数据本体搬到数据区。**  
 inline 数据是唯一例外——它的数据本体就住在元数据区，紧贴 inode 主体和 xattr 之后。
 
 #### ⚠️ 这张图是简化模型，不是硬性的物理分界
