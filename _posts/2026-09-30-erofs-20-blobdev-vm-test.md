@@ -189,6 +189,13 @@ QEMU_CMD="qemu-system-x86_64 -m 8192 -smp 4 -nographic \
   | timeout 300 /usr/bin/script -q -c "$QEMU_CMD" /dev/null > $W/vm-twoblob.log 2>&1
 ```
 
+- **为什么不需要交互式同步**：busybox sh 会**按顺序**执行，一条跑完才读下一条，
+  所以不用等提示符、不用加完成标记。
+- 只需在喂之前 `sleep 12` 等 VM 内的 shell 起来。
+- 命令文件**最后一条放 `poweroff -f`**，VM 主动关机 → QEMU 退出 → `script` 才结束。
+- 宿主机侧用 `timeout 300` 兜底防挂死（124 = 超时）。
+
+
 `02-run-twoblob.sh`脚本完整内容如下:
 
 ```
@@ -218,14 +225,6 @@ echo "=== 关键输出 ==="
 grep -a "TEST._START\|MOUNT_RC\|erofs (device\|ALL_DONE\|rnd4m\|text1m" $LOG | sed "s/\r//g" | head -40
 echo "=== 日志行数: $(wc -l < $LOG) ==="
 ```
-
-- **为什么不需要交互式同步**：busybox sh 会**按顺序**执行，一条跑完才读下一条，
-  所以不用等提示符、不用加完成标记。
-- 只需在喂之前 `sleep 12` 等 VM 内的 shell 起来。
-- 命令文件**最后一条放 `poweroff -f`**，VM 主动关机 → QEMU 退出 → `script` 才结束。
-- 宿主机侧用 `timeout 300` 兜底防挂死（124 = 超时）。
-
----
 
 ## 4. 阶段三：VM 内测试（命令文件全文）
 
