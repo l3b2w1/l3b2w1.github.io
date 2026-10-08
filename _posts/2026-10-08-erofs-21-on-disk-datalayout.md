@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      EROFS Business Scenario
-subtitle:   EROFS 业务场景
+title:      EROFS on-disk layout
+subtitle:   EROFS 磁盘镜像布局
 date:       2026-10-08
 author:     icecube
 header-img: img/bluelinux.jpg
