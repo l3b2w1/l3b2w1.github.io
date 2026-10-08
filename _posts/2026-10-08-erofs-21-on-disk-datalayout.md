@@ -669,3 +669,7 @@ if (addr != NULL_ADDR) addr |= (u64)(device_id & device_id_mask) << 48;
 > `fs/erofs/data.c: erofs_map_blocks()` / `erofs_map_chunks()` / `erofs_map_dev()`  
 > `fs/erofs/zmap.c: z_erofs_map_blocks_iter()` / `z_erofs_load_full_lcluster()` / `z_erofs_load_compact_lcluster()`  
 > `fs/erofs/inode.c: erofs_fill_inode()`（`inode_isize` / `xattr_isize` / `idata_size` 的来源）
+
+## 参考
+[linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
+[EROFS 官方文档 Release 0.1](https://erofs.docs.kernel.org)
