@@ -30,14 +30,15 @@ tags:
 
 | 名称 | 公式 | 说明 |
 |---|---|---|
-| `erofs_iloc(inode)` | `meta_blkaddr * bs + nid * 32` | inode 在镜像中的**字节偏移**；`nid` 是 32 B 槽位号，不是序号连续的小整数 |
+| `erofs_iloc(inode)` | `meta_blkaddr * bs + nid * 32` | inode 在镜像中的**字节偏移**；`nid` 是 32 B 槽位号，不是序号连续的小整数。<br>**例外**：inode 在 metabox 中时（`erofs_inode_in_metabox()`）公式为 `nid_lo << islotbits`，**不加** `meta_blkaddr` 基址 |
 | `erofs_pos(sb, blk)` | `blk << blkszbits` | 块号 → 字节偏移 |
 | `erofs_blkoff(sb, pos)` | `pos & (bs - 1)` | 字节偏移 → 块内偏移 |
 | `erofs_iblks(inode)` | `round_up(i_size, bs) >> blkszbits` | 文件占几个块 |
 | inode 槽位 | 32 B 固定（与 compact inode 尺寸对齐） | extended inode 占 2 个槽位 |
 | `inode_isize` | compact=32 / extended=64 | 由 `i_format` bit0 决定 |
-| `xattr_isize` | `i_xattr_icount ? 12 + (n-1)*4 : 0` | `erofs_xattr_ibody_size()` |
+| `xattr_isize` | `i_xattr_icount ? 12 + (n-1)*4 : 0` | `erofs_xattr_ibody_size()`；**内核要求 > 12**（即 `i_xattr_icount ≥ 2`），见 §2.4 |
 | 元数据区起点 | `meta_blkaddr`（实测小镜像常为 **0**） | 元数据可与数据区交错（erofs.rst） |
+| 数据区起点 | 无固定字段 | 由各 inode 的 `blkaddr` 索引，可与元数据区交错 |
 
 ---
 
@@ -109,8 +110,8 @@ tags:
 | 64 | 16 | `volume_name` | 卷名 | 空 |
 | 80 | 4 | `feature_incompat` | **不兼容特性位**（决定能否挂载） | 见下表 |
 | 84 | 2 | `u1` | union：available_compr_algs / lz4_max_distance | 实测 `0xffff`(65535) |
-| 86 | 2 | `extra_devices` | **除主设备外的设备数** | 实测 **1** |
-| 88 | 2 | `devt_slotoff` | device table 起始（×128 B） | 实测 9 |
+| 86 | 2 | `extra_devices` | **除主设备外的设备数** | 实测 **1**（带 `--blobdev` 的镜像；普通镜像为 0） |
+| 88 | 2 | `devt_slotoff` | device table 起始（×128 B） | 实测 9（同上，带 blobdev 时才有） |
 | 90 | 1 | `dirblkbits` | 目录块大小位移 | 12 |
 | 91 | 1 | `xattr_prefix_count` | 长 xattr 名前缀数 | 0 |
 | 92 | 4 | `xattr_prefix_start` | 长前缀区起始 | 0 |
@@ -197,6 +198,46 @@ tags:
 | 2 | 2 | `e_value_size` | 值长度 |
 | 4 | — | `e_name[]` | 名字（柔性数组），随后是 value，整体按 4 B 对齐（`EROFS_XATTR_ALIGN`） |
 
+#### xattr 区的大小与内核校验（`erofs_init_inode_xattrs`）
+
+```
+xattr_isize = erofs_xattr_ibody_size(i_xattr_icount)
+            = 0                    若 i_xattr_icount == 0（无 xattr）
+            = 12 + (n - 1) * 4     若 n = i_xattr_icount > 0
+```
+
+内核对该值的三种判定（`fs/erofs/xattr.c`）：
+
+| `xattr_isize` | 内核行为 |
+|---|---|
+| `0` | 无 xattr，返回 `-ENODATA` |
+| `== 12`（即 `i_xattr_icount == 1`） | **报错 `xattr_isize 12 ... is not supported yet`，返回 `-EOPNOTSUPP`** |
+| `< 12` | `bogus xattr ibody`，返回 `-EFSCORRUPTED` |
+
+⇒ 结论：**有效的镜像里 `i_xattr_icount` 必须 ≥ 2**（`xattr_isize ≥ 16`）。
+因此 `dump.erofs` 看到的 **16 B** 对应的是 **`i_xattr_icount = 2`**（12 + 4），
+而不是「1 个共享 id 加在 1 计数上」——这一点容易误读。
+
+区内的排布与约束：
+
+```
+ pos = erofs_iloc(inode) + vi->inode_isize        ← xattr 区起点
+ +--------------------------------+
+ | erofs_xattr_ibody_header (12B) |   h_name_filter / h_shared_count / reserved
+ +--------------------------------+
+ | h_shared_xattrs[0..k-1] (4B×k) |   k = h_shared_count
+ +--------------------------------+
+ | erofs_xattr_entry #0 ...       |   inline 的 name+value，4 B 对齐
+ +--------------------------------+
+```
+
+内核校验：`h_shared_count * 4 <= xattr_isize - 12`，
+即共享 id 数组必须能放得进 `xattr_isize` 里（超出则 `-EFSCORRUPTED`）。
+
+> 共享 xattr 的**值**不在 inode 里，而在 `xattr_blkaddr` 指向的 shared xattr 区，
+> 按 `xattr_offset = xattr_blkaddr * bs + 4 * id` 定位（erofs.rst）。
+> 实测：2000 B 的共享值 dedupe 后只存一份（落在 block 0 的 offset 1205 附近）。
+
 ---
 
 #### 2.5 chunk 相关（datalayout = 4）
@@ -229,6 +270,19 @@ tags:
 | 6 | 1 | `h_algorithmtype` | bit0-3=HEAD1 算法，bit4-7=HEAD2 算法 |
 | 7 | 1 | `h_clusterbits` | bit0-3=逻辑 cluster 位数 - blkszbits；**bit7=整个文件打包进 packed inode**（fragment） |
 | 6 | 2 | `h_extents_hi` | （同位置 union）extent 计数 MSB |
+
+#### `h_advise` 位定义（`erofs_fs.h`）
+
+| 位值 | 名称 | 含义 |
+|---|---|---|
+| `0x0001` | `Z_EROFS_ADVISE_COMPACTED_2B` | 索引用 2 B 紧凑编码（与 `EXTENTS` 同位，按上下文解释） |
+| `0x0001` | `Z_EROFS_ADVISE_EXTENTS` | 使用 `z_erofs_extent` 记录（extent 模式） |
+| `0x0002` | `Z_EROFS_ADVISE_BIG_PCLUSTER_1` | HEAD1 为大 pcluster |
+| `0x0004` | `Z_EROFS_ADVISE_BIG_PCLUSTER_2` | HEAD2 为大 pcluster |
+| `0x0008` | `Z_EROFS_ADVISE_INLINE_PCLUSTER` | **尾部 pcluster 内联进元数据（ztailpacking）** |
+| `0x0010` | `Z_EROFS_ADVISE_INTERLACED_PCLUSTER` | pcluster 交错存放 |
+| `0x0020` | `Z_EROFS_ADVISE_FRAGMENT_PCLUSTER` | 使用 fragment |
+| bit1-2 | `Z_EROFS_ADVISE_EXTRECSZ_MASK` | extent 记录大小：`recsz = 4 << ((advise >> 1) & 0x3)` |
 
 #### `struct z_erofs_lcluster_index`（8 B，noncompact/full 索引项）
 
@@ -296,6 +350,25 @@ i_format (le16)
 | 2 | `FLAT_INLINE` | data 区连续块 + **尾块内联进元数据** | `i_u.startblk` + idata |
 | 3 | `COMPRESSED_COMPACT` | data 区 pcluster | map_header + **2 B/项（摊销 4 B）** 索引 |
 | 4 | `CHUNK_BASED` | data 区 / blob 设备 chunk | chunk index 数组（8 B 或 4 B/项） |
+
+#### inode 版本（compact 32 B / extended 64 B）的选择 —— erofs-utils 侧
+
+内核侧只是**解析** `i_format` bit0；**选择**发生在 mkfs（`lib/inode.c: erofs_should_use_inode_extended()`）：
+
+```c
+if (params->force_inodeversion == EROFS_FORCE_INODE_EXTENDED) return true;   /* -E force-inode-version */
+if (inode->i_size  > UINT_MAX)   return true;    /* 文件 > 4 GiB，需要 64 位 i_size */
+if (inode->i_uid   > USHRT_MAX)  return true;    /* uid 超过 16 位 */
+if (inode->i_gid   > USHRT_MAX)  return true;    /* gid 超过 16 位 */
+if (inode->i_nlink > USHRT_MAX)  return true;    /* 硬链接数超过 16 位 */
+```
+
+⇒ 普通镜像（小文件、uid/gid < 65536、nlink 小）**默认都是 compact 32 B**；
+这也解释了为什么实测到的 inode 几乎都是 `Inode size: 32`。
+需要纳秒级 mtime 或超大 uid/gid/nlink 时才会退化成 64 B。
+
+> 补充：mkfs 写入 `i_xattr_icount` 时同时决定 `xattr_isize`
+> （`lib/namei.c` 读侧用同一个 `erofs_xattr_ibody_size()` 计算），内核侧计算方式完全一致。
 
 ---
 
@@ -415,7 +488,10 @@ pos = Z_EROFS_FULL_INDEX_START(erofs_iloc(inode) + inode_isize + xattr_isize)
 - `(i_format >> 1) & 7 == 2`
 - `i_u` = `startblk`（指向 data 区的前 `iblks - 1` 块）
 - **idata**：文件最后一个块的内容（不足一块的部分）**内联在元数据区**，紧跟 inode + xattr
-- `idata_size = i_size % bs`（内核 `erofs_fill_inode` 中 `inode->idata_size`）
+- **尾部内联长度没有独立的 on-disk 字段**：内核里不存在 `vi->idata_size`（只有压缩用的 `z_idata_size`）。
+  flat inline 的尾块长度由 `i_size % bs` **在运行时算出**（`erofs_map_blocks` 的 inline 分支），
+  mkfs 侧用 `idata_size` 这个名字指代这段字节。
+  与之对照：压缩的 ztailpacking **有** on-disk 字段 `z_erofs_map_header.h_idata_size`（见 §3.1/§3.3）
 
 #### ASCII 布局（示例：`a.txt`，i_size = 7，1 块）
 
@@ -623,13 +699,13 @@ if (addr != NULL_ADDR) addr |= (u64)(device_id & device_id_mask) << 48;
 
 | 场景 | idata 内容 | 长度来源 |
 |---|---|---|
-| `FLAT_INLINE`（2） | 文件最后一个块的原始字节 | `i_size % bs`（内核 `inode->idata_size`） |
-| 压缩 + ztailpacking（1/3） | 尾部数据的**编码**结果 | `z_erofs_map_header.h_idata_size` |
+| `FLAT_INLINE`（2） | 文件最后一个块的原始字节 | `i_size % bs`，**运行时算出，无 on-disk 字段** |
+| 压缩 + ztailpacking（1/3） | 尾部数据的**编码**结果 | on-disk 字段 `z_erofs_map_header.h_idata_size`（内核读入 `vi->z_idata_size`） |
 
 #### 目录与 dirent
 
 - 目录的数据块同样按目录 inode 的 datalayout 存放（常见为 `FLAT_INLINE`，小目录 dirent 直接内联）。  
-- dirent 在块内**按名字字典序**排列，支持二分查找；块内布局为「前面 dirent 数组 + 后面文件名区」（头尾分离），`nameoff` 指向文件名。
+- dirent 在块内**按名字字典序**排列，支持二分查找；块内布局为「前面 dirent 数组 + 后面文件名区」（头尾分离），`nameoff` 指向文件名。  
 - 实测根目录 `nid=38`，`Layout: 2`。
 
 ---
