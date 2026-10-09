@@ -21,6 +21,8 @@ tags:
 
 ---
 
+[镜像解析-文件寻址-图](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-10-09-erofs-22-img-file-addressing.svg)
+
 ## 0. 超块基线（读到的第一批字节）
 
 ```
