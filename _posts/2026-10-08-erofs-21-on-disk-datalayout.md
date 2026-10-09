@@ -747,5 +747,6 @@ if (addr != NULL_ADDR) addr |= (u64)(device_id & device_id_mask) << 48;
 > `fs/erofs/inode.c: erofs_fill_inode()`（`inode_isize` / `xattr_isize` / `idata_size` 的来源）
 
 ## 参考
+[EROFS 官方文档 Release 0.1](https://erofs.docs.kernel.org)  
+[erofs-utils](https://git.kernel.org/pub/scm/linux/kernel/git/xiang/erofs-utils.git)  
 [linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
-[EROFS 官方文档 Release 0.1](https://erofs.docs.kernel.org)
