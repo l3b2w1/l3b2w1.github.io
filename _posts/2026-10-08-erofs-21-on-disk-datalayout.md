@@ -86,6 +86,66 @@ tags:
 > 官方描述：`Mixed metadata with data` —— 元数据与数据**可交错**，
 > 没有一条硬性的「元数据区/数据区」分界线（见 erofs.rst）。
 
+#### 元数据区被数据块分割成多段时，如何寻址？
+
+**结论：superblock 里只有一个 `meta_blkaddr`，没有「第二个元数据区指针」。**
+交错是**物理块布局**层面的事，而 inode 寻址用的是**统一的 nid 线性 slot 空间**，
+公式始终不变：
+
+```
+iloc = meta_blkaddr * bs + nid * 32        (nid << islotbits, islotbits = 5)
+```
+
+mkfs 的做法是：**当某段 nid 对应的物理块已被数据占用时，就跳过这段 nid**，
+把 inode 放到后面真正空闲的块，并使用与之对应的 nid。
+
+**实测（`/sdd/erofs/tmp-iloc2/img.erofs`，bs=4096，`meta_blkaddr = 0`）**
+
+源文件：`big.bin`（随机 3 块，压不动 → 占数据块）+ `s1..s10.txt`（带 2000 B 共享 xattr）
+
+```
+ big.bin    nid=108   iloc=3456    → block 0      ← 元数据（block 0）
+ s1.txt     nid=109   iloc=3488    → block 0
+ s7.txt     nid=123   iloc=3936    → block 0
+ s8.txt     nid=125   iloc=4000    → block 0
+ s9.txt     nid=512   iloc=16384   → block 4      ← ★ nid 从 125 直接跳到 512
+ s10.txt    nid=111   iloc=3552    → block 0
+```
+
+解读：
+
+```
+ block 0         : 元数据（inode + 2000B 共享 xattr），slot 0..127
+ block 1 .. 3    : 数据（big.bin 的 3 个块）      ⇒ 对应的 slot 128..511 被「占用」
+ block 4         : 元数据继续（inode 溢出到这里） ⇒ slot 从 512 开始（4*128 = 512）
+```
+
+所以 `s9.txt` 的 nid 是 **512** 而不是 126 —— 它只是「跳到 block 4 的起始 slot」，
+寻址公式一行都没变，**不需要额外的元数据区指针**。
+
+#### 真正「另起一个元数据空间」的例外：METABOX
+
+唯一不是靠 `meta_blkaddr` 定位的元数据空间是 **METABOX**（元数据压缩，
+`EROFS_FEATURE_INCOMPAT_METABOX`）。它的定位方式完全不同：
+
+| 机制 | 说明 |
+|---|---|
+| **判定编码在 nid 里** | `erofs_inode_in_metabox()` 检查 `nid & BIT_ULL(63)`（nid 的 bit63） |
+| **iloc 公式改变** | metabox inode：`iloc = nid_lo << islotbits`，**不加** `meta_blkaddr` 基址 |
+| **区域由特殊 inode 描述** | superblock 的 `metabox_nid` 指向一个 inode，内核通过 `erofs_iget(sb, sbi->metabox_nid)` 拿到它（`super.c`） |
+| **不是第二个 blkaddr** | superblock 里**没有** `metabox_blkaddr` 之类的字段 |
+
+同理，`packed_nid`（fragment / 全文件打包进 packed inode）也是通过 **nid 找特殊 inode**，
+而不是通过块地址字段。
+
+```
+ superblock 里的 4 个「区域相关」字段：
+   meta_blkaddr   → 主元数据区（块地址）
+   xattr_blkaddr  → shared xattr 区（块地址）
+   packed_nid     → packed inode（nid，特殊 inode）
+   metabox_nid    → metabox inode（nid，特殊 inode；METABOX 开启时有效）
+```
+
 ---
 
 ## 2. 结构体字段级解析总表
@@ -442,11 +502,12 @@ map->m_llen = pos - map->m_la;                          /* 到 pos 为止（含�
  +---------------------------------------------------------------+
  | (+8 B, Z_EROFS_FULL_INDEX_START 的额外偏移)                     |
  +---------------------------------------------------------------+
- | lcluster index[0] (8B)  di_advise|di_clusterofs|di_u.blkaddr   |---+
+ | lcluster index[0] (8B)  di_advise|di_clusterofs|di_u.blkaddr   |   |
  | lcluster index[1] (8B)  ...                                     |   |
  | ...                                                             |   |
  +---------------------------------------------------------------+   |
-                                                                      |
+                                                                      | ② di_u.blkaddr
+                                                                      |    m_pa = blkaddr << 12
  data area                                                            |
  +----------------------------------------+                           |
  | pcluster 0 (lcluster index[0].blkaddr) |<--------------------------+
@@ -454,6 +515,9 @@ map->m_llen = pos - map->m_la;                          /* 到 pos 为止（含�
  +----------------------------------------+
  | pcluster 1 (index[1].blkaddr 或 delta)  |
  +----------------------------------------+
+
+ ① pos（上式算出的那个偏移）落在【上面这个元数据区】索引数组里，不是直接指这里
+ ② 只有 HEAD 类型的索引项才直接带 blkaddr；NONHEAD 只有 delta，需回溯到 HEAD
 ```
 
 #### 索引区起始偏移（内核公式）
@@ -464,6 +528,45 @@ pos = Z_EROFS_FULL_INDEX_START(erofs_iloc(inode) + inode_isize + xattr_isize)
       + lcn * sizeof(struct z_erofs_lcluster_index);
 /* 其中 Z_EROFS_FULL_INDEX_START(end) = ALIGN(end, 8) + 8 + 8 */
 ```
+
+#### ⚠️ 澄清：这个 `pos` 指向的是**元数据区**，不是 data area
+
+这是最容易误解的一点。上面算出的 `pos` **不是** pcluster / 数据区的起始位置，
+而是**元数据区内、该 inode 的 lcluster 索引数组里第 `lcn` 项的地址**。
+
+证据在紧随其后的取值方式（`zmap.c`）：
+
+```c
+di = erofs_read_metabuf(&m->map->buf, inode->i_sb, pos, m->in_mbox);
+                        ^^^^^^^^^^^^^^^ 元数据通道（→ erofs_bread()），不是读数据块
+...
+m->pblk = le32_to_cpu(di->di_u.blkaddr);        /* ← pcluster 起始块号，来自索引项 */
+```
+
+真正的物理落点要**再走一步**（`zmap.c`）：
+
+```c
+map->m_pa = erofs_pos(sb, m.pblk);    /* = m.pblk << blkszbits ⇒ data area 字节偏移 */
+/* 之后再由 erofs_map_dev() 映射到具体设备 + 设备内偏移 */
+```
+
+所以完整链路是**两段跳**：
+
+```
+① pos = Z_EROFS_FULL_INDEX_START(...) + lcn*8
+     → 元数据区，读出 z_erofs_lcluster_index（8 B）
+
+② 由索引项取 pcluster 块号（HEAD 时）
+     di_u.blkaddr  →  m.pblk  →  m_pa = m.pblk << 12  →  data area 的 pcluster
+     （NONHEAD 时只有 delta[0]/delta[1]，需先回溯到 HEAD lcluster 才能算出 pblk）
+
+③ 解压后在 cluster 内的偏移由 di_clusterofs 给出
+```
+
+> 注意 `Z_EROFS_FULL_INDEX_START` 里那个额外的 `+8`：它只是把索引区起点往后挪 8 B，
+> **索引区仍然在元数据区**，不会因为多了这 8 B 就跑到 data area。
+> 对照 compact（datalayout=3）：`ebase = Z_EROFS_MAP_HEADER_END(end)`，索引紧跟 map_header，
+> 同样位于元数据区。
 
 #### 字段语义（`di_u` 的两副面孔）
 
