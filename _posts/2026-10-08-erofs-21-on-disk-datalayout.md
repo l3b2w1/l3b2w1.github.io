@@ -885,7 +885,7 @@ if (vi->datalayout == EROFS_INODE_CHUNK_BASED) {
   老内核因此**拒绝挂载**——这是故意的：避免旧内核把 chunk-based 文件误读成普通 flat 文件。
 
 
-## 6. 速查：从文件偏移反推磁盘位置
+## 7. 速查：从文件偏移反推磁盘位置
 
 ```
  ① 逻辑偏移 la
