@@ -829,6 +829,62 @@ if (addr != NULL_ADDR) addr |= (u64)(device_id & device_id_mask) << 48;
 
 ---
 
+## 6. 同一镜像内能否同时出现 5 种 layout？（组合可达性与互斥）
+
+#### 结论：要分两层看
+
+| 层面 | 是否允许 5 种共存 | 依据 |
+|---|---|---|
+| **格式层 / 内核** | **允许** | `datalayout` 是 **per-inode** 字段（`i_format` bit1-3），内核按每个 inode 分派，没有"全镜像统一"约束 |
+| **mkfs 单条命令** | **不允许**（最多 3 种） | 受两个全局开关限制，见下文 |
+
+内核的 per-inode 分派（`fs/erofs/data.c: erofs_map_blocks()`）：
+
+```c
+if (vi->datalayout == EROFS_INODE_CHUNK_BASED) {
+        err = erofs_map_chunks(inode, map);            /* 4 */
+} else if (tailinline || vi->startblk != EROFS_NULL_ADDR) {
+        ...                                             /* 0 / 2 */
+}
+/* 压缩 1/3：由 erofs_inode_is_data_compressed(vi->datalayout) 判定
+   → z_erofs_map_blocks_iter() */
+```
+
+⇒ **手工构造**的镜像完全可以 5 种共存（只要每个 inode 自身字段自洽）。
+
+#### 实测：同一镜像内多 layout 共存（mkfs.erofs 1.9.4）
+
+测试源文件：`comp_big.txt`（20000 B，可压缩）/ `rnd8k.bin`（8192 B，随机不可压缩）/ `tiny.txt`（5 B）
+
+| mkfs 选项 | comp_big | rnd8k | tiny | 同时存在 |
+|---|---|---|---|---|
+| （无压缩） | 2 | 0 | 2 | **{0, 2}** |
+| `-zlz4` | **3** | 0 | 2 | **{0, 2, 3}** |
+| `-zlz4 -Elegacy-compress` | **1** | 0 | 2 | **{0, 2, 1}** |
+| `-zlz4 --chunksize=65536` | **3** | **4** | **4** | **{3, 4}** |
+| `-zlz4 -Elegacy-compress --chunksize=65536` | **1** | **4** | **4** | **{1, 4}** |
+
+⇒ 一条 `-zlz4` 命令产出的镜像里就同时有 **0 + 2 + 3** 三种 —— **多 layout 共存是完全正常的**，不是异常情况。
+
+#### 两组互斥（都是 mkfs 全局开关，不是格式限制）
+
+| 互斥 | 成因 |
+|---|---|
+| **1 ↔ 3** | `-Elegacy-compress` 是全局开关，所有压缩文件同用一种索引编码（8 B/项 或 2 B/项） |
+| **{0, 2} ↔ 4** | `--chunksize` 是全局开关：一旦给出，**所有**未压缩文件都走 chunk-based（`lib/inode.c:711` → `if (cfg.c_chunkbits && ...)`），**连 5 字节的 `tiny.txt` 也变成 layout 4**，于是 flat(0) 与 inline(2) 都不再出现 |
+
+⇒ 单条命令可达的组合只有：`{0,2}`、`{0,2,3}`、`{0,2,1}`、`{3,4}`、`{1,4}` —— **最多 3 种**，5 种一次出齐做不到。
+
+> 附：`compress_hints`（per-file 提示文件）**不支持** chunk 字段 ⇒ 没有 per-file 的 chunk 开关能打破这组互斥。
+
+#### 特性位的连带影响
+
+- 镜像中存在 chunk-based 文件时，mkfs 会置 `EROFS_FEATURE_INCOMPAT_CHUNKED_FILE`
+  （实测 `mix_chunk.erofs` 的 `feature_incompat` = `lz4_0padding chunked_file`）。
+- 内核 `super.c` 会校验 `feature_incompat & ~EROFS_ALL_FEATURE_INCOMPAT`，
+  老内核因此**拒绝挂载**——这是故意的：避免旧内核把 chunk-based 文件误读成普通 flat 文件。
+
+
 ## 6. 速查：从文件偏移反推磁盘位置
 
 ```
