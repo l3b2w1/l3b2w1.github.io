@@ -14,7 +14,7 @@ tags:
 # 23 · datalayout = 4（CHUNK_BASED）的寻址
 
 > **基线**
-> - 内核源码：`/sdd/erofs/linux-stable`（Linux 7.3-rc5）—— `fs/erofs/data.c`
+> - 内核源码：`/home/linux/erofs/linux-stable`（Linux 7.3-rc5）—— `fs/erofs/data.c`
 > - 用户态：`erofs-utils` 1.9.4 —— `lib/inode.c` / `lib/blobchunk.c` / `mkfs/main.c`
 > - 统一假设：`bs = 4096`（`blkszbits = 12`）、小端序
 >
@@ -345,7 +345,7 @@ vi->chunkbits = sb->s_blocksize_bits +
 
 #### 2.4 实测：chunk.erofs 的 on-disk 字节
 
-镜像：`/sdd/erofs/tmp-isize/chunk.erofs`（`mkfs.erofs -b4096 --chunksize=65536`），
+镜像：`/home/linux/erofs/tmp-isize/chunk.erofs`（`mkfs.erofs -b4096 --chunksize=65536`），
 文件 `/big.txt`：`nid=40`、`i_size=20000`、**layout=4**。
 
 ```
