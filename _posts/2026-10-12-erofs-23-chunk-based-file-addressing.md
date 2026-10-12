@@ -18,8 +18,6 @@ tags:
 > - 用户态：`erofs-utils` 1.9.4 —— `lib/inode.c` / `lib/blobchunk.c` / `mkfs/main.c`
 > - 统一假设：`bs = 4096`（`blkszbits = 12`）、小端序
 >
-> ⚠️ **函数名**：内核里叫 **`erofs_map_chunks`**（**带 s**），不是 `erofs_map_chunk`。
->
 > **本文所有偏移与数值均为实测**（`dump.erofs` + `od`），不使用占位符。
 
 ---
