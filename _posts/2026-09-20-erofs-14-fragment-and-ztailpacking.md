@@ -9,7 +9,6 @@ catalog: true
 tags:
   - fs
   - erofs
-  - ai
 ---
 
 # 14 · 特性专题：fragment 与 ztailpacking

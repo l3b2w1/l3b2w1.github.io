@@ -9,10 +9,9 @@ catalog: true
 tags:
   - fs
   - erofs
-  - ai
 ---
 
-# EROFS on-disk 镜像格式：5 种 datalayout 完全解析
+# 21 · EROFS on-disk 镜像格式：5 种 datalayout 完全解析
 
 > **基线**
 > - 内核源码：`linux-stable`（Linux 7.3-rc5），结构体取自 `fs/erofs/erofs_fs.h`
@@ -907,5 +906,5 @@ if (vi->datalayout == EROFS_INODE_CHUNK_BASED) {
 
 ## 参考
 [EROFS 官方文档 Release 0.1](https://erofs.docs.kernel.org)  
-[erofs-utils](https://git.kernel.org/pub/scm/linux/kernel/git/xiang/erofs-utils.git)  
+[erofs-utils(1.9.4)](https://git.kernel.org/pub/scm/linux/kernel/git/xiang/erofs-utils.git)  
 [linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  

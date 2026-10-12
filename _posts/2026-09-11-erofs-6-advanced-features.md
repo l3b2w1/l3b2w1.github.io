@@ -9,7 +9,6 @@ catalog: true
 tags:
   - fs
   - erofs
-  - ai
 ---
 
 # 阶段 6：高级特性

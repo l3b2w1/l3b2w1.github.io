@@ -9,7 +9,6 @@ catalog: true
 tags:
   - fs
   - erofs
-  - ai
 ---
 
 # 11 · 特性专题：page cache sharing（ishare）

@@ -9,7 +9,6 @@ catalog: true
 tags:
   - fs
   - erofs
-  - ai
 ---
 
 # EROFS fragment 与 ztailpacking：读路径实测

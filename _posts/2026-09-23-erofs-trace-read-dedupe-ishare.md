@@ -9,7 +9,6 @@ catalog: true
 tags:
   - fs
   - erofs
-  - ai
 ---
 
 # EROFS dedupe 与 ishare 读路径实测

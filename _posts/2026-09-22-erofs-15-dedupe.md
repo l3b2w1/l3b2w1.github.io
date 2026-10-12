@@ -9,7 +9,6 @@ catalog: true
 tags:
   - fs
   - erofs
-  - ai
 ---
 
 # 15 · 特性专题：rolling-hash 去重（dedupe）

@@ -9,7 +9,6 @@ catalog: true
 tags:
     - fs
     - erofs
-    - ai
 ---
 
 # EROFS 文件系统概览

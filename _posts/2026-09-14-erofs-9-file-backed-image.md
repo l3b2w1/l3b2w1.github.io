@@ -9,7 +9,6 @@ catalog: true
 tags:
   - fs
   - erofs
-  - ai
 ---
 
 # 09 · 特性专题：文件后端（file-backed image / fileio）

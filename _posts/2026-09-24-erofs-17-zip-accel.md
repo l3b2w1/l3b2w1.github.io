@@ -9,7 +9,6 @@ catalog: true
 tags:
   - fs
   - erofs
-  - ai
 ---
 
 # 17 · 特性专题：硬件解压加速（ZIP_ACCEL）

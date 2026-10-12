@@ -9,10 +9,9 @@ catalog: true
 tags:
   - fs
   - erofs
-  - ai
 ---
 
-# 实测镜像 `img.erofs` 的 6 个文件：从超级块开始的磁盘寻址全过程
+# 22 · 实测镜像 `img.erofs` 的 6 个文件：从超级块开始的磁盘寻址全过程
 
 > **镜像**：`/home/linux/erofs/tmp-iloc2/img.erofs`
 > **基线**：`bs = 4096`、`blkszbits = 12`、小端序、`mkfs.erofs` 1.9.4
@@ -672,5 +671,5 @@ od -A d -t x1z -j $((41*32))  -N 48 sp.erofs    # 大目录 inode（i_u = startb
 
 ## 参考
 [EROFS 官方文档 Release 0.1](https://erofs.docs.kernel.org)  
-[erofs-utils](https://git.kernel.org/pub/scm/linux/kernel/git/xiang/erofs-utils.git)  
+[erofs-utils(1.9.4)](https://git.kernel.org/pub/scm/linux/kernel/git/xiang/erofs-utils.git)  
 [linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  

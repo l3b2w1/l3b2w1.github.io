@@ -9,10 +9,9 @@ catalog: true
 tags:
   - fs
   - erofs
-  - ai
 ---
 
-# 双 blobdev 多设备测试：完整过程
+# 20 · 双 blobdev 多设备测试：完整过程
 
 > **本测试要回答的问题**
 >
@@ -372,5 +371,5 @@ mount -t erofs -o device=/dev/sdb1 /dev/sda1 /mnt/erofs
 
 
 ## 参考
-[erofs-utils](https://git.kernel.org/pub/scm/linux/kernel/git/xiang/erofs-utils.git)  
+[erofs-utils(1.9.4)](https://git.kernel.org/pub/scm/linux/kernel/git/xiang/erofs-utils.git)  
 [linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  

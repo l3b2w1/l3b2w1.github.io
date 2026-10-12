@@ -9,7 +9,6 @@ catalog: true
 tags:
   - fs
   - erofs
-  - ai
 ---
 
 # 19 · 业务场景：EROFS 在智能手机系统分区的应用
