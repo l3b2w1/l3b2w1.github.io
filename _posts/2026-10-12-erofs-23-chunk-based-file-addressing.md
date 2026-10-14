@@ -556,6 +556,114 @@ while: addr(0) != last(17) ⇒ 退出
 
 与 `od -j 1312` 看到的 `01 00 00 00` 完全一致 ✓
 
+#### 3.7 内核实测打印验证（加 `pr_err` 后跑 VM）
+
+上面的推演全部来自源码与 `od`，这一节用**内核实际运行时的打印**来交叉验证。
+
+###### 调试打印的位置
+
+在 `erofs_map_chunks()` 里插入两处 `pr_err`（标记 `wbl`）：
+
+```c
+        map->m_la = nr << vi->chunkbits;
+        map->m_llen = 0;
+        nr = 0;
++       pr_err("[%s %d] pos 0x%lx, endpos 0x%lx\n", __func__, __LINE__,
++              (unsigned long)pos, (unsigned long)endpos);
+        do {
+                ...解码 addr...
+                if (!nr) { last = addr; continue; }
+                map->m_llen += chunksize;
+                if (last != EROFS_NULL_ADDR)
+                        last += erofs_blknr(sb, chunksize);
++               pr_err("[%s %d] addr 0x%lx, last 0x%lx\n", __func__, __LINE__,
++                      (unsigned long)addr, (unsigned long)last);
+        } while (addr == last && pos + (++nr) * unit < endpos);
+```
+
+
+###### 场景 ①：单设备，`unit = 4`
+
+镜像 `tmp-isize/chunk.erofs`（`/big.txt`，layout 4，compact inode 32 B），读 `/big.txt`：
+
+```
+[   11.575859] [erofs_map_chunks 111] pos 0x520, endpos 0x1000
+[   11.575863] [erofs_map_chunks 134] addr 0x0, last 0x11
+```
+
+| 打印值 | 十进制 | 对应解析 |
+|---|---|---|
+| `pos = 0x520` | **1312** | `ALIGN(iloc 1280 + inode_isize 32 + xattr 0, 4) = 1312` ✓ 与 `od -j 1312` 一致 |
+| `endpos = 0x1000` | 4096 | `round_up(1313, 4096)` ✓ |
+| `addr = 0x0` | 0 | 第 2 轮读 `idx[1]`（只有 1 个 chunk，读到的是数组之后的字节 = 0） |
+| `last = 0x11` | **17** | 首项 `blkaddr = 1`，推进 `65536/4096 = 16` 块 ⇒ `1 + 16 = 17` ✓ |
+
+⇒ 与 §3.6 的推演逐步一致：迭代 1 记 `last = 1`（不打印），迭代 2 读到 `addr = 0` 后打印
+`addr 0x0, last 0x11`，随后 `addr != last` ⇒ 退出循环，`m_pa = 17*4096 - 65536 = 4096`。
+
+###### 场景 ②：多设备，`unit = 8`
+
+镜像 `tmp-chunk8/md.erofs` + `blob.img`（`/big.bin`，layout 4，**extended inode 64 B**），读 `/big.bin`：
+
+```
+[   11.642261] [erofs_map_chunks 111] pos 0x5e0, endpos 0x1000
+[   11.642265] [erofs_map_chunks 134] addr 0x0, last 0x1000000000010
+```
+
+| 打印值 | 解读 |
+|---|---|
+| `pos = 0x5e0` = **1504** | ★ `iloc(1440) + inode_isize` **64** ⇒ 印证这个 inode 是 **extended**（不是 compact） |
+| `endpos = 0x1000` | 4096 |
+| `addr = 0x0` | 第 2 轮读到索引数组之后的字节（= 0） |
+| `last = 0x1000000000010` | **高 16 位 `0x1` ⇒ `device_id = 1`**；低 48 位 `0x10 = 16` ⇒ `blkaddr 0 + 16` |
+
+⇒ 这就是 **`device_id` 被编在 bit48 以上**的运行期实证：
+
+```
+last = 0x1_0000_0000_0010
+       └┬┘ └─────┬─────┘
+        │        └ 低 48 位 = 0x10 = 16（块地址）
+        └ 高 16 位 = 0x1 = device_id
+随后：m_deviceid = last >> 48 = 1
+      m_pa = erofs_pos(last & addrmask) - m_llen = 16*4096 - 65536 = 0
+      ⇒ 读 blob 设备的块 0（正是 big.bin 数据在 blob.img 的偏移 0）✓
+```
+
+两次读均 `MOUNT_RC=0`、`READ_RC=0`，数据正确、无 I/O 错误。
+
+##### 两个附带收获
+
+1. **`pos` 实证了 inode 版本影响索引起点**：4 B 那例 `1312 = iloc + 32`（compact），
+   8 B 那例 `1504 = iloc + 64`（extended）——与 §1.5 的提醒完全对应。
+2. **一次 `cat` 触发了两轮 `erofs_map_chunks`**（日志里各出现两次）：
+   说明简单读会多次调用映射（readahead + 后续页），这也解释了
+   为什么这类映射函数要"一次尽量映射长一点"（连续 chunk 合并）以减少调用次数。
+
+###### 复现方法
+
+```bash
+# 1) 编译内核
+cd /sdd/erofs/linux-stable && make -j8 bzImage
+
+# 2) 单设备（unit=4）
+qemu-system-x86_64 -m 8192 -smp 4 -nographic \
+ -kernel arch/x86/boot/bzImage --enable-kvm \
+ -initrd /home/linux/erofs/erofs-boot-initrd.img \
+ -append "console=ttyS0 rdinit=/init" \
+ -drive file=/sdd/erofs/erofs-rootfs-ext4.img,format=raw,if=virtio \
+ -drive file=/sdd/erofs/tmp-isize/chunk.erofs,format=raw,if=virtio \
+ -virtfs local,path=/home/linux/erofs,mount_tag=host,security_model=none,id=host0 \
+ -monitor none -no-reboot
+
+# 3) 多设备（unit=8）：再加一块盘
+ ... -drive file=/home/linux/erofs/tmp-chunk8/md.erofs,format=raw,if=virtio \
+     -drive file=/home/linux/erofs/tmp-chunk8/blob.img,format=raw,if=virtio
+
+# 4) VM 内命令（用 script 造 pty 喂进去）
+mdev -s; mkdir -p /mnt/md
+mount -t erofs [-o device=/dev/vdc] /dev/vdb /mnt/md
+cat /mnt/md/<文件> > /dev/null
+```
 ---
 
 ## 4. 六个要点小结
