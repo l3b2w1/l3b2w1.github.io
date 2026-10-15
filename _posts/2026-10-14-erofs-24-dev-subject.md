@@ -11,7 +11,7 @@ tags:
   - erofs
 ---
 
-# EROFS `dev`（设备）专题：从 mount 初始化到文件访问
+# 24 · EROFS `dev`（设备）专题：从 mount 初始化到文件访问
 
 > **基线**：`/home/linux/erofs/linux-stable`（Linux 7.3-rc5），`fs/erofs/`
 > 统一假设：`bs = 4096`；代码引用格式为「文件:行号」。
