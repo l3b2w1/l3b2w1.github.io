@@ -30,8 +30,8 @@ tags:
 
 **一句话**：mount(2) 走 VFS 的 fs_context 新框架，  
 把 `source`（主设备）与`device=`（blob 设备）两个参数分两次喂给 `erofs_fc_parse_param`；  
-`get_tree_bdev_flags` 打开主设备后进入 `erofs_fc_fill_super`，在其中按固定顺序读:   
-superblock → 解析全局配置 → 打开 blob 设备 → 初始化压缩子系统 → 读根 inode →注册 shrinker/xattr/sysfs；  
+`get_tree_bdev_flags` 打开主设备后进入 `erofs_fc_fill_super`，在其中按固定顺序:  
+读 superblock → 解析全局配置 → 打开 blob 设备 → 初始化压缩子系统 → 读根 inode →注册 shrinker/xattr/sysfs；  
 最后 `do_add_mount` 把 vfsmount 挂进 namespace。
 
 ## 1. 测试环境配置
