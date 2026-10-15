@@ -173,8 +173,7 @@ mount -t erofs -o device=/dev/vdc /dev/vdb /mnt/md
 
 ## 4. 完整函数调用栈（原始 trace 全文，3783 行）
 
-以下为 `graph-mount-full.log` 原文（含 5 行 tracer 头注释），未做任何删改。   
-[graph-mount-full.log]((https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-10-15-erofs-25-trace-mount-blobdev.txt)  
+[graph-mount-full.log](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-10-15-erofs-25-trace-mount-blobdev.txt)  
 
 阶段定位索引（**行号为本文代码块内的行号**，与原始 log 文件一致）：
 
@@ -394,9 +393,9 @@ grep -a "MOUNT_RC\|GRAPH_MOUNT" trace-mount.log   # 确认 RC=0 与行数
 VM 侧命令序列（`vm-cmds-mount.txt`）：9p 挂载 → `sh /host/multidev/trace-mount.sh`
 → `poweroff -f`。`trace-mount.sh` 见 §2。
 
-[01-mkimg.sh]((https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-10-15-erofs-25-trace-mount-blobdev-01-mkimg.sh)  
-[02-vm-run.sh]((https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-10-15-erofs-25-trace-mount-blobdev-02-vm-run.sh)   
-[trace-mount.sh]((https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-10-15-erofs-25-trace-mount-blobdev.sh)  
+[01-mkimg.sh](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-10-15-erofs-25-trace-mount-blobdev-01-mkimg.sh)  
+[02-vm-run.sh](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-10-15-erofs-25-trace-mount-blobdev-02-vm-run.sh)   
+[trace-mount.sh](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-10-15-erofs-25-trace-mount-blobdev.sh)  
 
 ## 附录 A. 产物清单
 
