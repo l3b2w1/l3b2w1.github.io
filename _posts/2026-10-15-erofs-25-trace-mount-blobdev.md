@@ -13,8 +13,8 @@ tags:
 
 # 25 · erofs mount 流程 ftrace 完整跟踪（blobdev 多设备实测）
 
-> 源码树：`linux-stable`（Linux 7.3.0-rc4）
-> 方法：QEMU VM 内 ftrace `function_graph`，根函数 `__x64_sys_mount`，
+> 源码树：`linux-stable`（Linux 7.3.0-rc4）  
+> 方法：QEMU VM 内 ftrace `function_graph`，根函数 `__x64_sys_mount`，  
 > 从 mount(2) 进入到系统调用返回的**全部函数调用零遗漏**抓取（不设任何 notrace）。
 
 ## 0. 摘要
@@ -28,11 +28,11 @@ tags:
 | erofs 专属函数命中 | 22 种（另 2 种被编译器内联，见 §6.9） |
 | 挂载后 dmesg | `erofs (device vdb): initialized per-cpu workers successfully.`<br>`erofs (device vdb): mounted with root inode @ nid 40.` |
 
-**一句话**：mount(2) 走 VFS 的 fs_context 新框架，把 `source`（主设备）与
-`device=`（blob 设备）两个参数分两次喂给 `erofs_fc_parse_param`；
-`get_tree_bdev_flags` 打开主设备后进入 `erofs_fc_fill_super`，在其中按固定顺序
-读 superblock → 解析全局配置 → 打开 blob 设备 → 初始化压缩子系统 → 读根 inode →
-注册 shrinker/xattr/sysfs；最后 `do_add_mount` 把 vfsmount 挂进 namespace。
+**一句话**：mount(2) 走 VFS 的 fs_context 新框架，  
+把 `source`（主设备）与`device=`（blob 设备）两个参数分两次喂给 `erofs_fc_parse_param`；  
+`get_tree_bdev_flags` 打开主设备后进入 `erofs_fc_fill_super`，在其中按固定顺序读:   
+superblock → 解析全局配置 → 打开 blob 设备 → 初始化压缩子系统 → 读根 inode →注册 shrinker/xattr/sysfs；  
+最后 `do_add_mount` 把 vfsmount 挂进 namespace。
 
 ## 1. 测试环境配置
 
@@ -99,8 +99,8 @@ mkfs.erofs -b4096 --chunksize=65536 -zlz4 \
 | `/text1m.bin`（1 MiB 重复文本） | device 0（主设备，压缩） | 2 个 extent，phys 落主设备 4096..12288 |
 | superblock | incompat 含 `chunked_file device_table` | `dump -s` 输出 |
 
-即：镜像自带 device table（`devt_slotoff` 槽位），blob.img 是第 1 号设备的数据后端，
-`-o device=/dev/vdc` 在挂载时把这个后端交还给内核。
+即：镜像自带 device table（`devt_slotoff` 槽位），  
+blob.img 是第 1 号设备的数据后端，`-o device=/dev/vdc` 在挂载时把这个后端交还给内核。
 
 ## 2. ftrace 跟踪设置
 
@@ -130,11 +130,10 @@ cat trace > /host/multidev/graph-mount-full.log   # 直写 9p，不走串口
 
 #### 2.1 为什么根函数是 `__x64_sys_mount`
 
-`do_mount` / `ksys_mount` / `vfs_kern_mount` 与调用方同一编译单元（TU），
-被编译器**内联**后 ftrace 的运行时插桩（mcount/fentry）打不进去，实测 0 命中
-（该坑在 multidev 专题测读路径时已踩过）。syscall 入口 `__x64_sys_mount`
-是独立的可插桩函数，从它开始既能覆盖完整 VFS 路径，又天然把 shell 的
-fork/exec 等无关活动排除在外（function_graph 只输出根函数命中的子树）。
+`do_mount` / `ksys_mount` / `vfs_kern_mount` 与调用方同一编译单元（TU），  
+被编译器**内联**后 ftrace 的运行时插桩（mcount/fentry）打不进去，实测 0 命中（该坑在 multidev 专题测读路径时已踩过）。  
+syscall 入口 `__x64_sys_mount`是独立的可插桩函数，从它开始既能覆盖完整 VFS 路径，  
+又天然把 shell 的 `fork/exec` 等无关活动排除在外（function_graph 只输出根函数命中的子树）。
 
 #### 2.2 输出格式怎么读
 
@@ -169,12 +168,14 @@ mount -t erofs -o device=/dev/vdc /dev/vdb /mnt/md
 -rw-r--r--  0 1048576 text1m.bin
 ```
 
-注意 dmesg 时间戳（10.299538）早于 trace 起始（10.302056）约 2.5 ms：
+注意 dmesg 时间戳（10.299538）早于 trace 起始（10.302056）约 2.5 ms：  
 串口输出走了重定向缓冲，属正常现象；trace 内部时序（10.302056 → 10.303058）自洽。
 
 ## 4. 完整函数调用栈（原始 trace 全文，3783 行）
 
-以下为 `graph-mount-full.log` 原文（含 5 行 tracer 头注释），未做任何删改。
+以下为 `graph-mount-full.log` 原文（含 5 行 tracer 头注释），未做任何删改。   
+[graph-mount-full.log]((https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-10-15-erofs-25-trace-mount-blobdev.txt)  
+
 阶段定位索引（**行号为本文代码块内的行号**，与原始 log 文件一致）：
 
 | 行号 | 节点 | 阶段 |
@@ -275,10 +276,9 @@ __x64_sys_mount                                          # 1002.610 us
 
 #### 6.1 mount(2) 如何走上新 fs_context 框架
 
-老接口 `mount(2)` 并没有独立的 legacy 路径，而是在 `path_mount` 里被翻译成
-新 mount API 的五个回调：`init_fs_context` → `parse_param`（逐个参数）→
-`get_tree` →（间接）`fill_super` → 成功/失败后的 `fc_free`。erofs 五个钩子
-在 trace 中全部命中。**读 mount 源码时盯住这五个函数即可**：
+老接口 `mount(2)` 并没有独立的 legacy 路径，而是在 `path_mount` 里被翻译成新 mount API 的五个回调：  
+`init_fs_context` → `parse_param`（逐个参数）→`get_tree` →（间接）`fill_super` → 成功/失败后的 `fc_free`。  
+erofs 五个钩子在 trace 中全部命中。**读 mount 源码时盯住这五个函数即可**：
 
 | fc 钩子 | erofs 实现 | trace 命中 |
 |---|---|---|
@@ -332,23 +332,23 @@ erofs 的 `get_tree` 钩子不自己干活，调 `get_tree_bdev_flags`（fs/supe
 - 再 `fs_bdev_file_open_by_path → bdev_file_open_by_path → lookup_bdev(/dev/vdc)`
   → `fs_bdev_register` —— 与主设备走 `setup_bdev_super` 的路径**平行且独立**。
 
-挂载成功后的 dev 结构：`sbi->devs->tree` idr 上挂着 `erofs_device_info`，
-dif0（主设备）用 `sb->s_bdev`，dif1（blob）用自己打开的 `file/bdev`。
+挂载成功后的 dev 结构：`sbi->devs->tree` idr 上挂着 `erofs_device_info`，  
+dif0（主设备）用 `sb->s_bdev`，dif1（blob）用自己打开的 `file/bdev`。  
 读数据时 `erofs_map_dev` 按 chunk 的 device_id 选用二者之一。
 
 #### 6.6 erofs_inode_init_once ×24 不是 mount 在建 24 个 inode
 
-行 2678-2900 连续 24 次 `erofs_inode_init_once`（super.c:60）发生在
-`erofs_setup_managed_cache → erofs_alloc_inode` 内：这是 slab 分配器给
-inode cache 补新页时对页内 24 个对象逐个跑**构造函数**（slab ctor），
- managed_cache 伪 inode 只是碰巧成了这块新 slab 的第一个使用者。
+行 2678-2900 连续 24 次 `erofs_inode_init_once`（super.c）  
+发生在`erofs_setup_managed_cache → erofs_alloc_inode` 内：  
+这是 slab 分配器给inode cache 补新页时对页内 24 个对象逐个跑**构造函数**（slab ctor），  
+ managed_cache 伪 inode 只是碰巧成了这块新 slab 的第一个使用者。  
 mount 真正"读"出来的 inode 只有一个：根 inode（`erofs_iget`，nid 40）。
 
 #### 6.7 成功路径也会调 erofs_fc_free
 
-行 3736 `put_fs_context → erofs_fc_free`（super.c:894）出现在 mount **成功**
-之后：fs_context 本身是"脚手架"，fill_super 成功后 sb/sbi 已被 VFS 接管，
-脚手架（含 parse_param 阶段登记的 devs 结构被 sbi 引用的部分）就地拆除。
+行 3736 `put_fs_context → erofs_fc_free`（super.c:894）出现在 mount **成功**之后：  
+fs_context 本身是"脚手架"，fill_super 成功后 sb/sbi 已被 VFS 接管，  
+脚手架（含 parse_param 阶段登记的 devs 结构被 sbi 引用的部分）就地拆除。  
 失败路径同样走 fc_free，因此它是理解 erofs mount 回滚的入口。
 
 #### 6.8 耗时热点：fill_super 占 80%
@@ -363,10 +363,9 @@ mount 真正"读"出来的 inode 只有一个：根 inode（`erofs_iget`，nid 4
 
 #### 6.9 trace 里"缺席"的 erofs 函数 ≠ 流程缺失
 
-`erofs_scan_devices`（super.c:183）、`do_new_mount`（fs/namespace.c）等在
-trace 中没有独立节点，是因为被编译器**内联**进调用者（fill_super / path_mount），
-ftrace 的 function_graph 只画有独立栈帧的函数。这是方法论的固有限制，
-读 trace 时要把 `erofs_init_device` 的参数处理理解成 scan_devices 循环体。
+`erofs_scan_devices`（super.c:183）、`do_new_mount`（fs/namespace.c）等在trace 中没有独立节点，  
+是因为被编译器**内联**进调用者（fill_super / path_mount），ftrace 的 function_graph 只画有独立栈帧的函数。    
+这是方法论的固有限制，读 trace 时要把 `erofs_init_device` 的参数处理理解成 scan_devices 循环体。
 
 #### 6.10 从 mount 参数到运行期 dev 结构的完整时序
 
@@ -398,7 +397,6 @@ VM 侧命令序列（`vm-cmds-mount.txt`）：9p 挂载 → `sh /host/multidev/t
 [01-mkimg.sh]((https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-10-15-erofs-25-trace-mount-blobdev-01-mkimg.sh)  
 [02-vm-run.sh]((https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-10-15-erofs-25-trace-mount-blobdev-02-vm-run.sh)   
 [trace-mount.sh]((https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-10-15-erofs-25-trace-mount-blobdev.sh)  
-[graph-mount-full.log]((https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-10-15-erofs-25-trace-mount-blobdev.txt)
 
 ## 附录 A. 产物清单
 
