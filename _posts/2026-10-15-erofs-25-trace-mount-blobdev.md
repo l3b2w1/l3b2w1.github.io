@@ -40,7 +40,7 @@ tags:
 
 | 项 | 值 |
 |---|---|
-| 宿主机 | `root@55.154.14.159`（linux），QEMU `/usr/bin/qemu-system-x86_64` |
+| 宿主机 | linux系统，QEMU `/usr/bin/qemu-system-x86_64` |
 | 内核 | `linux-stable`（7.3.0-rc4），bzImage：`linux-stable/arch/x86/boot/bzImage` |
 | 启动方式 | `-kernel bzImage -initrd erofs-boot-initrd.img`，`rdinit=/init`，`console=ttyS0` |
 | 内存/CPU | `-m 8192 -smp 4`（实际 mount 全程落在 CPU0） |
