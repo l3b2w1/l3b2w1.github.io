@@ -14,7 +14,8 @@ tags:
 # 09 · 特性专题：文件后端（file-backed image / fileio）
 
 > 对应配置：`CONFIG_EROFS_FS_BACKED_BY_FILE`
-> 主源码：`fileio.c`（不到200行，是 EROFS 里最小的特性文件之一）
+> 主源码：`fileio.c`（217 行，是 EROFS 里最小的特性文件之一）
+> 源码基准：Linux **7.3-rc4**（linux-stable `v7.3-rc4-27-gf0100363d8c3`）
 >
 > 本文回答六个问题：**为什么需要它**（缘由）→ **为什么会这样设计**（理念）→
 > **它长什么样**（架构）→ **用到哪些结构体** → **关键函数在做什么** →
@@ -238,55 +239,175 @@ erofs_get_aops(struct inode *realinode)
    └ refcount_dec_and_test() → 释放 rq
 ```
 
-#### 3.4 上游演进：元数据读取机制已改变（重要）
+#### 3.4 元数据怎么读：managed cache + fileio bio
 
-本专题正文基于 Linux 7.2。**对照 upstream 最新代码，元数据（metadata）
-的读取方式已经变了**，这是本特性在上游最值得注意的改动：
-
-| | 7.2 | upstream |
-|---|---|---|
-| fileio 模式用哪个 `mapping` | 复用**镜像文件**的页缓存（`buf->file->f_mapping`） | 改用 **managed cache**（`sbi->managed_cache->i_mapping`） |
-| 读取回调 | `read_mapping_folio(..., buf->file)` | `read_cache_folio(..., buf->mc ? erofs_read_meta_folio : NULL, NULL)` |
-| `struct erofs_buf` 的 `file` 字段 | 有 | **已移除** |
-| `struct erofs_buf` 新增字段 | — | **`bool mc`**（标记是否走 managed cache） |
-
-upstream 的 `erofs_init_metabuf()`：
+bdev 模式下，元数据直接读块设备的页缓存（`sb->s_bdev->bd_mapping`）；
+fileio 模式下则绕一道弯——**元数据页统一挂在 managed cache 上**
+（`sbi->managed_cache`，与压缩数据共用的缓存 inode，见 §九）。
+入口是 `erofs_init_metabuf()`（`data.c`），按三种情况选 `mapping`：
 
 ```c
-buf->mc = false;
-if (in_metabox) { ...; buf->mapping = sbi->metabox_inode->i_mapping; return 0; }
-if (erofs_is_fileio_mode(sbi)) {
-        buf->mapping = sbi->managed_cache->i_mapping;
-        buf->mc = true;                      /* ← 走 managed cache */
-} else {
-        buf->off = sbi->dif0.fsoff;
-        buf->mapping = sb->s_bdev->bd_mapping;
+int erofs_init_metabuf(struct erofs_buf *buf, struct super_block *sb,
+                       bool in_metabox)
+{
+        struct erofs_sb_info *sbi = EROFS_SB(sb);
+
+        buf->mc = false;
+        if (in_metabox) {                    /* metabox 区（全局缓冲） */
+                if (unlikely(!sbi->metabox_inode))
+                        return -EFSCORRUPTED;
+                buf->mapping = sbi->metabox_inode->i_mapping;
+                return 0;
+        }
+        if (erofs_is_fileio_mode(sbi)) {
+                buf->mapping = sbi->managed_cache->i_mapping;
+                buf->mc = true;              /* ← 标记：缺页时走 fileio 回调 */
+        } else {
+                buf->off = sbi->dif0.fsoff;
+                buf->mapping = sb->s_bdev->bd_mapping;
+        }
+        return 0;
 }
 ```
 
-配合新增的 `erofs_read_meta_folio()`（`fileio.c`），它把 folio 读请求
-**翻译成 fileio 的 bio** 再提交：
+`struct erofs_buf` 里那个 `bool mc` 字段就是为这条路径准备的。
+`erofs_bread()` 发现页不在缓存时，按它选择 filler 回调：
 
 ```c
-io.rq->bio.bi_iter.bi_sector = (io.dev.m_dif->fsoff + io.dev.m_pa) >> 9;
-erofs_onlinefolio_init(folio);
-bio_add_folio_nofail(&io.rq->bio, folio, folio_size(folio), 0);
-erofs_fileio_rq_submit(io.rq);
+folio = read_cache_folio(buf->mapping, index,
+                buf->mc ? erofs_read_meta_folio : NULL, NULL);
 ```
 
-⇒ 也就是说：**元数据读取也复用了 3.2 讲的 `bi_sector` 约定**，
-与数据读取走同一套 fileio 机制。
+而 `erofs_read_meta_folio()`（`fileio.c`）做的，就是把一页元数据的
+读请求**翻译成 fileio 的 bio** 再提交——它是理念 3 `bi_sector` 约定的
+又一个使用者：
 
-**另一个变化**：7.2 里 `erofs_bread()` 开头有一段
-`rw_verify_area()` 的"数据访问范围校验"（针对 file-backed mounts），
-在 upstream 中**已被移除** —— 校验职责转移到了上面这套机制里。
+```c
+int erofs_read_meta_folio(struct file *file, struct folio *folio)
+{
+        struct erofs_fileio io = {
+                .dev = { .m_pa = folio_pos(folio), },
+        };
+        struct inode *inode = folio_inode(folio);
+        int err;
 
-**再一个变化**：upstream 新增了 `source` 挂载选项
-（`fsparam_file_or_string("source", Opt_source)`，由 `erofs_fc_parse_source()`
-处理并写入 `sbi->dif0.file`），7.2 没有该选项。
+        err = erofs_map_dev(inode->i_sb, &io.dev);
+        if (err)
+                return err;
 
-> 📌 小结：数据读取路径（`erofs_fileio_rq_submit()` 等）未变；
-> 变的是**元数据**读取 —— 从"复用镜像文件页缓存"改为"managed cache + fileio bio"。
+        io.rq = erofs_fileio_rq_alloc(&io.dev);
+        io.rq->bio.bi_iter.bi_sector =
+                (io.dev.m_dif->fsoff + io.dev.m_pa) >> 9;
+        erofs_onlinefolio_init(folio);
+        bio_add_folio_nofail(&io.rq->bio, folio, folio_size(folio), 0);
+        erofs_fileio_rq_submit(io.rq);
+        return 0;
+}
+```
+
+⇒ **元数据读取与数据读取走同一套 fileio 机制**：`erofs_map_dev()` 定位
+镜像文件、`bi_sector` 承载偏移、`vfs_iocb_iter_read()` 落盘。
+
+> 📌 注意 managed cache 页的**位置语义**：mc 页在 mapping 里的 index
+> 直接就是**镜像内偏移**（`erofs_bread()` 里 `index = (buf->off + offset) >> PAGE_SHIFT`，
+> 而 fileio 分支的 `buf->off` 恒为 0）。所以 `erofs_read_meta_folio()` 敢把
+> `folio_pos(folio)` 原样塞进 `.m_pa`，真正的文件位置由
+> `m_dif->fsoff + m_pa` 在 `bi_sector` 里补齐。
+
+#### 3.5 `sbi->dif0.file` 何时被赋值：两个赋值点 + 一次引用移交
+
+§4.3 的表格说"镜像文件就存在 `erofs_device_info.file` 里"，主设备的这个字段就是
+`sbi->dif0.file`。它的赋值时机比看上去微妙——**全内核只有两处赋值**，
+且都只发生在文件后端（fileio）模式；块设备（bdev）模式下它保持 `kzalloc`
+出来的 NULL，`erofs_is_fileio_mode()`（`internal.h`）正是靠它是否非空来判断模式：
+
+| # | 赋值点 | 触发条件 |
+|---|---|---|
+| ① | `erofs_fc_parse_source()`（super.c:467） | 新 mount API：`fsconfig(cfd, FSCONFIG_SET_FD, "source", NULL, srcfd)`，source 以 **fd** 传入 |
+| ② | `erofs_fc_get_tree()`（super.c:826） | legacy `mount(2)`：source 是普通文件路径，`get_tree_bdev_flags()` 返回 `-ENOTBLK` 后 `filp_open()` 兜底 |
+
+###### 赋值点 ①：fd 传参，`struct file` 由 `fsconfig(2)` 自己准备
+
+一个容易搞错的问题：`erofs_fc_parse_source()` 里 `param->file` 指向的
+`struct file` 是谁打开的？——**不是** `vfs_parse_fs_param()`，而是上游
+`fsconfig(2)` 系统调用本身（`fs/fsopen.c`）：
+
+```c
+SYSCALL_DEFINE5(fsconfig, int, fd, unsigned int, cmd,
+                const char __user *, _key, const void __user *, _value, int, aux)
+{
+        struct fs_parameter param = {};      /* 栈上构造 */
+        ...
+        case FSCONFIG_SET_FD:                /* fs/fsopen.c:448 */
+                param.type = fs_value_is_file;
+                ret = -EBADF;
+                param.file = fget_raw(aux);  /* ★ fs/fsopen.c:452 */
+                if (!param.file)
+                        goto out_key;
+                param.dirfd = aux;
+                break;
+        ...
+        ret = vfs_fsconfig_locked(fc, cmd, &param);
+        ...
+        /* 收尾（fs/fsopen.c:482）：若没人偷走就物归原主 */
+        case FSCONFIG_SET_FD:
+                if (param.file)
+                        fput(param.file);
+                break;
+}
+```
+
+链路：`vfs_parse_fs_param()` → `erofs_fc_parse_param()` → `fs_parse()`
+按参数表 `fsparam_file_or_string("source", Opt_source)`（super.c:417）匹配，
+校验器 `fs_param_is_file_or_string()`（fs/fs_parser.c）对 string/file 两种
+取值都放行，最终进入 `erofs_fc_parse_source()`：
+
+```c
+case fs_value_is_file: {
+        ...
+        fc->source = kstrdup(p, GFP_KERNEL);
+        sbi->dif0.file = no_free_ptr(param->file);   /* super.c:467 */
+        return 0;
+}
+```
+
+**引用计数在这里被"偷"走了**。`no_free_ptr()` 返回原值的同时把
+`param->file` 置 NULL；`fsconfig(2)` 返回路径上的兜底 `fput`（fsopen.c:482）
+看到指针为 NULL 便跳过——这次 `fget_raw()` 拿到的引用**被整体移交给
+`sbi->dif0.file`**，最终由 `erofs_fc_free()` 的 `fput(sbi->dif0.file)`
+（super.c:889）在 fs_context 拆除时归还。
+
+###### 赋值点 ②：legacy mount 的兜底路径
+
+legacy `mount(2)` 的 source 是**字符串**（赋值点①不会命中），流程是
+"先按块设备尝试，失败才转文件"：
+
+```c
+ret = get_tree_bdev_flags(fc, erofs_fc_fill_super, ...);
+if (IS_ENABLED(CONFIG_EROFS_FS_BACKED_BY_FILE) && ret == -ENOTBLK) {
+        file = filp_open(fc->source, O_RDONLY | O_LARGEFILE, 0);
+        ...
+        sbi->dif0.file = file;              /* super.c:826 */
+        return get_tree_nodev(fc, erofs_fc_fill_super);
+}
+```
+
+`lookup_bdev()` 发现 source 不是块设备 → `get_tree_bdev_flags()` 返回
+`-ENOTBLK` → `filp_open()` 打开普通文件赋给 `dif0.file` → 改走
+`get_tree_nodev()`（无块设备的超级块）。
+
+###### 三个细节
+
+1. **时机差异**：fd 传参在 **parse_param 阶段**就定型（`erofs_fc_get_tree()`
+   开头 `if (sbi->dif0.file)` 一测便知走 `get_tree_nodev`）；legacy 字符串
+   路径要等到 **get_tree 阶段**才知道是不是文件。
+2. **为什么是 `fget_raw` 而不是 `fget`**：`fget_raw` 对 fd 类型不加限制
+   （`O_PATH` 打开的描述符也能取引用），fsconfig 对 SET_FD 用它，
+   所以传 `O_PATH` fd 也可以。
+3. **bdev 模式下两处都不会执行**：块设备挂载走 `get_tree_bdev_flags()`
+   成功路径，主设备用 `sb->s_bdev`，`dif0.file` 全程为 NULL——
+   这也是 §六 第②步"挂载时 EROFS 发现后端是文件（`m_dif->file` 非空）"
+   里那个"发现"的真正来源。
 
 ## 四、关键结构体
 
@@ -405,6 +526,7 @@ refcount_set(&rq->ref, 2);
 
 ```c
 rq->iocb.ki_pos = rq->bio.bi_iter.bi_sector << SECTOR_SHIFT;   /* 扇区→字节 */
+rq->iocb.ki_ioprio = get_current_ioprio();
 rq->iocb.ki_complete = erofs_fileio_ki_complete;
 
 if (test_opt(&EROFS_SB(rq->sb)->opt, DIRECT_IO) &&
@@ -542,18 +664,19 @@ fileio 同样要处理 ishare 的情况
 #### 验证 1：确认配置是否启用
 
 ```bash
-grep EROFS_FS_BACKED_BY_FILE /home/linux/linux-stable/.config
+grep EROFS_FS_BACKED_BY_FILE /sdd/erofs/linux-stable/.config
 # CONFIG_EROFS_FS_BACKED_BY_FILE=y
 ```
 
 #### 验证 2：看 fileio 的操作集被注册在哪
 
 ```bash
-cd /home/linux/linux-stable/fs/erofs
+cd /sdd/erofs/linux-stable/fs/erofs
 grep -rn "erofs_fileio_aops" .
 ```
 
-应该能看到它在 `inode.c`（或 `super.c`）里按后端类型被选中——
+应该能看到它的定义在 `fileio.c`、声明在 `internal.h`，选中逻辑就是
+§3.2 的 `erofs_get_aops()`（`internal.h:454` 附近）——
 **对照一下选中条件**，就能确认"什么时候走文件后端"。
 
 #### 验证 3：在 QEMU 里实测文件后端挂载
@@ -561,16 +684,18 @@ grep -rn "erofs_fileio_aops" .
 这是最有说服力的验证（需要镜像文件而非块设备）：
 
 ```bash
-# VM 内
+# VM 内（宿主机 /sdd/erofs 经 9p 挂在 /host）
 mkdir -p /mnt/f
-mount -t erofs -o backed_file /host/plain.erofs /mnt/f   # 具体挂载选项见源码
+mount -t erofs /host/plain.erofs /mnt/f    # source 是普通文件 → 自动走文件后端
 cat /mnt/f/big.bin | head -c 100
 dmesg | grep -i erofs
 ```
 
-> 挂载选项的确切写法请以 `super.c` 里的 **`erofs_fs_parameters[]`**
-> （`fs_parameter_spec` 数组，定义各选项名）与 **`erofs_context_ops`**
-> 解析 `opt` 的部分为准。
+fileio 挂载**不需要任何专门选项**：`erofs_fc_get_tree()` 先按块设备尝试，
+发现 source 是普通文件（`get_tree_bdev_flags()` 返回 `-ENOTBLK`）后
+`filp_open()` 兜底、改走 `get_tree_nodev()`（§3.5 赋值点②）。
+用新 mount API 时则可以 `fsconfig(FSCONFIG_SET_FD)` 直接把 fd 交给
+`source`（§3.5 赋值点①）。
 >
 
 #### 验证 4：观察是否真的绕过了块设备
@@ -617,7 +742,7 @@ losetup -a      # 应看不到与本次挂载相关的 loop 设备
 | **ishare / page cache sharing**（11 专题） | 可叠加。fileio 的入口就调用了 `erofs_real_inode()` |
 | **FSDAX**（10 专题） | 另一种"绕开块设备/页缓存"的方案，思路不同但目标相近 |
 | **多设备** | fileio 也走 `erofs_map_dev()`，所以多设备逻辑**照常工作**（每个设备可以是各自的镜像文件） |
-| **压缩路径** | 压缩数据的读取也走同一套后端抽象：`z_erofs_submit_queue()`（`zdata.c`）提交 bio 时会判断 `erofs_is_fileio_mode()`，是 fileio 就走 `erofs_fileio_submit_bio()`（`fileio.c`）而不是 `submit_bio()` |
+| **压缩路径** | 压缩数据的读取也走同一套后端抽象：`z_erofs_submit_queue()`（`zdata.c`，fileio 判断点在 1695 / 1723 / 1751）提交 bio 时会判断 `erofs_is_fileio_mode()`，是 fileio 就走 `erofs_fileio_submit_bio()`（`fileio.c`）而不是 `submit_bio()` |
 | **DIRECT_IO 选项** | fileio 专用优化，避免双重页缓存 |
 
 ## 自测检查点
@@ -632,6 +757,7 @@ losetup -a      # 应看不到与本次挂载相关的 loop 设备
 8. scan_folio 处理的三种情况分别是什么？空洞怎么表示？
 9. `DIRECT_IO` 选项在 fileio 里解决什么问题？
 10. 为什么说文件后端与 ishare 可以叠加？
+11. `sbi->dif0.file` 全内核只有哪两个赋值点？`fsconfig(FSCONFIG_SET_FD)` 传参后，系统调用收尾的兜底 `fput` 为什么不会把文件误关掉？
 
 ## 自测答案
 
@@ -646,7 +772,7 @@ losetup -a      # 应看不到与本次挂载相关的 loop 设备
    `fileio` = 文件后端（直接 VFS 读镜像文件）。
 
 3. 因为前面大半（VFS → `erofs_map_blocks` 翻译物理地址）**与后端无关**。  
-   fileio 只替换"提交 I/O"这最后一步——这也是 `fileio.c` 只有 196 行的原因。
+   fileio 只替换"提交 I/O"这最后一步——这也是 `fileio.c` 只有 217 行的原因。
 
 4. 被用作**文件内偏移 ÷ 512**（即"文件内的扇区号"）。  
    因为 `bio` 只有 `bi_sector` 这个位置字段，没有字节偏移；  
@@ -676,8 +802,18 @@ losetup -a      # 应看不到与本次挂载相关的 loop 设备
     说明 fileio 在设计时就考虑了 ishare。两者分工不同：  
     fileio 决定"从哪个文件读"，ishare 决定"用谁的页缓存"。
 
+11. 赋值点①在 `erofs_fc_parse_source()`（super.c:467）：新 mount API 用  
+    `fsconfig(FSCONFIG_SET_FD)` 以 **fd** 传 source 时，`param->file` 由  
+    `fsconfig(2)` 自己 `fget_raw()` 准备（fs/fsopen.c:452），erofs 用  
+    `no_free_ptr()` 接手；赋值点②在 `erofs_fc_get_tree()`（super.c:826）：  
+    legacy `mount(2)` 传普通文件路径、`get_tree_bdev_flags()` 返回 `-ENOTBLK`  
+    后 `filp_open()` 兜底。  
+    兜底 `fput` 不会误关：`no_free_ptr()` 返回原值的同时把 `param->file`  
+    置 NULL，fsopen.c:482 的 `if (param.file)` 为假直接跳过——这次引用被  
+    **整体移交**给 `sbi->dif0.file`，改由 `erofs_fc_free()` 的 `fput()` 释放。
+
 </details>
 
 ## 参考
-[linux-stable (93f51579e7df)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
+[linux-stable (v7.3-rc4-27-gf0100363d8c3)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
 [EROFS 官方文档 Release 0.1](https://erofs.docs.kernel.org)
