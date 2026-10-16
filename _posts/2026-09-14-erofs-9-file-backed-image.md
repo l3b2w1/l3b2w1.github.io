@@ -315,10 +315,11 @@ int erofs_read_meta_folio(struct file *file, struct folio *folio)
 
 #### 3.5 `sbi->dif0.file` 何时被赋值：两个赋值点 + 一次引用移交
 
-§4.3 的表格说"镜像文件就存在 `erofs_device_info.file` 里"，主设备的这个字段就是
-`sbi->dif0.file`。它的赋值时机比看上去微妙——**全内核只有两处赋值**，
-且都只发生在文件后端（fileio）模式；块设备（bdev）模式下它保持 `kzalloc`
-出来的 NULL，`erofs_is_fileio_mode()`（`internal.h`）正是靠它是否非空来判断模式：
+§4.3 的表格说"镜像文件就存在 `erofs_device_info.file` 里"，主设备的这个字段就是`sbi->dif0.file`。  
+
+它的赋值时机比看上去微妙——**全内核只有两处赋值**，且都只发生在文件后端（fileio）模式；  
+
+块设备（bdev）模式下它保持 `kzalloc`出来的 NULL，`erofs_is_fileio_mode()`（`internal.h`）正是靠它是否非空来判断模式：
 
 | #   | 赋值点                                   | 触发条件                                                                                                |
 | --- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -327,9 +328,9 @@ int erofs_read_meta_folio(struct file *file, struct folio *folio)
 
 ###### 赋值点 ①：fd 传参，`struct file` 由 `fsconfig(2)` 自己准备
 
-一个容易搞错的问题：`erofs_fc_parse_source()` 里 `param->file` 指向的
-`struct file` 是谁打开的？——**不是** `vfs_parse_fs_param()`，而是上游
-`fsconfig(2)` 系统调用本身（`fs/fsopen.c`）：
+一个容易搞错的问题：`erofs_fc_parse_source()` 里 `param->file` 指向的`struct file` 是谁打开的？    
+
+——**不是** `vfs_parse_fs_param()`，而是上游`fsconfig(2)` 系统调用本身（`fs/fsopen.c`）：
 
 ```c
 SYSCALL_DEFINE5(fsconfig, int, fd, unsigned int, cmd,
@@ -357,9 +358,8 @@ SYSCALL_DEFINE5(fsconfig, int, fd, unsigned int, cmd,
 ```
 
 链路：`vfs_parse_fs_param()` → `erofs_fc_parse_param()` → `fs_parse()`
-按参数表 `fsparam_file_or_string("source", Opt_source)`（super.c:417）匹配，
-校验器 `fs_param_is_file_or_string()`（fs/fs_parser.c）对 string/file 两种
-取值都放行，最终进入 `erofs_fc_parse_source()`：
+按参数表 `fsparam_file_or_string("source", Opt_source)`（super.c:417）匹配，  
+校验器 `fs_param_is_file_or_string()`（fs/fs_parser.c）对 string/file 两种取值都放行，最终进入 `erofs_fc_parse_source()`：
 
 ```c
 case fs_value_is_file: {
@@ -370,16 +370,15 @@ case fs_value_is_file: {
 }
 ```
 
-**引用计数在这里被"偷"走了**。`no_free_ptr()` 返回原值的同时把
-`param->file` 置 NULL；`fsconfig(2)` 返回路径上的兜底 `fput`（fsopen.c:482）
-看到指针为 NULL 便跳过——这次 `fget_raw()` 拿到的引用**被整体移交给
-`sbi->dif0.file`**，最终由 `erofs_fc_free()` 的 `fput(sbi->dif0.file)`
-（super.c:889）在 fs_context 拆除时归还。
+**引用计数在这里被"偷"走了**。`no_free_ptr()` 返回原值的同时把`param->file` 置 NULL；  
+
+`fsconfig(2)` 返回路径上的兜底 `fput`（fsopen.c:482）看到指针为 NULL 便跳过，  
+
+这次 `fget_raw()` 拿到的引用**被整体移交给`sbi->dif0.file`**，最终由 `erofs_fc_free()` 的 `fput(sbi->dif0.file)`（super.c:889）在 fs_context 拆除时归还。
 
 ###### 赋值点 ②：legacy mount 的兜底路径
 
-legacy `mount(2)` 的 source 是**字符串**（赋值点①不会命中），流程是
-"先按块设备尝试，失败才转文件"：
+legacy `mount(2)` 的 source 是**字符串**（赋值点①不会命中），流程是"先按块设备尝试，失败才转文件"：
 
 ```c
 ret = get_tree_bdev_flags(fc, erofs_fc_fill_super, ...);
@@ -391,9 +390,9 @@ if (IS_ENABLED(CONFIG_EROFS_FS_BACKED_BY_FILE) && ret == -ENOTBLK) {
 }
 ```
 
-`lookup_bdev()` 发现 source 不是块设备 → `get_tree_bdev_flags()` 返回
-`-ENOTBLK` → `filp_open()` 打开普通文件赋给 `dif0.file` → 改走
-`get_tree_nodev()`（无块设备的超级块）。
+`lookup_bdev()` 发现 source 不是块设备：   
+
+ → `get_tree_bdev_flags()` 返回`-ENOTBLK` → `filp_open()` 打开普通文件赋给 `dif0.file` → 改走`get_tree_nodev()`（无块设备的超级块）。
 
 ###### 三个细节
 
@@ -444,11 +443,13 @@ if ((inode->i_sb->s_op == &erofs_sops &&
 
 1. **为什么 EROFS 敢说自己"嵌套安全"**：访问全只读、自控（`scoped_with_creds(ki_filp->f_cred)` 用镜像文件自己的凭据读），   
    没有需要 save/restore 的上下文副作用——语义上可以直接复用当前线程上下文。
+
 2. **但栈安全要单独防**："语义安全"不等于"栈安全"，每层嵌套都吃内核栈，所以要求宿主 `s_stack_depth == 0`。  
+
 3. **为什么 EROFS 自己不递增 `s_stack_depth`**：能造成 fileio 递归的唯一组合已被条件①堵死，
 
    且目前**只有 EROFS 支持 file-backed**——深度恒为 0，无需计数。若将来第二个 fs 支持 file-backed，就必须递增，  
-   并可能调整 `FILESYSTEM_MAX_STACK_DEPTH`（fs.h:297，当前 = 2，v4.14 为 overlayfs/ecryptfs 引入的深度计数）。  
+   并可能调整 `FILESYSTEM_MAX_STACK_DEPTH`（fs.h:297，当前 = 2，v4.14 为 overlayfs/ecryptfs 引入的深度计数）。
 
 > 📌 对比 loop：loop 也是"文件当设备用"，但它在块设备层，防递归由 loop驱动自己管；  
 >
