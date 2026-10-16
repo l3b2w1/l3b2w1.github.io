@@ -33,7 +33,6 @@ tags:
 > 若你对 `bio` 不熟，只需知道：**内核用 `bio` 描述一次块设备的 I/O**，
 > 里面带"从哪个扇区开始、读写多少、数据放哪些页"。
 
-
 ## 一、特性缘由：为什么需要文件后端
 
 #### 1.1 正常情况：镜像挂在块设备上
@@ -52,12 +51,12 @@ EROFS 照常发 `bio` 下去，loop 驱动再转成对文件的读写。
 
 `loop` 设备是个**全局资源**，需要特权，而且在下面这些场景里不可用或很难用：
 
-| 场景 | 为什么 loop 不行 |
-|---|---|
-| **容器内部** | 容器里通常没有创建 loop 设备的权限（需要 `CAP_SYS_ADMIN` 且主机放行） |
-| **嵌套挂载** | 一个只读文件系统里再挂另一个只读文件系统 |
-| **无特权环境** | 根本没有 `/dev/loop-control` 的访问权 |
-| **大量镜像** | loop 设备数量有限（默认 8 个或需配置） |
+| 场景           | 为什么 loop 不行                                                      |
+| -------------- | --------------------------------------------------------------------- |
+| **容器内部**   | 容器里通常没有创建 loop 设备的权限（需要 `CAP_SYS_ADMIN` 且主机放行） |
+| **嵌套挂载**   | 一个只读文件系统里再挂另一个只读文件系统                              |
+| **无特权环境** | 根本没有 `/dev/loop-control` 的访问权                                 |
+| **大量镜像**   | loop 设备数量有限（默认 8 个或需配置）                                |
 
 而容器场景恰恰是 EROFS 的主战场之一（容器镜像、只读 rootfs）。
 
@@ -79,10 +78,10 @@ EROFS 照常发 `bio` 下去，loop 驱动再转成对文件的读写。
 
 代码里经常出现这两个词：
 
-| 词 | 含义 |
-|---|---|
-| **bdev** | block device 后端——常规路径，镜像挂在块设备上 |
-| **fileio** | 文件后端——本专题的主题，直接读文件 |
+| 词         | 含义                                          |
+| ---------- | --------------------------------------------- |
+| **bdev**   | block device 后端——常规路径，镜像挂在块设备上 |
+| **fileio** | 文件后端——本专题的主题，直接读文件            |
 
 ## 二、设计理念
 
@@ -169,12 +168,12 @@ rq->iocb.ki_pos = rq->bio.bi_iter.bi_sector << SECTOR_SHIFT;   /* ×512 */
 `aops`（`address_space_operations`）是"怎么读一页"的回调集合。
 EROFS 一共定义了 **4 套**：
 
-| aops | 定义位置 | 用途 |
-|---|---|---|
-| `erofs_aops` | `data.c` | 常规非压缩（块设备） |
-| `erofs_fileio_aops` | `fileio.c` | **文件后端** |
-| `z_erofs_aops` | `zdata.c` | 压缩路径 |
-| `z_erofs_cache_aops` | `zdata.c` | managed cache（压缩数据缓存，不对外暴露） |
+| aops                 | 定义位置   | 用途                                      |
+| -------------------- | ---------- | ----------------------------------------- |
+| `erofs_aops`         | `data.c`   | 常规非压缩（块设备）                      |
+| `erofs_fileio_aops`  | `fileio.c` | **文件后端**                              |
+| `z_erofs_aops`       | `zdata.c`  | 压缩路径                                  |
+| `z_erofs_cache_aops` | `zdata.c`  | managed cache（压缩数据缓存，不对外暴露） |
 
 选择逻辑在 `erofs_get_aops()`（`internal.h`），是**三级判断**：
 
@@ -321,10 +320,10 @@ int erofs_read_meta_folio(struct file *file, struct folio *folio)
 且都只发生在文件后端（fileio）模式；块设备（bdev）模式下它保持 `kzalloc`
 出来的 NULL，`erofs_is_fileio_mode()`（`internal.h`）正是靠它是否非空来判断模式：
 
-| # | 赋值点 | 触发条件 |
-|---|---|---|
-| ① | `erofs_fc_parse_source()`（super.c:467） | 新 mount API：`fsconfig(cfd, FSCONFIG_SET_FD, "source", NULL, srcfd)`，source 以 **fd** 传入 |
-| ② | `erofs_fc_get_tree()`（super.c:826） | legacy `mount(2)`：source 是普通文件路径，`get_tree_bdev_flags()` 返回 `-ENOTBLK` 后 `filp_open()` 兜底 |
+| #   | 赋值点                                   | 触发条件                                                                                                |
+| --- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| ①   | `erofs_fc_parse_source()`（super.c:467） | 新 mount API：`fsconfig(cfd, FSCONFIG_SET_FD, "source", NULL, srcfd)`，source 以 **fd** 传入            |
+| ②   | `erofs_fc_get_tree()`（super.c:826）     | legacy `mount(2)`：source 是普通文件路径，`get_tree_bdev_flags()` 返回 `-ENOTBLK` 后 `filp_open()` 兜底 |
 
 ###### 赋值点 ①：fd 传参，`struct file` 由 `fsconfig(2)` 自己准备
 
@@ -409,6 +408,54 @@ if (IS_ENABLED(CONFIG_EROFS_FS_BACKED_BY_FILE) && ret == -ENOTBLK) {
    这也是 §六 第②步"挂载时 EROFS 发现后端是文件（`m_dif->file` 非空）"
    里那个"发现"的真正来源。
 
+#### 3.6 防爆栈：挂载时的文件系统嵌套检查
+
+§3.5 讲完 `dif0.file` 怎么来的；拿到它之后，`erofs_fc_fill_super()`
+（super.c:672）在 fileio 分支开头做的第一件事，就是检查**宿主文件系统**：
+
+```c
+inode = file_inode(sbi->dif0.file);
+if ((inode->i_sb->s_op == &erofs_sops &&
+     !inode->i_sb->s_bdev) || inode->i_sb->s_stack_depth) {
+        erofs_err(sb, "file-backed mounts cannot be applied to stacked fses");
+        return -ENOTBLK;
+}
+```
+
+###### "嵌套"到底指什么
+
+静态地看，fileio 挂载天然涉及两个文件系统：**宿主 fs**（`xxx.erofs`这个文件存放的地方）和 **EROFS**（从文件内容里解析出来的）。  
+但真正要防的是**动态**问题：读 EROFS 一页时，`erofs_fileio_scan_folio()` → `vfs_iocb_iter_read()` 去读宿主文件 →  
+宿主 fs 的 `read_folio` 再完整展开——**同一次系统调用、同一个内核线程栈上， 叠了两层文件系统的调用链**（x86-64 内核栈仅 16 KB）。   
+
+宿主若是overlayfs 这类堆叠 fs，层数还会继续加；极端的"EROFS on file-backed EROFS" 则是每读一页就递归一层的无底洞。
+
+###### 两个拒绝条件与理由
+
+| 条件                               | 拒绝什么                                            | 理由                                                         |
+| ---------------------------------- | --------------------------------------------------- | ------------------------------------------------------------ |
+| ① `s_op == &erofs_sops && !s_bdev` | 宿主是 **fileio 模式的 EROFS**                      | 这是 "EROFS-on-EROFS" 无限递归的唯一入口                     |
+| ② `s_stack_depth != 0`             | 宿主是**堆叠 fs**（overlayfs / ecryptfs，深度 ≥ 1） | 宿主自身已叠在别人身上，再加 fileio 后深度脱离计数体系的控制 |
+
+命中任一条返回 `-ENOTBLK`，dmesg 打`"file-backed mounts cannot be applied to stacked fses"`。  
+反过来，**ext4 上的 `.erofs` 文件挂 fileio 是允许的**——宿主depth=0 且不是 fileio EROFS，这正是最普通的用法。
+
+###### 源码注释里的三句话（super.c:673-686）
+
+1. **为什么 EROFS 敢说自己"嵌套安全"**：访问全只读、自控（`scoped_with_creds(ki_filp->f_cred)` 用镜像文件自己的凭据读），   
+   没有需要 save/restore 的上下文副作用——语义上可以直接复用当前线程上下文。
+2. **但栈安全要单独防**："语义安全"不等于"栈安全"，每层嵌套都吃内核栈，所以要求宿主 `s_stack_depth == 0`。  
+3. **为什么 EROFS 自己不递增 `s_stack_depth`**：能造成 fileio 递归的唯一组合已被条件①堵死，
+
+   且目前**只有 EROFS 支持 file-backed**——深度恒为 0，无需计数。若将来第二个 fs 支持 file-backed，就必须递增，  
+   并可能调整 `FILESYSTEM_MAX_STACK_DEPTH`（fs.h:297，当前 = 2，v4.14 为 overlayfs/ecryptfs 引入的深度计数）。  
+
+> 📌 对比 loop：loop 也是"文件当设备用"，但它在块设备层，防递归由 loop驱动自己管；  
+>
+> EROFS fileio 砍掉了块设备层，传统 stack depth 机制覆盖不到"fs 直接读 fs" 的形态，  
+>
+> 所以必须在 fill_super 里手工挡——这正是 §一"为什么不能简单用 loop" 的另一面：fileio 换来无特权挂载，代价是嵌套防护自己扛。
+
 ## 四、关键结构体
 
 #### 4.1 `struct erofs_fileio_rq`（`fileio.c`）
@@ -425,12 +472,12 @@ struct erofs_fileio_rq {
 };
 ```
 
-| 字段 | 说明 |
-|---|---|
-| `bvecs[16]` | `bio` 用的 bvec 数组。**限长 16** —— 一次最多聚合 16 个页片段 |
-| `bio` | 内嵌的 `bio`。**注意它的 `bi_sector` 被当作文件偏移用**（见理念 3） |
-| `iocb` | 用于 `vfs_iocb_iter_read()`。`ki_filp` 指向镜像文件 |
-| `ref` | **初始为 2**：一个引用给"提交者"，一个给"完成回调" |
+| 字段        | 说明                                                                |
+| ----------- | ------------------------------------------------------------------- |
+| `bvecs[16]` | `bio` 用的 bvec 数组。**限长 16** —— 一次最多聚合 16 个页片段       |
+| `bio`       | 内嵌的 `bio`。**注意它的 `bi_sector` 被当作文件偏移用**（见理念 3） |
+| `iocb`      | 用于 `vfs_iocb_iter_read()`。`ki_filp` 指向镜像文件                 |
+| `ref`       | **初始为 2**：一个引用给"提交者"，一个给"完成回调"                  |
 
 ###### 为什么 `ref` 初始为 2 ？
 
@@ -488,20 +535,20 @@ io_retry:
 
 #### 4.3 相关的通用结构体（详见 08 专题）
 
-| 结构体 | 在这里的作用 |
-|---|---|
-| `erofs_map_blocks` | `m_pa`（物理地址）、`m_la`、`m_llen`、`m_deviceid`、`m_flags` |
-| `erofs_map_dev` | 解析出具体文件：`m_dif->file` 与 `m_pa` |
-| `erofs_device_info` | `file` 字段——**镜像文件就在这里**；`fsoff` 是本设备内偏移 |
+| 结构体              | 在这里的作用                                                  |
+| ------------------- | ------------------------------------------------------------- |
+| `erofs_map_blocks`  | `m_pa`（物理地址）、`m_la`、`m_llen`、`m_deviceid`、`m_flags` |
+| `erofs_map_dev`     | 解析出具体文件：`m_dif->file` 与 `m_pa`                       |
+| `erofs_device_info` | `file` 字段——**镜像文件就在这里**；`fsoff` 是本设备内偏移     |
 
 ## 五、主要函数
 
 #### 5.1 对外接口（被其他文件调用）
 
-| 函数 | 作用 |
-|---|---|
-| `erofs_fileio_bio_alloc()` | 分配一个"伪装成 bio"的 `erofs_fileio_rq`，返回它的 `bio` |
-| `erofs_fileio_submit_bio()` | 提交：不交给块设备，而是转成文件读 |
+| 函数                        | 作用                                                     |
+| --------------------------- | -------------------------------------------------------- |
+| `erofs_fileio_bio_alloc()`  | 分配一个"伪装成 bio"的 `erofs_fileio_rq`，返回它的 `bio` |
+| `erofs_fileio_submit_bio()` | 提交：不交给块设备，而是转成文件读                       |
 
 这两个函数是**fileio 与外界的唯一接口**——它们的命名刻意与块设备接口一致
 （`bio_alloc` / `submit_bio`），这样上层代码不用改。
@@ -519,6 +566,7 @@ refcount_set(&rq->ref, 2);
 ```
 
 要点：
+
 - `bio_init()` 时 **不设 `bi_end_io`**（为 NULL）—— 这个细节在 5.3 会用到
 - `ki_filp` 直接指向镜像文件
 
@@ -589,11 +637,11 @@ if (refcount_dec_and_test(&rq->ref))
 
 这是主体逻辑，处理三种情况：
 
-| 情况 | 判断 | 处理 |
-|---|---|---|
-| 数据在元数据区 | `m_flags & EROFS_MAP_META` | `erofs_read_metabuf()` + `memcpy_to_folio()` |
-| 空洞（未映射） | `!(m_flags & EROFS_MAP_MAPPED)` | `folio_zero_segment()` 填零 |
-| 正常映射 | 其余 | 加入 `io->rq->bio` |
+| 情况           | 判断                            | 处理                                         |
+| -------------- | ------------------------------- | -------------------------------------------- |
+| 数据在元数据区 | `m_flags & EROFS_MAP_META`      | `erofs_read_metabuf()` + `memcpy_to_folio()` |
+| 空洞（未映射） | `!(m_flags & EROFS_MAP_MAPPED)` | `folio_zero_segment()` 填零                  |
+| 正常映射       | 其余                            | 加入 `io->rq->bio`                           |
 
 其中"正常映射"分支还会做**连续性与容量检查**：
 
@@ -696,7 +744,8 @@ fileio 挂载**不需要任何专门选项**：`erofs_fc_get_tree()` 先按块�
 `filp_open()` 兜底、改走 `get_tree_nodev()`（§3.5 赋值点②）。
 用新 mount API 时则可以 `fsconfig(FSCONFIG_SET_FD)` 直接把 fd 交给
 `source`（§3.5 赋值点①）。
->
+
+> 
 
 #### 验证 4：观察是否真的绕过了块设备
 
@@ -737,13 +786,13 @@ losetup -a      # 应看不到与本次挂载相关的 loop 设备
 
 ## 九、与其他特性的关系
 
-| 特性 | 关系 |
-|---|---|
-| **ishare / page cache sharing**（11 专题） | 可叠加。fileio 的入口就调用了 `erofs_real_inode()` |
-| **FSDAX**（10 专题） | 另一种"绕开块设备/页缓存"的方案，思路不同但目标相近 |
-| **多设备** | fileio 也走 `erofs_map_dev()`，所以多设备逻辑**照常工作**（每个设备可以是各自的镜像文件） |
-| **压缩路径** | 压缩数据的读取也走同一套后端抽象：`z_erofs_submit_queue()`（`zdata.c`，fileio 判断点在 1695 / 1723 / 1751）提交 bio 时会判断 `erofs_is_fileio_mode()`，是 fileio 就走 `erofs_fileio_submit_bio()`（`fileio.c`）而不是 `submit_bio()` |
-| **DIRECT_IO 选项** | fileio 专用优化，避免双重页缓存 |
+| 特性                                       | 关系                                                                                                                                                                                                                                 |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **ishare / page cache sharing**（11 专题） | 可叠加。fileio 的入口就调用了 `erofs_real_inode()`                                                                                                                                                                                   |
+| **FSDAX**（10 专题）                       | 另一种"绕开块设备/页缓存"的方案，思路不同但目标相近                                                                                                                                                                                  |
+| **多设备**                                 | fileio 也走 `erofs_map_dev()`，所以多设备逻辑**照常工作**（每个设备可以是各自的镜像文件）                                                                                                                                            |
+| **压缩路径**                               | 压缩数据的读取也走同一套后端抽象：`z_erofs_submit_queue()`（`zdata.c`，fileio 判断点在 1695 / 1723 / 1751）提交 bio 时会判断 `erofs_is_fileio_mode()`，是 fileio 就走 `erofs_fileio_submit_bio()`（`fileio.c`）而不是 `submit_bio()` |
+| **DIRECT_IO 选项**                         | fileio 专用优化，避免双重页缓存                                                                                                                                                                                                      |
 
 ## 自测检查点
 
@@ -758,6 +807,7 @@ losetup -a      # 应看不到与本次挂载相关的 loop 设备
 9. `DIRECT_IO` 选项在 fileio 里解决什么问题？
 10. 为什么说文件后端与 ishare 可以叠加？
 11. `sbi->dif0.file` 全内核只有哪两个赋值点？`fsconfig(FSCONFIG_SET_FD)` 传参后，系统调用收尾的兜底 `fput` 为什么不会把文件误关掉？
+12. `erofs_fc_fill_super()` 在 fileio 分支开头检查宿主 fs 的两个条件分别拒绝什么？为什么 EROFS 自己不递增 `s_stack_depth`？
 
 ## 自测答案
 
@@ -788,6 +838,7 @@ losetup -a      # 应看不到与本次挂载相关的 loop 设备
    所以总量不受 16 限制，16 只是**单次 bio**的上限。
 
 7. 区分 bio 的来源：
+
    - `bi_end_io == NULL` → fileio 自己构造的，由 fileio 自己遍历 folio 收尾  
    - `bi_end_io != NULL` → 来自别处（有块设备层回调），只更新 `bi_status`，让原流程继续
 
@@ -812,8 +863,18 @@ losetup -a      # 应看不到与本次挂载相关的 loop 设备
     置 NULL，fsopen.c:482 的 `if (param.file)` 为假直接跳过——这次引用被  
     **整体移交**给 `sbi->dif0.file`，改由 `erofs_fc_free()` 的 `fput()` 释放。
 
+12. 条件①（宿主 `s_op == &erofs_sops && !s_bdev`）拒绝宿主是 **fileio 模式  
+    的 EROFS**——那是 "EROFS-on-EROFS" 无限递归的唯一入口；条件②（宿主  
+    `s_stack_depth != 0`）拒绝宿主是 overlayfs / ecryptfs 等**堆叠 fs**——  
+    宿主自身已叠一层，深度脱离计数体系控制。  
+    EROFS 不递增 `s_stack_depth`：唯一能造成 fileio 递归的组合已被条件①  
+    堵死，且目前只有 EROFS 支持 file-backed，深度恒为 0 无需计数；若将来  
+    第二个 fs 支持 file-backed 就必须递增（并可能调整  
+    `FILESYSTEM_MAX_STACK_DEPTH`，当前 = 2）。
+
 </details>
 
 ## 参考
+
 [linux-stable (v7.3-rc4-27-gf0100363d8c3)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
 [EROFS 官方文档 Release 0.1](https://erofs.docs.kernel.org)
