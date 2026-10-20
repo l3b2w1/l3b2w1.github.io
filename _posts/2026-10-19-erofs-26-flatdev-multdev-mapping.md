@@ -11,7 +11,7 @@ tags:
   - erofs
 ---
 
-# EROFS flatdev：多设备镜像的扁平块设备
+# 26 · EROFS flatdev：多设备镜像的扁平块设备
 
 > 源码依据：`/home/linux/erofs/linux-stable`（`v7.3-rc7` 之后的 master），
 > 用户态对照：`/home/linux/erofs/erofs-utils`（1.9.4）
