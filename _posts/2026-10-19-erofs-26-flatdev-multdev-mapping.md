@@ -13,8 +13,8 @@ tags:
 
 # 26 · EROFS flatdev：多设备镜像的扁平块设备
 
-> 源码依据：`/home/linux/erofs/linux-stable`（`v7.3-rc7` 之后的 master），
-> 用户态对照：`/home/linux/erofs/erofs-utils`（1.9.4）
+> 源码依据：`/home/linux/erofs/linux-stable`（`v7.3-rc7` 之后的 master），  
+> 用户态对照：`/home/linux/erofs/erofs-utils`（1.9.4）  
 > 本文按**文件名 + 函数名/字段名**定位，不绑定行号——树会随上游推进，行号会漂。
 
 ---
@@ -272,6 +272,74 @@ mdev = (struct erofs_map_dev) {
 多设备靠 uniaddr 区间反查来路由。好处是**不需要改 pcluster 的地址格式**就能支持多设备。
 而 `m_deviceid == 0` 永远不会触发 `idr_find` 失败那条 `-ENODEV`，所以注释说 "always succeed"，
 返回值也被 `(void)` 丢掉。
+
+### 4.6 m_pa 到底是相对偏移还是绝对偏移
+
+**分阶段，而且入口处还随 `m_deviceid` 而变**——它有两个参照系。
+
+#### (1) `erofs_map_blocks()` 产出时：由 mkfs 的写法决定
+
+`erofs-utils/lib/blobchunk.c` 写 chunk 索引时：
+
+```c
+if (chunk->blkaddr == EROFS_NULL_ADDR) {
+        startblk = EROFS_NULL_ADDR;
+} else if (chunk->device_id) {
+        startblk = chunk->blkaddr;                    /* 段内块号 */
+        ...
+} else {
+        startblk = remapped_base + chunk->blkaddr;    /* 主设备内绝对块号 */
+}
+```
+
+（`remapped_base` 是**没有额外设备**时，datablob 追加到主镜像尾部的起始块号。）
+
+于是形成一条干净的对应关系：
+
+| 数据来源 | m_deviceid | m_pa 语义 | 参照系 |
+|---|---|---|---|
+| CHUNK_BASED 且 device_id != 0 | != 0 | 段内偏移 | 该设备起点 |
+| CHUNK_BASED 且 device_id == 0 | 0 | 全局地址 | 统一地址空间起点 |
+| FLAT / FLAT_INLINE 数据段 | 0 | 全局地址（`vi->startblk` 已被 `erofs_inode_map_flat_blkaddr()` 全局化） | 同上 |
+| COMPRESSED（pcluster） | 0 | 全局地址（pstart 同样全局化） | 同上 |
+| FLAT_INLINE 的 inline 尾 | 0 | 元数据区地址 | 主设备内 |
+
+**规律：`m_deviceid == 0` ⟺ `m_pa` 是全局地址；`m_deviceid != 0` ⟺ `m_pa` 是段内偏移。**
+
+这不是巧合，而是格式设计的必然：**只有 packed chunk 索引才带 `device_id` 字段**。
+既然设备号已经单独存了，块地址就只需要写段内偏移；
+反之，没有地方存设备号，就只能在地址里直接写全局位置。
+
+#### (2) `erofs_map_dev()` 出口时：统一成同一种参照系
+
+| 分支 | m_pa | 参照系 |
+|---|---|---|
+| A1 flatdev | 段内 + uniaddr | 全局地址，但 `m_dif = &dif0` |
+| A2 | 不变 | 段内偏移 |
+| B1 | 全局 − uniaddr | 段内偏移 |
+| B2 | 不变 | 沿用入口语义 |
+
+A1 看似例外（出口仍是全局地址），但因为 `m_dif` 指向 `dif0`、
+而**主设备在全局地址空间里的起点恒为 0**，所以数值上就等于「主设备内偏移」，
+下游照样按「相对 m_dif」来用。
+
+⇒ 出口的统一语义：**相对于 `m_dif` 所指设备起点的字节偏移**。
+
+#### (3) 最终使用：加上 `fsoff` 才是绝对位置
+
+```c
+iomap->addr = mdev.m_dif->fsoff + mdev.m_pa;                 /* iomap 路径 */
+bio->bi_iter.bi_sector = (mdev.m_dif->fsoff + cur) >> 9;     /* 压缩路径 */
+```
+
+`fsoff` 是设备在 backing 文件里的起始偏移（`-o fsoffset=`，只对主设备有效）。
+**`m_dif->fsoff + m_pa` 才是 backing 上的绝对字节偏移。**
+
+一句话：
+
+> `m_pa` 在入口是「随 `m_deviceid` 变化的段内偏移 / 全局地址」，
+> 在出口统一为「相对 `m_dif` 的偏移」；
+> 只有 `fsoff + m_pa` 才是绝对的。
 
 ---
 
