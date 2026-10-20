@@ -125,7 +125,7 @@ if (sbi->devs->extra_devices &&              /* ← 为 0 时整个 if 不成立
 也就是说「磁盘说有 N 个、你一个都没给」**不是错误，而是 flatdev 的入口**；
 只有「给了但数量对不上」才报 `-EINVAL`。
 
-### 置位后的两处跳过
+#### 置位后的两处跳过
 
 ```c
 /* erofs_init_device() */
@@ -155,13 +155,101 @@ if (!sbi->devs->flatdev) {                    /* 守卫②：不 open 设备 */
 同为 NULL。但 A1 分支用的是 `dif0.dax_dev`，所以 **flatdev 能否用 DAX 完全取决于主设备**，
 与这些 slot 无关。
 
+#### 3.1 tag 字段：从「设备标识」到实际上的死字段
+
+`erofs_deviceslot.tag[64]` 的注释写的是 `digest(sha256), etc.`，但它在内核里**没有任何摘要运算**。
+这个字段的历史正好解释了守卫①为什么长成现在这样。
+
+**设计初衷（2021）**——`dfeab2e95a75`（Gao Xiang）*erofs: add multiple device support*：
+
+> In the future, a dedicated device manager could be introduced then thus extra devices
+> can be automatically scanned by UUID as well.
+
+⇒ tag 是为「**按 UUID 自动发现/匹配额外设备**」预留的标识位。64 字节的容量刚好：
+sha256 摘要 32 字节，hex 编码后 64 字符；UUID hex 是 32 字符。
+
+**一次短暂的实现（2022）**——`ba73eadd23d1`（Jeffle Xu）*erofs: scan devices from device table*：
+
+> When "-o device" mount option is not specified, scan the device table and instantiate
+> the devices if there's any in the device table. In this case, **the tag field of each
+> device slot uniquely specifies a device**.
+
+这一版就是今天守卫①里的 `dif->path = kmemdup_nul(dis->tag, ...)` ——**tag 被当作设备路径**，
+随后 `filp_open()` / `fs_bdev_file_open_by_path()` 打开它。此时 tag 是真的有用。
+
+**被 flatdev 短路（2023）**——`8b465fecc35a` 引入 flatdev 后，不给 `-o device=` 时
+`erofs_scan_devices()` 直接把 `flatdev` 置真，于是守卫①整体不成立，tag 不再被读。
+紧接着 `f939aeea7ab7`（Jingbo Xu）*erofs: allow empty device tags in flatdev mode* 说明：
+
+> Device tags aren't actually required in flatdev mode, thus fix mount failure due to
+> empty device tags in flatdev mode.
+
+**为什么必须允许空 tag**：`mkfs.erofs --blobdev=X` 走的是
+`erofs_mkfs_init_devices()` → `calloc()` 分配 `sbi->devs`，**全程没有给 tag 赋值**，
+写盘时 `memcpy(dis.tag, sbi->devs[i].tag, 64)` 写进去的就是 64 个 0。
+
+实测（`/sdd/erofs/multidev/main.erofs`，`extra_devices=1`、`devt_slotoff=9`）：
+
+```text
+slot 字节偏移 = 9 × 128 = 1152
+00 00 00 00 ... （前 64 字节全零 = tag 为空）
+00 04 00 00   blocks_lo   = 0x400 = 1024 块（4 MiB 的 blob.img）
+03 00 00 00   uniaddr_lo  = 3（主设备 12 KiB = 3 块）
+```
+
+**结论：在当前内核里 tag 的两条读取路径都不可达。**
+
+| 挂载方式 | extra_devices | flatdev | 守卫① | tag 是否被读 |
+|---|---|---|---|---|
+| 给了 `-o device=` | != 0 | false | `!dif->path` 为假 | 否（路径已由参数给出） |
+| 没给 | 0 | **true** | 整体为假 | 否（flatdev 短路） |
+
+所以 `dif->path = kmemdup_nul(dis->tag, ...)` 与 `-EINVAL "empty device tag"` 这两行
+实际上执行不到。tag 退化为**纯磁盘元数据**，仍有使用者的地方在用户态：
+
+- `erofs-utils/lib/vmdk.c` 生成 VMDK 描述文件时，
+  `const char *name = sbi->devs[i].src_path ?: (const char *)sbi->devs[i].tag;`
+  —— `src_path` 优先，tag 兜底，作为 extent 的文件名。
+- rebuild 路径（`mkfs/main.c`）在源镜像有 tag 时继承，否则用
+  `erofs_uuid_unparse_as_tag()` 把源镜像 UUID 转成 32 个 hex 字符填进去。
+
+一句话：**tag 是「设备槽位的名字」**，本意是让内核在不依赖挂载参数时识别槽位对应哪个物理设备；
+flatdev 特性引入后内核不再用它，它只对镜像打包/重组/虚拟磁盘生成这类用户态工具还有意义。
+
+#### 3.2 「恒不可达」的形式化论证
+
+「两条路径都不可达」可以更严格地证明为「**对任何镜像、任何挂载参数都不可达**」。
+前提先钉死（均已用 grep 验证）：
+
+| 前提 | 内容 |
+|---|---|
+| P1 | `dif->path` 的赋值点仅两处：`Opt_device`（`kstrdup(param->string)`）与守卫①自身 |
+| P2 | `extra_devices` 的自增点仅两处：`Opt_device` 与 `erofs_scan_devices()` 的 else 支 |
+| P3 | `erofs_init_device()` 的调用点仅两处，都在 `erofs_scan_devices()` 内 |
+| P4 | `flatdev` 仅在 `erofs_scan_devices()` 里由 `if (!extra_devices) flatdev = true` 置位 |
+
+于是 `erofs_init_device()` 只有两种进入方式，逐一检查守卫①（`!flatdev && !dif->path`）：
+
+- **if 支**（遍历 idr tree，super.c:219-223）：能走到这里说明 `extra_devices != 0`，
+  由 P4 的逆否 ⇒ `flatdev == false`；而 tree 里的 `dif` 全部来自 `Opt_device`，
+  由 P1 ⇒ `path` 必非 NULL ⇒ `!dif->path` 为假 ⇒ **守卫①不成立**。
+- **else 支**（kzalloc 新 dif，super.c:226-244）：能走到这里说明 `extra_devices == 0`，
+  由 P4 ⇒ `flatdev == true` ⇒ `!flatdev` 为假 ⇒ **守卫①不成立**（短路）。
+
+两种进入方式下守卫①恒为假。**所以这两行对任何镜像、任何挂载参数都不可达。**
+
+这个结论只对当前代码成立；只要未来有人新增 `dif->path` 或 `extra_devices` 的赋值点，
+论证就需要重做。它本质上是 flatdev 引入时的副作用：`8b465fecc35a` 把
+「没给 `-o device=`」的语义从「按 tag 自动扫描设备」改成了「flatdev」，
+守卫①因此失去了唯一可能被触发的场景。
+
 ---
 
 ## 四、erofs_map_dev 的完整实现
 
 这是 flatdev 真正起作用的地方，函数在 `fs/erofs/data.c`。
 
-### 4.1 入口默认态
+#### 4.1 入口默认态
 
 ```c
 erofs_fill_from_devinfo(map, sb, &EROFS_SB(sb)->dif0);
@@ -174,7 +262,7 @@ map->m_bdev = sb->s_bdev;	/* use s_bdev for the primary device */
 
 ⇒ **默认答案就是「主设备、m_pa 原样」**。后面所有分支都只是在这个默认态上做增量修改。
 
-### 4.2 if 支：`m_deviceid != 0`
+#### 4.2 if 支：`m_deviceid != 0`
 
 ```c
 if (map->m_deviceid) {
@@ -202,7 +290,7 @@ if (map->m_deviceid) {
   `dif->file` 是块设备则取 `file_bdev()`，是普通文件（fileio）则为 **NULL**（见 §6.1）；
   `m_pa` 不动（它本来就是该设备内的偏移）。
 
-### 4.3 else if 支：`m_deviceid == 0`
+#### 4.3 else if 支：`m_deviceid == 0`
 
 ```c
 } else if (devs->extra_devices && !devs->flatdev) {
@@ -233,7 +321,7 @@ return 0;
 
 这两种都直接落到函数末尾的 `return 0`，**保持入口默认态**。
 
-### 4.4 四种结果汇总
+#### 4.4 四种结果汇总
 
 | | 触发条件 | 执行的语句 | m_dif | m_pa | 最终落在 |
 |---|---|---|---|---|---|
@@ -242,7 +330,7 @@ return 0;
 | **B1** | !`m_deviceid` && 有额外设备 && !flatdev && 命中区间 | `m_pa -= startoff` + fill | `dif` | 全局 − uniaddr | 额外设备（或其 backing 文件） |
 | **B2** | !`m_deviceid` && (flatdev ‖ 无额外设备 ‖ 未命中) | 无 | `&dif0` | 不变 | 主设备 |
 
-### 4.5 调用方视角：谁走哪条
+#### 4.5 调用方视角：谁走哪条
 
 `erofs_map_dev()` 有三个调用点，各自带的 `m_deviceid` 不同：
 
@@ -273,11 +361,11 @@ mdev = (struct erofs_map_dev) {
 而 `m_deviceid == 0` 永远不会触发 `idr_find` 失败那条 `-ENODEV`，所以注释说 "always succeed"，
 返回值也被 `(void)` 丢掉。
 
-### 4.6 m_pa 到底是相对偏移还是绝对偏移
+#### 4.6 m_pa 到底是相对偏移还是绝对偏移
 
 **分阶段，而且入口处还随 `m_deviceid` 而变**——它有两个参照系。
 
-#### (1) `erofs_map_blocks()` 产出时：由 mkfs 的写法决定
+###### (1) `erofs_map_blocks()` 产出时：由 mkfs 的写法决定
 
 `erofs-utils/lib/blobchunk.c` 写 chunk 索引时：
 
@@ -310,7 +398,7 @@ if (chunk->blkaddr == EROFS_NULL_ADDR) {
 既然设备号已经单独存了，块地址就只需要写段内偏移；
 反之，没有地方存设备号，就只能在地址里直接写全局位置。
 
-#### (2) `erofs_map_dev()` 出口时：统一成同一种参照系
+###### (2) `erofs_map_dev()` 出口时：统一成同一种参照系
 
 | 分支 | m_pa | 参照系 |
 |---|---|---|
@@ -325,7 +413,7 @@ A1 看似例外（出口仍是全局地址），但因为 `m_dif` 指向 `dif0`�
 
 ⇒ 出口的统一语义：**相对于 `m_dif` 所指设备起点的字节偏移**。
 
-#### (3) 最终使用：加上 `fsoff` 才是绝对位置
+###### (3) 最终使用：加上 `fsoff` 才是绝对位置
 
 ```c
 iomap->addr = mdev.m_dif->fsoff + mdev.m_pa;                 /* iomap 路径 */
@@ -347,7 +435,7 @@ bio->bi_iter.bi_sector = (mdev.m_dif->fsoff + cur) >> 9;     /* 压缩路径 */
 
 这一节的内容不是内核私有实现——`erofs-utils` 里有同构代码，说明它是**磁盘格式约定**。
 
-### 5.1 device id 藏在 bit48 以上
+#### 5.1 device id 藏在 bit48 以上
 
 ```c
 /* fs/erofs/data.c —— erofs_map_chunks() */
@@ -376,7 +464,7 @@ map->m_deviceid = last >> 48;                                 /* ★ */
 map->m_deviceid = le16_to_cpu(idx->device_id) & sbi->device_id_mask;
 ```
 
-### 5.2 两个标志位是独立的
+#### 5.2 两个标志位是独立的
 
 这点是容易混的地方——它们**不是一回事**：
 
@@ -388,7 +476,7 @@ map->m_deviceid = le16_to_cpu(idx->device_id) & sbi->device_id_mask;
 ⇒ 不是「开了 48BIT 才有 device id」。决定有没有 device id 的是 **INDEXES**；
 而 `m_deviceid = last >> 48` 是硬编码位移，与 `addrmask` 取 48 还是 32 **无关**。
 
-### 5.3 用户态同构：mkfs 侧怎么生成
+#### 5.3 用户态同构：mkfs 侧怎么生成
 
 `erofs-utils` 里有两个函数与内核严格对应。
 
@@ -452,7 +540,7 @@ inode->u.i_blkaddr = erofs_inode_dev_baddr(inode) + dev_startblk;   /* ★ 落�
 }
 ```
 
-### 5.4 完整换算链
+#### 5.4 完整换算链
 
 ```
 chunk 索引里的 addr（64 位）
@@ -473,7 +561,7 @@ DAX 时再加            + m_dif->dax_part_off
 
 ## 六、四个实现细节
 
-### 6.1 `m_bdev` 可以为 NULL
+#### 6.1 `m_bdev` 可以为 NULL
 
 ```c
 /* erofs_fill_from_devinfo() */
@@ -519,7 +607,7 @@ if (bio) {
 要不要先把当前 bio 排掉再开新的：连续读取路径上，**相邻数据块**（可能来自不同 pcluster）
 一旦落点不连续、或换了设备，就得先 drain。
 
-### 6.2 `fsoff` 只对主设备生效
+#### 6.2 `fsoff` 只对主设备生效
 
 `fsoff` 只有一个赋值点，且对象是 **`dif0`**：
 
@@ -541,7 +629,7 @@ iomap->addr = mdev.m_dif->fsoff + mdev.m_pa;
 
 **`-o fsoffset=` 只对主设备有效。** 元数据缓冲区同理：`erofs_bread()` 里 `buf->off = sbi->dif0.fsoff`。
 
-### 6.3 `uniaddr == 0` 的 slot 被跳过
+#### 6.3 `uniaddr == 0` 的 slot 被跳过
 
 ```c
 if (!dif->uniaddr)
@@ -552,7 +640,7 @@ if (!dif->uniaddr)
 所以这里跳过的是**未初始化或异常的 slot**（`kzalloc` 之后还没被填上有效值的那种）。
 用户态 `erofs-utils/lib/data.c` 的 `erofs_map_dev()` 用的是同一个判据，语义一致。
 
-### 6.4 flatdev 不做任何校验
+#### 6.4 flatdev 不做任何校验
 
 `erofs_scan_devices()` 在 flatdev 分支里只读 `blocks` / `uniaddr`，
 **不检查这些区间是否真的落在主设备范围内**，也不检查各区间是否重叠。
@@ -565,7 +653,7 @@ if (!dif->uniaddr)
 
 ## 七、设计意图与来历
 
-### 7.1 主提交
+#### 7.1 主提交
 
 `8b465fecc35a`（Jia Zhu，2023-03-02，v6.3）
 *erofs: support flattened block device for multi-blob images*
@@ -581,7 +669,7 @@ if (!dif->uniaddr)
 nbd（或 ublk / virtio-blk / vhost-user-blk）设备，EROFS 直接挂它。
 原本要 N 个块设备，现在只要 1 个。
 
-### 7.2 配套修复
+#### 7.2 配套修复
 
 `f939aeea7ab7`（Jingbo Xu，2023-09-15）
 *erofs: allow empty device tags in flatdev mode*
@@ -596,7 +684,7 @@ flatdev 下 `tag` 本就无意义，但旧代码仍要求 tag 非空，导致这
 
 ## 八、怎么触发与验证
 
-### 触发条件（checklist）
+#### 触发条件（checklist）
 
 1. 镜像：`mkfs.erofs --chunksize=N --blobdev=X ...` 造出带 device table 的镜像
 2. 挂载：**不**给任何 `-o device=`，只给主设备
@@ -604,7 +692,7 @@ flatdev 下 `tag` 本就无意义，但旧代码仍要求 tag 非空，导致这
 
 前提：这些 blob 的内容确实已经被拼接到主设备上（否则见 6.4）。
 
-### 验证手段
+#### 验证手段
 
 ```sh
 # 1. 确认镜像带 device table
