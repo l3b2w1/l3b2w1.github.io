@@ -89,6 +89,70 @@ struct erofs_deviceslot {
 `uniaddr` = *unified starting block*：把所有设备首尾相接连成一条线性地址空间后，
 **本设备在其中的起始块号**。
 
+#### 2.1 device table 怎么定位：`devt_slotoff`
+
+device table 不在固定位置，靠 superblock 里的两个字段找到它：
+
+```c
+/* fs/erofs/erofs_fs.h —— struct erofs_super_block */
+__le16 extra_devices;   /* # of devices besides the primary device */
+__le16 devt_slotoff;    /* startoff = devt_slotoff * devt_slotsize */
+```
+
+- `extra_devices`：额外设备的数量，**不含主设备**
+- `devt_slotoff`：device table 的起始位置，**单位是 slot，不是块**
+
+内核换算：
+
+```c
+/* erofs_scan_devices() */
+pos = le16_to_cpu(dsb->devt_slotoff) * EROFS_DEVT_SLOT_SIZE;
+```
+
+其中 `EROFS_DEVT_SLOT_SIZE = sizeof(struct erofs_deviceslot)` = **128 字节**（erofs_fs.h:51）。
+mkfs 写入时反向计算：
+
+```c
+/* erofs-utils/lib/super.c —— erofs_mkfs_init_devices() */
+sbi->devt_slotoff = erofs_btell(bh, false) / EROFS_DEVT_SLOT_SIZE;
+```
+
+**为什么用 slot 而不是块地址**：`devt_slotoff` 是 16 位。按字节计只能表示 64 KiB；
+按 128 字节的 slot 计则可表示约 8 MiB，**寻址范围扩大 128 倍**。
+这一点与同结构里的 `meta_blkaddr` / `xattr_blkaddr`（都是**块号**）不同，容易混淆。
+
+实测三个镜像：
+
+| 镜像 | extra_devices | devt_slotoff | 字节偏移 |
+|---|---|---|---|
+| `multidev/main.erofs` | 1 | 9 | 1152 |
+| `tmp-chunk8/md.erofs` | 1 | 9 | 1152 |
+| `metabox-test/mb.erofs` | 0 | 0 | —（无 device table） |
+
+**为什么通常是 9**：`EROFS_SUPER_OFFSET` = 1024 = 8 × 128，superblock 自身 128 字节
+（`sb_extslots` = 0 时），device table 紧随其后 ⇒ 第 9 个 slot ⇒ 1152 字节。
+
+`sb_extslots` > 0 时该值会后移。对照实测（同一源目录 + `--blobdev`，唯一变量是 `-m 4096`）：
+
+| 镜像 | sb_extslots | sb_size | devt_slotoff | 字节 | superblock 结束 |
+|---|---|---|---|---|---|
+| `a.erofs`（无 metabox） | 0 | 128 | **9** | 1152 | 1152 |
+| `b.erofs`（`-m 4096`） | 1 | 144 | **10** | 1280 | 1168 |
+
+⇒ 规律是 `devt_slotoff` = ceil((1024 + `sb_size`) / 128)：
+
+- 1024 + 128 = 1152，1152 / 128 = 9 ⇒ 9
+- 1024 + 144 = 1168，1168 / 128 = 9.125 ⇒ 向上取整得 **10**
+
+即 device table 起始位置会**向上对齐到下一个 128 字节 slot 边界**，
+所以 `sb_extslots` 每多 1（superblock 增 16 字节）并不总是让 `devt_slotoff` 加 1，
+只有跨过 slot 边界时才会。
+
+⚠️ `extra_devices` = 0 时 `devt_slotoff` **不参与计算**——`erofs_scan_devices()`
+先检查 `erofs_sb_has_device_table()` 与 `dsb->extra_devices`，为 0 就直接返回，
+根本不会去读 device table。上表里 `mb.erofs` 的 0 属于"字段无意义"，
+不是"device table 在偏移 0"。
+
 ---
 
 ## 三、flatdev 的唯一判定点
