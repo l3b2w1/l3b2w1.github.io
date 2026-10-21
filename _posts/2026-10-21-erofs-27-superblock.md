@@ -2,7 +2,7 @@
 layout:     post
 title:      EROFS Super Block
 subtitle:   EROFS 超级块
-date:       2026-10-12
+date:       2026-10-21
 author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
