@@ -118,8 +118,8 @@ cat trace
 
 #### 2.3 脚本（`/trace-read-fileio.sh`）
 
-完整内容见 `trace-graph/trace-read-fileio.sh`（7.3 时代的原始版本见
-[2026-09-16-erofs-trace-read-fileio.sh](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-16-erofs-trace-read-fileio.sh)），
+[trace-read-fileio.sh](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-10-22-erofs-trace-read-fileio.sh)
+
 核心片段：
 
 ```sh
@@ -235,7 +235,7 @@ PROBE_erofs_fileio_scan_folio=0  ★ 函数已删除，确认抓不到
 
 #### 2.5 提炼出的读路径栈（fileio，v7.4）
 
-[完整graph-trace栈](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-09-22-erofs-trace-graph-fileio-74.txt)
+[完整graph-trace栈](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-10-22-erofs-trace-graph-fileio-74.txt)
 
 ```text
 __x64_sys_read() {                          ← 根函数（不能用 do_mount/vfs_read 那类）
@@ -334,8 +334,7 @@ cat trace
 
 #### 3.3 脚本（`/trace-read-bdev.sh`）
 
-与 fileio 版唯一差别在第 1 段（挂载方式），PROBE 清单 7.4 起两边统一
-（完整内容见 `trace-graph/trace-read-bdev.sh`）：
+[trace-read-bdev.sh](https://raw.githubusercontent.com/l3b2w1/l3b2w1.github.io/master/img/2026-10-22-erofs-trace-read-bdev.sh)
 
 ```sh
 FUNCTION=$1
