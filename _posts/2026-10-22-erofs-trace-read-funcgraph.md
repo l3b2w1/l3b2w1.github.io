@@ -2,7 +2,7 @@
 layout:     post
 title:      EROFS trace read funcgraph
 subtitle:   EROFS 跟踪读调用路径
-date:       2026-09-22
+date:       2026-10-22
 author:     icecube
 header-img: img/bluelinux.jpg
 catalog: true
