@@ -810,39 +810,6 @@ v5.15 到 7.4 窗口的演进路线（DIO/DAX → 全量非压缩 → fiemap/see
 
 ---
 
-## 参考资料
-
-[1] Xiang, Gao. "iomap: support reading inline data from non-zero pos." *Linux kernel source tree*,  
-commit 69f4a26c1e0c, 3 Aug. 2021, git.kernel.org.
-
-[2] Jianan, Huang. "erofs: iomap support for non-tailpacking DIO." *Linux kernel source tree*,  
-commit a08e67a02802, 5 Aug. 2021, git.kernel.org.
-
-[3] Xiang, Gao. "erofs: dax support for non-tailpacking regular file." *Linux kernel source tree*,  
-commit 06252e9ce05b, 5 Aug. 2021, git.kernel.org.
-
-[4] Xiang, Gao. "erofs: convert all uncompressed cases to iomap." *Linux kernel source tree*,  
-commit 771c994ea51f, 5 Aug. 2021, git.kernel.org.
-
-[5] Xiang, Gao. "erofs: add fiemap support with iomap." *Linux kernel source tree*,  
-commit eadcd6b5a1eb, 13 Aug. 2021, git.kernel.org.
-
-[6] Xiang, Gao. "erofs: add SEEK_{DATA,HOLE} support." *Linux kernel source tree*,  
-commit 83a8836fa19a, 11 Oct. 2024, git.kernel.org.
-
-[7] Koong, Joanne. "iomap: add caller-provided callbacks for read and readahead." *Linux kernel source tree*,  
-commit b2f35ac4146d, 25 Sept. 2025, git.kernel.org.
-
-[8] Koong, Joanne. "iomap: add ->iomap_next()." *Linux kernel source tree*,  
-commit 26dfed9c7a28, 29 Jul. 2026, git.kernel.org.
-
-[9] Koong, Joanne. "erofs: convert iomap ops to ->iomap_next()." *Linux kernel source tree*,  
-commit 32055631cc5e, 29 Jul. 2026, git.kernel.org.
-
-[10] Xiang, Gao. "erofs: enable iomap for file-backed mounts on unencoded inodes." *Linux kernel source tree*,  
-commit 1137aa577a35, 17 Oct. 2026, git.kernel.org.
-
-源码文件（同一源码树内）：`fs/erofs/data.c`、`fs/erofs/zmap.c`、  
-`fs/erofs/zdata.c`、`fs/erofs/fileio.c`、`fs/erofs/ishare.c`、  
-`fs/erofs/super.c`、`fs/erofs/internal.h`、`fs/iomap/`（全部）、  
-`include/linux/iomap.h`。
+## 参考
+[EROFS 官方文档 Release 0.1](https://erofs.docs.kernel.org)  
+[linux-stable (2f2f7eeef8b0)](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git)  
