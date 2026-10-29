@@ -11,7 +11,7 @@ tags:
   - erofs
 ---
 
-# EROFS 对 iomap 机制的运用：源码级专题分析
+# 28 · EROFS 对 iomap 机制的运用：源码级专题分析
 
 > **源码基线**：`a804c5742bff`（v7.4-rc1 合并窗口后），源码树 `/home/linux/erofs/linux-stable`  
 
