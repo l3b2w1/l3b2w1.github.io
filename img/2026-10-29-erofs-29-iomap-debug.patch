@@ -1,0 +1,97 @@
+diff --git a/fs/erofs/data.c b/fs/erofs/data.c
+index f09c152d5516..d35d17787530 100644
+--- a/fs/erofs/data.c
++++ b/fs/erofs/data.c
+@@ -306,4 +306,9 @@ static int erofs_iomap_begin(struct inode *inode, loff_t offset, loff_t length,
+ 	if (!(map.m_flags & EROFS_MAP_MAPPED)) {
+ 		iomap->type = IOMAP_HOLE;
++		pr_info("IOMAPDBG e_begin: ino=%llu la=%llu llen=%llu mflags=0x%x -> HOLE addr=%llx devid=%u\n",
++			(unsigned long long)inode->i_ino,
++			(unsigned long long)map.m_la, (unsigned long long)map.m_llen,
++			(unsigned int)map.m_flags, (unsigned long long)iomap->addr,
++			(unsigned int)map.m_deviceid);
+ 		return 0;
+ 	}
+@@ -346,4 +351,10 @@ static int erofs_iomap_begin(struct inode *inode, loff_t offset, loff_t length,
+ 		iomap->type = IOMAP_MAPPED;
+ 	}
++	pr_info("IOMAPDBG e_begin: ino=%llu la=%llu llen=%llu mflags=0x%x pa=%llx -> type=%u addr=%llx bdev=%d devid=%u\n",
++		(unsigned long long)inode->i_ino, (unsigned long long)map.m_la,
++		(unsigned long long)map.m_llen, (unsigned int)map.m_flags,
++		(unsigned long long)map.m_pa, (unsigned int)iomap->type,
++		(unsigned long long)iomap->addr, !!iomap->bdev,
++		(unsigned int)map.m_deviceid);
+ 	return 0;
+ }
+diff --git a/fs/iomap/buffered-io.c b/fs/iomap/buffered-io.c
+index 678f4c5329e7..fd8ec852c6e6 100644
+--- a/fs/iomap/buffered-io.c
++++ b/fs/iomap/buffered-io.c
+@@ -538,4 +538,8 @@ static void iomap_read_end(struct folio *folio, size_t bytes_submitted)
+ 		if (end_read)
+ 			uptodate = ifs_is_fully_uptodate(folio, ifs);
++		pr_info("IOMAPDBG read_end: ino=%llu fpos=%lld fsize=%zu submitted=%zu pending=%u end_read=%d\n",
++			(unsigned long long)folio->mapping->host->i_ino,
++			folio_pos(folio), folio_size(folio), bytes_submitted,
++			ifs->read_bytes_pending, end_read);
+ 		spin_unlock_irq(&ifs->state_lock);
+ 		if (end_read)
+@@ -551,4 +555,7 @@ static void iomap_read_end(struct folio *folio, size_t bytes_submitted)
+ 		 */
+ 		WARN_ON_ONCE(bytes_submitted);
++		pr_info("IOMAPDBG read_end_noifs: ino=%llu fpos=%lld fsize=%zu submitted=%zu\n",
++			(unsigned long long)folio->mapping->host->i_ino,
++			folio_pos(folio), folio_size(folio), bytes_submitted);
+ 		folio_unlock(folio);
+ 	}
+@@ -582,4 +589,9 @@ static int iomap_read_folio_iter(struct iomap_iter *iter,
+ 				&plen);
+ 
++		pr_info("IOMAPDBG rf_iter: ino=%llu fpos=%lld fsize=%zu pos=%lld type=%u poff=%zu plen=%zu submitted=%zu\n",
++			(unsigned long long)iter->inode->i_ino, folio_pos(folio),
++			folio_size(folio), pos, (unsigned int)iomap->type,
++			poff, plen, *bytes_submitted);
++
+ 		pos_diff = pos - iter->pos;
+ 		if (WARN_ON_ONCE(pos_diff + plen > length))
+@@ -640,4 +652,8 @@ static int iomap_read_folio_iter(struct iomap_iter *iter,
+ 		}
+ 
++		pr_info("IOMAPDBG rf_done: ino=%llu fpos=%lld type=%u poff=%zu plen=%zu submitted=%zu\n",
++			(unsigned long long)iter->inode->i_ino, folio_pos(folio),
++			(unsigned int)iomap->type, poff, plen, *bytes_submitted);
++
+ 		ret = iomap_iter_advance(iter, plen);
+ 		if (ret)
+diff --git a/fs/iomap/iter.c b/fs/iomap/iter.c
+index fd8791c4963b..3f6d6966c31e 100644
+--- a/fs/iomap/iter.c
++++ b/fs/iomap/iter.c
+@@ -127,8 +127,24 @@ int iomap_iter(struct iomap_iter *iter, const struct iomap_ops *ops)
+ 
+ 	iter->status = 0;
+-	if (ret > 0)
++	if (ret > 0) {
+ 		iomap_iter_done(iter);
+-	else if (ret < 0)
+-		iomap_iter_clean_fbatch(iter, &iter->iomap);
++		pr_info("IOMAPDBG iter_enter: ino=%llu pos=%lld len=%llu start=%lld | iomap off=%lld len=%llu type=%u addr=%llx flags=0x%x src=%u\n",
++			(unsigned long long)iter->inode->i_ino, iter->pos,
++			(unsigned long long)iter->len, iter->iter_start_pos,
++			iter->iomap.offset, (unsigned long long)iter->iomap.length,
++			(unsigned int)iter->iomap.type,
++			(unsigned long long)iter->iomap.addr,
++			(unsigned int)iter->iomap.flags,
++			(unsigned int)iter->srcmap.type);
++	} else {
++		if (ret < 0)
++			iomap_iter_clean_fbatch(iter, &iter->iomap);
++		pr_info("IOMAPDBG iter_exit: ino=%llu ret=%d pos=%lld len=%llu start=%lld | iomap off=%lld len=%llu type=%u addr=%llx\n",
++			(unsigned long long)iter->inode->i_ino, ret, iter->pos,
++			(unsigned long long)iter->len, iter->iter_start_pos,
++			iter->iomap.offset, (unsigned long long)iter->iomap.length,
++			(unsigned int)iter->iomap.type,
++			(unsigned long long)iter->iomap.addr);
++	}
+ 
+ 	return ret;

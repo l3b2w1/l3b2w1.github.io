@@ -1,0 +1,955 @@
+configure accelerator pc-i440fx-6.2 start
+machine init start
+add rom file: vga.rom
+add rom file: e1000.rom
+device init start
+add qdev virtio-9p-pci:none success
+add qdev virtio-9p-pci:none success
+add qdev virtio-blk-pci:none success
+add qdev virtio-blk:none success
+add qdev virtio-blk-pci:none success
+add qdev virtio-blk:none success
+add qdev virtio-blk-pci:none success
+add qdev virtio-blk:none success
+reset all devices
+qmp cont is received and vm is started
+qemu enter main_loop
+c[?7l[2J[0mSeaBIOS (version rel-1.15.0-0-g2dd4b9b3f840-prebuilt.qemu.orgvirtio-blk device status is 3 that means DRIVER
+virtio-blk device status is 11 that means DRIVER
+virtio-blk device status is 15 that means DRIVER OK
+virtio-blk device status is 3 that means DRIVER
+virtio-blk device status is 11 that means DRIVER
+virtio-blk device status is 15 that means DRIVER OK
+virtio-blk device status is 3 that means DRIVER
+virtio-blk device status is 11 that means DRIVER
+virtio-blk device status is 15 that means DRIVER OK
+)
+
+
+iPXE (http://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+BFF91210+BFEF1210 CA00
+Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
+
+
+Booting from ROM..c[?7l[2J[0m.[    0.000000] Linux version 7.3.0-01703-ga804c5742bff-dirty (root@linux) (gcc (GCC) 10.3.1, GNU ld (GNU Binutils) 2.37) #23 SMP PREEMPT_DYNAMIC Wed Oct 28 17:56:49 CST 2026
+[    0.000000] Command line: console=ttyS0 rdinit=/init
+[    0.000000] x86/CPU: Model not found in latest microcode list
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009fbff]  System RAM
+[    0.000000] BIOS-e820: [mem 0x000000000009fc00-0x000000000009ffff]  device reserved
+[    0.000000] BIOS-e820: [gap 0x00000000000a0000-0x00000000000effff]
+[    0.000000] BIOS-e820: [mem 0x00000000000f0000-0x00000000000fffff]  device reserved
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000bffd6fff]  System RAM
+[    0.000000] BIOS-e820: [mem 0x00000000bffd7000-0x00000000bfffffff]  device reserved
+[    0.000000] BIOS-e820: [gap 0x00000000c0000000-0x00000000feffbfff]
+[    0.000000] BIOS-e820: [mem 0x00000000feffc000-0x00000000feffffff]  device reserved
+[    0.000000] BIOS-e820: [gap 0x00000000ff000000-0x00000000fffbffff]
+[    0.000000] BIOS-e820: [mem 0x00000000fffc0000-0x00000000ffffffff]  device reserved
+[    0.000000] BIOS-e820: [mem 0x0000000100000000-0x000000023fffffff]  System RAM
+[    0.000000] NX (Execute Disable) protection: active
+[    0.000000] APIC: Static calls initialized
+[    0.000000] DMI: SMBIOS 2.8 present.
+[    0.000000] DMI: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.15.0-0-g2dd4b9b3f840-prebuilt.qemu.org 04/01/2014
+[    0.000000] DMI: Memory slots populated: 1/1
+[    0.000000] Hypervisor detected: KVM
+[    0.000000] last_pfn = 0xbffd7 max_arch_pfn = 0x400000000
+[    0.000000] kvm-clock: Using msrs 4b564d01 and 4b564d00
+[    0.000000] kvm-clock: using sched offset of 297377314 cycles
+[    0.000002] clocksource: kvm-clock: mask: 0xffffffffffffffff max_cycles: 0x1cd42e4dffb, max_idle_ns: 881590591483 ns
+[    0.000004] tsc: Detected 2100.000 MHz processor
+[    0.000824] last_pfn = 0x240000 max_arch_pfn = 0x400000000
+[    0.000862] MTRR map: 4 entries (3 fixed + 1 variable; max 19), built from 8 variable MTRRs
+[    0.000865] x86/PAT: Configuration [0-7]: WB  WC  UC- UC  WB  WP  UC- WT  
+[    0.000915] last_pfn = 0xbffd7 max_arch_pfn = 0x400000000
+[    0.004324] found SMP MP-table at [mem 0x000f5b80-0x000f5b8f]
+[    0.004710] RAMDISK: [mem 0xbf874000-0xbffcffff]
+[    0.004716] ACPI: Early table checksum verification disabled
+[    0.004718] ACPI: RSDP 0x00000000000F5970 000014 (v00 BOCHS )
+[    0.004723] ACPI: RSDT 0x00000000BFFE1A38 000034 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.004728] ACPI: FACP 0x00000000BFFE18D4 000074 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.004731] ACPI: DSDT 0x00000000BFFE0040 001894 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.004733] ACPI: FACS 0x00000000BFFE0000 000040
+[    0.004735] ACPI: APIC 0x00000000BFFE1948 000090 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.004737] ACPI: HPET 0x00000000BFFE19D8 000038 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.004739] ACPI: WAET 0x00000000BFFE1A10 000028 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.004741] ACPI: Reserving FACP table memory at [mem 0xbffe18d4-0xbffe1947]
+[    0.004742] ACPI: Reserving DSDT table memory at [mem 0xbffe0040-0xbffe18d3]
+[    0.004743] ACPI: Reserving FACS table memory at [mem 0xbffe0000-0xbffe003f]
+[    0.004743] ACPI: Reserving APIC table memory at [mem 0xbffe1948-0xbffe19d7]
+[    0.004744] ACPI: Reserving HPET table memory at [mem 0xbffe19d8-0xbffe1a0f]
+[    0.004744] ACPI: Reserving WAET table memory at [mem 0xbffe1a10-0xbffe1a37]
+[    0.004975] No NUMA configuration found
+[    0.004976] Faking a node at [mem 0x0000000000000000-0x000000023fffffff]
+[    0.004978] NODE_DATA(0) allocated [mem 0x23fff8680-0x23fffbfff]
+[    0.005351] ACPI: PM-Timer IO Port: 0x608
+[    0.005359] ACPI: LAPIC_NMI (acpi_id[0xff] dfl dfl lint[0x1])
+[    0.005389] IOAPIC[0]: apic_id 0, version 17, address 0xfec00000, GSI 0-23
+[    0.005391] ACPI: INT_SRC_OVR (bus 0 bus_irq 0 global_irq 2 dfl dfl)
+[    0.005392] ACPI: INT_SRC_OVR (bus 0 bus_irq 5 global_irq 5 high level)
+[    0.005393] ACPI: INT_SRC_OVR (bus 0 bus_irq 9 global_irq 9 high level)
+[    0.005394] ACPI: INT_SRC_OVR (bus 0 bus_irq 10 global_irq 10 high level)
+[    0.005395] ACPI: INT_SRC_OVR (bus 0 bus_irq 11 global_irq 11 high level)
+[    0.005398] ACPI: Using ACPI (MADT) for SMP configuration information
+[    0.005398] ACPI: HPET id: 0x8086a201 base: 0xfed00000
+[    0.005401] CPU topo: Max. logical packages:   1
+[    0.005402] CPU topo: Max. logical nodes:      1
+[    0.005402] CPU topo: Num. nodes per package:  1
+[    0.005404] CPU topo: Max. logical dies:       1
+[    0.005404] CPU topo: Max. dies per package:   1
+[    0.005407] CPU topo: Max. threads per core:   1
+[    0.005407] CPU topo: Num. cores per package:     4
+[    0.005407] CPU topo: Num. threads per package:   4
+[    0.005408] CPU topo: Allowing 4 present CPUs plus 0 hotplug CPUs
+[    0.005421] kvm-guest: APIC: eoi() replaced with kvm_guest_apic_eoi_write()
+[    0.005432] PM: hibernation: Registered nosave memory: [mem 0x00000000-0x00000fff]
+[    0.005433] PM: hibernation: Registered nosave memory: [mem 0x0009f000-0x000fffff]
+[    0.005434] PM: hibernation: Registered nosave memory: [mem 0xbffd7000-0xffffffff]
+[    0.005436] [gap 0xc0000000-0xfeffbfff] available for PCI devices
+[    0.005437] Booting paravirtualized kernel on KVM
+[    0.005438] clocksource: refined-jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1910969940391419 ns
+[    0.012130] Zone ranges:
+[    0.012130]   DMA      [mem 0x0000000000001000-0x0000000000ffffff]
+[    0.012132]   DMA32    [mem 0x0000000001000000-0x00000000ffffffff]
+[    0.012134]   Normal   [mem 0x0000000100000000-0x000000023fffffff]
+[    0.012135] Movable zone start for each node
+[    0.012135] Early memory node ranges
+[    0.012136]   node   0: [mem 0x0000000000001000-0x000000000009efff]
+[    0.012137]   node   0: [mem 0x0000000000100000-0x00000000bffd6fff]
+[    0.012137]   node   0: [mem 0x0000000100000000-0x000000023fffffff]
+[    0.012138] Initmem setup node 0 [mem 0x0000000000001000-0x000000023fffffff]
+[    0.012371] On node 0, zone DMA: 1 pages in unavailable ranges
+[    0.012381] On node 0, zone DMA: 97 pages in unavailable ranges
+[    0.031442] On node 0, zone Normal: 41 pages in unavailable ranges
+[    0.031448] setup_percpu: NR_CPUS:64 nr_cpumask_bits:4 nr_cpu_ids:4 nr_node_ids:1
+[    0.031789] percpu: Embedded 53 pages/cpu s180056 r8192 d28840 u524288
+[    0.031815] Kernel command line: console=ttyS0 rdinit=/init
+[    0.031829] printk: log buffer data + meta data: 262144 + 917504 = 1179648 bytes
+[    0.033036] Dentry cache hash table entries: 1048576 (order: 11, 8388608 bytes, linear)
+[    0.033622] Inode-cache hash table entries: 524288 (order: 10, 4194304 bytes, linear)
+[    0.033679] software IO TLB: area num 4.
+[    0.050148] Fallback order for Node 0: 0 
+[    0.050151] Built 1 zonelists, mobility grouping on.  Total pages: 2097013
+[    0.050152] Policy zone: Normal
+[    0.050153] mem auto-init: stack:off, heap alloc:off, heap free:off
+[    0.062112] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=1
+[    0.062124] Kernel/User page tables isolation: enabled
+[    0.072708] ftrace: allocating 59362 entries in 232 pages
+[    0.072709] ftrace: allocated 232 pages with 4 groups
+[    0.072759] Dynamic Preempt: lazy
+[    0.072987] rcu: Preemptible hierarchical RCU implementation.
+[    0.072988] rcu: 	RCU event tracing is enabled.
+[    0.072988] rcu: 	RCU restricting CPUs from NR_CPUS=64 to nr_cpu_ids=4.
+[    0.072989] 	Trampoline variant of Tasks RCU enabled.
+[    0.072990] 	Rude variant of Tasks RCU enabled.
+[    0.072990] 	Tracing variant of Tasks RCU enabled.
+[    0.072990] rcu: RCU calculated value of scheduler-enlistment delay is 100 jiffies.
+[    0.072991] rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=4
+[    0.073002] RCU Tasks: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=4.
+[    0.073004] RCU Tasks Rude: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=4.
+[    0.084040] NR_IRQS: 4352, nr_irqs: 456, preallocated irqs: 16
+[    0.084225] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.084232] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 1911260446275000 ns
+[    0.089233] Console: colour VGA+ 80x25
+[    0.089268] printk: console [ttyS0] enabled
+[    0.166542] ACPI: Core revision 20260408
+[    0.167055] clocksource: hpet: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604467 ns
+[    0.168079] APIC: Switch to symmetric I/O mode setup
+[    0.168819] x2apic enabled
+[    0.169432] APIC: Switched APIC routing to: physical x2apic
+[    0.171072] ..TIMER: vector=0x30 apic1=0 pin1=2 apic2=-1 pin2=-1
+[    0.171713] clocksource: tsc-early: mask: 0xffffffffffffffff max_cycles: 0x1e4530a99b6, max_idle_ns: 440795257976 ns
+[    0.172813] Calibrating delay loop (skipped) preset value.. 4200.00 BogoMIPS (lpj=2100000)
+[    0.174004] Last level iTLB entries: 4KB 0, 2MB 0, 4MB 0
+[    0.174812] Last level dTLB entries: 4KB 0, 2MB 0, 4MB 0, 1GB 0
+[    0.175422] mitigations: Enabled attack vectors: user_kernel, user_user, SMT mitigations: auto
+[    0.175812] Speculative Store Bypass: Vulnerable
+[    0.176812] Spectre V2 : Mitigation: Retpolines
+[    0.177280] ITS: Mitigation: Aligned branch/return thunks
+[    0.177812] MDS: Vulnerable: Clear CPU buffers attempted, no microcode
+[    0.178812] Spectre V1 : Mitigation: usercopy/swapgs barriers and __user pointer sanitization
+[    0.179689] Spectre V2 : Spectre v2 / SpectreRSB: Filling RSB on context switch and VMEXIT
+[    0.179812] active return thunk: its_return_thunk
+[    0.180813] x86/fpu: x87 FPU will use FXSAVE
+[    0.200725] pid_max: default: 32768 minimum: 301
+[    0.200840] SELinux:  Initializing.
+[    0.201354] Mount-cache hash table entries: 16384 (order: 5, 131072 bytes, linear)
+[    0.201819] Mountpoint-cache hash table entries: 16384 (order: 5, 131072 bytes, linear)
+[    0.202864] VFS: Finished mounting rootfs on nullfs
+[    0.306123] smpboot: CPU0: Intel QEMU Virtual CPU version 2.5+ (family: 0xf, model: 0x6b, stepping: 0x1)
+[    0.306961] Performance Events: unsupported Netburst CPU model 107 no PMU driver, software events only.
+[    0.307833] signal: max sigframe size: 1440
+[    0.308510] rcu: Hierarchical SRCU implementation.
+[    0.308814] rcu: 	Max phase no-delay instances is 400.
+[    0.309385] Timer migration: 1 hierarchy levels; 8 children per group; 1 crossnode level
+[    0.313589] smp: Bringing up secondary CPUs ...
+[    0.313902] smpboot: x86: Booting SMP configuration:
+[    0.314423] .... node  #0, CPUs:      #1 #2 #3
+[    0.318853] smp: Brought up 1 node, 4 CPUs
+[    0.319812] smpboot: Total of 4 processors activated (16800.00 BogoMIPS)
+[    0.320843] Memory: 8120008K/8388052K available (19900K kernel code, 3179K rwdata, 8192K rodata, 3816K init, 672K bss, 261512K reserved, 0K cma-reserved)
+[    0.322862] devtmpfs: initialized
+[    0.323347] posixtimers hash table entries: 2048 (order: 3, 32768 bytes, linear)
+[    0.323824] futex hash table entries: 1024 (65536 bytes on 1 NUMA nodes, total 64 KiB, linear).
+[    0.324910] PM: RTC time: 09:57:33, date: 2026-10-28
+[    0.325927] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    0.326604] audit: initializing netlink subsys (disabled)
+[    0.326818] audit: type=2000 audit(1793181453.774:1): state=initialized audit_enabled=0 res=1
+[    0.326874] thermal_sys: Registered thermal governor 'step_wise'
+[    0.327814] cpuidle: using governor menu
+[    0.329354] PCI: Using configuration type 1 for base access
+[    0.329843] kprobes: kprobe jump-optimization is enabled. All kprobes are optimized if possible.
+[    0.329854] HugeTLB: registered 2.00 MiB page size, pre-allocated 0 pages
+[    0.329854] HugeTLB: 28 KiB vmemmap can be freed for a 2.00 MiB page
+[    0.329854] ACPI: Added _OSI(Module Device)
+[    0.329854] ACPI: Added _OSI(Processor Device)
+[    0.329854] ACPI: Added _OSI(Processor Aggregator Device)
+[    0.331055] ACPI: 1 ACPI AML tables successfully acquired and loaded
+[    0.333820] ACPI: \_SB_: platform _OSC: OS support mask [002a7eee]
+[    0.333977] ACPI: Interpreter enabled
+[    0.333988] ACPI: PM: (supports S0 S3 S4 S5)
+[    0.333988] ACPI: Using IOAPIC for interrupt routing
+[    0.333997] PCI: Using host bridge windows from ACPI; if necessary, use "pci=nocrs" and report a bug
+[    0.333998] PCI: Using E820 reservations for host bridge windows
+[    0.334092] ACPI: Enabled 2 GPEs in block 00 to 0F
+[    0.336767] ACPI: PCI Root Bridge [PCI0] (domain 0000 [bus 00-ff])
+[    0.336774] acpi PNP0A03:00: fail to add MMCONFIG information, can't access extended configuration space under this bridge
+[    0.336929] PCI host bridge to bus 0000:00
+[    0.336931] pci_bus 0000:00: root bus resource [io  0x0000-0x0cf7 window]
+[    0.336933] pci_bus 0000:00: root bus resource [io  0x0d00-0xffff window]
+[    0.336934] pci_bus 0000:00: root bus resource [mem 0x000a0000-0x000bffff window]
+[    0.336935] pci_bus 0000:00: root bus resource [mem 0xc0000000-0xfebfffff window]
+[    0.336936] pci_bus 0000:00: root bus resource [mem 0x240000000-0x2bfffffff window]
+[    0.336937] pci_bus 0000:00: root bus resource [bus 00-ff]
+[    0.336989] pci 0000:00:00.0: [8086:1237] type 00 class 0x060000 conventional PCI endpoint
+[    0.337908] pci 0000:00:01.0: [8086:7000] type 00 class 0x060100 conventional PCI endpoint
+[    0.338552] pci 0000:00:01.1: [8086:7010] type 00 class 0x010180 conventional PCI endpoint
+[    0.339342] pci 0000:00:01.1: BAR 4 [io  0xc1e0-0xc1ef]
+[    0.339397] pci 0000:00:01.1: BAR 0 [io  0x01f0-0x01f7]: legacy IDE quirk
+[    0.339398] pci 0000:00:01.1: BAR 1 [io  0x03f6]: legacy IDE quirk
+[    0.339399] pci 0000:00:01.1: BAR 2 [io  0x0170-0x0177]: legacy IDE quirk
+[    0.339400] pci 0000:00:01.1: BAR 3 [io  0x0376]: legacy IDE quirk
+[    0.339559] pci 0000:00:01.3: [8086:7113] type 00 class 0x068000 conventional PCI endpoint
+[    0.340090] pci 0000:00:01.3: quirk: [io  0x0600-0x063f] claimed by PIIX4 ACPI
+[    0.340097] pci 0000:00:01.3: quirk: [io  0x0700-0x070f] claimed by PIIX4 SMB
+[    0.340339] pci 0000:00:02.0: [1234:1111] type 00 class 0x030000 conventional PCI endpoint
+[    0.341533] pci 0000:00:02.0: BAR 0 [mem 0xfd000000-0xfdffffff pref]
+[    0.341556] pci 0000:00:02.0: BAR 2 [mem 0xfebf0000-0xfebf0fff]
+[    0.341587] pci 0000:00:02.0: ROM [mem 0xfebe0000-0xfebeffff pref]
+[    0.341846] pci 0000:00:02.0: Video device with shadowed ROM at [mem 0x000c0000-0x000dffff]
+[    0.342500] pci 0000:00:03.0: [8086:100e] type 00 class 0x020000 conventional PCI endpoint
+[    0.343413] pci 0000:00:03.0: BAR 0 [mem 0xfebc0000-0xfebdffff]
+[    0.343425] pci 0000:00:03.0: BAR 1 [io  0xc180-0xc1bf]
+[    0.343476] pci 0000:00:03.0: ROM [mem 0xfeb80000-0xfebbffff pref]
+[    0.344229] pci 0000:00:04.0: [1af4:1009] type 00 class 0x000200 conventional PCI endpoint
+[    0.345609] pci 0000:00:04.0: BAR 0 [io  0xc1c0-0xc1df]
+[    0.345621] pci 0000:00:04.0: BAR 1 [mem 0xfebf1000-0xfebf1fff]
+[    0.345660] pci 0000:00:04.0: BAR 4 [mem 0xfe000000-0xfe003fff 64bit pref]
+[    0.346839] pci 0000:00:05.0: [1af4:1001] type 00 class 0x010000 conventional PCI endpoint
+[    0.348470] pci 0000:00:05.0: BAR 0 [io  0xc000-0xc07f]
+[    0.348483] pci 0000:00:05.0: BAR 1 [mem 0xfebf2000-0xfebf2fff]
+[    0.348520] pci 0000:00:05.0: BAR 4 [mem 0xfe004000-0xfe007fff 64bit pref]
+[    0.349723] pci 0000:00:06.0: [1af4:1001] type 00 class 0x010000 conventional PCI endpoint
+[    0.350822] pci 0000:00:06.0: BAR 0 [io  0xc080-0xc0ff]
+[    0.350835] pci 0000:00:06.0: BAR 1 [mem 0xfebf3000-0xfebf3fff]
+[    0.350874] pci 0000:00:06.0: BAR 4 [mem 0xfe008000-0xfe00bfff 64bit pref]
+[    0.352894] pci 0000:00:07.0: [1af4:1001] type 00 class 0x010000 conventional PCI endpoint
+[    0.353825] pci 0000:00:07.0: BAR 0 [io  0xc100-0xc17f]
+[    0.353838] pci 0000:00:07.0: BAR 1 [mem 0xfebf4000-0xfebf4fff]
+[    0.353877] pci 0000:00:07.0: BAR 4 [mem 0xfe00c000-0xfe00ffff 64bit pref]
+[    0.357717] ACPI: PCI: Interrupt link LNKA configured for IRQ 10
+[    0.357800] ACPI: PCI: Interrupt link LNKB configured for IRQ 10
+[    0.357880] ACPI: PCI: Interrupt link LNKC configured for IRQ 11
+[    0.357968] ACPI: PCI: Interrupt link LNKD configured for IRQ 11
+[    0.358012] ACPI: PCI: Interrupt link LNKS configured for IRQ 9
+[    0.358218] iommu: Default domain type: Translated
+[    0.358219] iommu: DMA domain TLB invalidation policy: lazy mode
+[    0.359853] SCSI subsystem initialized
+[    0.359904] ACPI: bus type USB registered
+[    0.359918] usbcore: registered new interface driver usbfs
+[    0.359923] usbcore: registered new interface driver hub
+[    0.359929] usbcore: registered new device driver usb
+[    0.359938] pps_core: LinuxPPS API ver. 1 registered
+[    0.359939] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    0.359941] PTP clock support registered
+[    0.360837] Advanced Linux Sound Architecture Driver Initialized.
+[    0.360952] NetLabel: Initializing
+[    0.360953] NetLabel:  domain hash size = 128
+[    0.360954] NetLabel:  protocols = UNLABELED CIPSOv4 CALIPSO
+[    0.360964] NetLabel:  unlabeled traffic allowed by default
+[    0.360977] PCI: Using ACPI for IRQ routing
+[    0.361880] e820: register RAM buffer resource [mem 0x0009fc00-0x0009ffff]
+[    0.361882] e820: register RAM buffer resource [mem 0xbffd7000-0xbfffffff]
+[    0.362840] pci 0000:00:02.0: vgaarb: setting as boot VGA device
+[    0.362841] pci 0000:00:02.0: vgaarb: bridge control possible
+[    0.362842] pci 0000:00:02.0: vgaarb: VGA device added: decodes=io+mem,owns=io+mem,locks=none
+[    0.362844] vgaarb: loaded
+[    0.362864] hpet: 3 channels of 0 reserved for per-cpu timers
+[    0.362877] hpet0: at MMIO 0xfed00000, IRQs 2, 8, 0
+[    0.362880] hpet0: 3 comparators, 64-bit 100.000000 MHz counter
+[    0.367815] clocksource: Switched to clocksource kvm-clock
+[    0.368103] VFS: Disk quotas dquot_6.6.0
+[    0.368106] VFS: Dquot-cache hash table entries: 512 (4096 bytes)
+[    0.368528] pnp: PnP ACPI init
+[    0.368792] pnp: PnP ACPI: found 5 devices
+[    0.374328] clocksource: acpi_pm: mask: 0xffffff max_cycles: 0xffffff, max_idle_ns: 2085701024 ns
+[    0.374350] NET: Registered PF_INET protocol family
+[    0.374612] IP idents hash table entries: 131072 (order: 8, 1048576 bytes, linear)
+[    0.375796] tcp_listen_portaddr_hash hash table entries: 4096 (order: 4, 65536 bytes, linear)
+[    0.375804] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    0.375806] TCP established hash table entries: 65536 (order: 7, 524288 bytes, linear)
+[    0.375861] TCP bind hash table entries: 65536 (order: 9, 2097152 bytes, linear)
+[    0.376204] TCP: Hash tables configured (established 65536 bind 65536)
+[    0.376223] UDP hash table entries: 4096 (order: 6, 262144 bytes, linear)
+[    0.376281] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    0.376405] RPC: Registered named UNIX socket transport module.
+[    0.376408] RPC: Registered udp transport module.
+[    0.376408] RPC: Registered tcp transport module.
+[    0.376409] RPC: Registered tcp-with-tls transport module.
+[    0.376409] RPC: Registered tcp NFSv4.1 backchannel transport module.
+[    0.376640] pci_bus 0000:00: resource 4 [io  0x0000-0x0cf7 window]
+[    0.376643] pci_bus 0000:00: resource 5 [io  0x0d00-0xffff window]
+[    0.376644] pci_bus 0000:00: resource 6 [mem 0x000a0000-0x000bffff window]
+[    0.376645] pci_bus 0000:00: resource 7 [mem 0xc0000000-0xfebfffff window]
+[    0.376646] pci_bus 0000:00: resource 8 [mem 0x240000000-0x2bfffffff window]
+[    0.376710] pci 0000:00:01.0: PIIX3: Enabling Passive Release
+[    0.376731] pci 0000:00:00.0: Limiting direct PCI/PCI transfers
+[    0.376860] PCI: CLS 0 bytes, default 64
+[    0.376912] PCI-DMA: Using software bounce buffering for IO (SWIOTLB)
+[    0.376913] software IO TLB: mapped [mem 0x00000000bb874000-0x00000000bf874000] (64MB)
+[    0.376931] clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x1e4530a99b6, max_idle_ns: 440795257976 ns
+[    0.377004] Unpacking initramfs...
+[    0.392114] Initialise system trusted keyrings
+[    0.392829] workingset: timestamp_bits=56 (anon: 51) max_order=21 bucket_order=0 (anon: 0)
+[    0.394971] NFS: Registering the id_resolver key type
+[    0.394976] Key type id_resolver registered
+[    0.394977] Key type id_legacy registered
+[    0.394979] nfs4filelayout_init: NFSv4 File Layout Driver Registering...
+[    0.394981] nfs4flexfilelayout_init: NFSv4 Flexfile Layout Driver Registering...
+[    0.395004] 9p: Installing v9fs 9p2000 file system support
+[    0.405323] Key type asymmetric registered
+[    0.405324] Asymmetric key parser 'x509' registered
+[    0.405331] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 251)
+[    0.405338] io scheduler mq-deadline registered
+[    0.405338] io scheduler kyber registered
+[    0.407102] input: Power Button as /devices/platform/LNXPWRBN:00/input/invirtio-9p device status is 1 that means ACKNOWLEDGE
+put0
+[    0.407153] ACPI: button: Power Button [PWRF]
+[    0.429053] ACPI: \_SB_.LNKD: Enabled at IRQ 11
+virtio-blk device status is 1 that means ACKNOWLEDGE
+[    0.449722] ACPI: \_SB_.LNKA: Enabled at IRQ 10
+virtio-blk device status is 1 that means ACKNOWLEDGE
+[    0.469653] ACPI: \_SB_.LNKB: Enabled at IRQ 10
+virtio-blk device status is 1 that means ACKNOWLEDGE
+[    0.489645] ACPI: \_SB_.LNKC: Enabled at IRQ 11
+[    0.490369] Serial: 8250/16550 driver, 4 ports, IRQ sharing enabled
+[    0.490920] Freeing initrd memory: 7536K
+[    0.491815] 00:04: ttyS0 I/O:0x3f8 (irq = 4, base_baud = 115200) is a 16550A
+[    0.492667] Non-volatile memory driver v1.3
+[    0.492735] ACPI: bus type drm_connecvirtio-blk device status is 3 that means DRIVER
+tor registevirtio-blk device status is 11 that means DRIVER
+red
+[    0.493800] loop: module loaded
+[    0.494007] virtio_blk virtio1: 4/0/0 default/read/poll queues
+virtio-blk device status is 15 that means DRIVER OK
+[    0.495380] virtio_blvirtio-blk device status is 3 that means DRIVER
+k virtiovirtio-blk device status is 11 that means DRIVER
+1: [vda] 634520 512-byte logical blocks (325 MB/310 MiB)
+[    0.496011] virtio_blk virtio2: 4/0/0 default/read/polvirtio-blk device status is 15 that means DRIVER OK
+l queues
+[    0.4virtio-blk device status is 3 that means DRIVER
+97135] virvirtio-blk device status is 11 that means DRIVER
+tio_blk virtio2: [vdb] 2104 512-byte logical blocks (1.08 MB/1.03 MiB)
+[    0.497680] virtio_blk virtio3: 4/0/0 defaulvirtio-blk device status is 15 that means DRIVER OK
+t/read/poll queues
+[    0.498818] virtio_blk virtio3: [vdc] 2088 512-byte logical blocks (1.07 MB/1.02 MiB)
+[    0.500110] scsi host0: ata_piix
+[    0.500204] scsi host1: ata_piix
+[    0.500224] ata1: PATA max MWDMA2 cmd 0x1f0 ctl 0x3f6 bmdma 0xc1e0 irq 14 lpm-pol 0
+[    0.500226] ata2: PATA max MWDMA2 cmd 0x170 ctl 0x376 bmdma 0xc1e8 irq 15 lpm-pol 0
+[    0.500344] e100: Intel(R) PRO/100 Network Driver
+[    0.500345] e100: Copyright(c) 1999-2006 Intel Corporation
+[    0.500353] e1000: Intel(R) PRO/1000 Network Driver
+[    0.500353] e1000: Copyright (c) 1999-2006 Intel Corporation.
+[    0.657698] ata2: found unknown device (class 0)
+[    0.658214] ata2.00: ATAPI: QEMU DVD-ROM, 2.5+, max UDMA/100
+[    0.659190] scsi 1:0:0:0: CD-ROM            QEMU     QEMU DVD-ROM     2.5+ PQ: 0 ANSI: 5
+[    0.673989] sr 1:0:0:0: [sr0] scsi3-mmc drive: 4x/4x cd/rw xa/form2 tray
+[    0.686822] cdrom: Uniform CD-ROM driver Revision: 3.20
+[    0.693072] sr 1:0:0:0: Attached scsi generic sg0 type 5
+[    0.822314] e1000 0000:00:03.0 eth0: (PCI:33MHz:32-bit) 52:54:00:12:34:56
+[    0.822320] e1000 0000:00:03.0 eth0: Intel(R) PRO/1000 Network Connection
+[    0.822338] e1000e: Intel(R) PRO/1000 Network Driver
+[    0.822339] e1000e: Copyright(c) 1999 - 2015 Intel Corporation.
+[    0.822351] sky2: driver version 1.30
+[    0.822478] usbcore: registered new interface driver usblp
+[    0.822485] usbcore: registered new interface drivervirtio-9p device status is 3 that means DRIVER
+ usb-storagevirtio-9p device status is 11 that means DRIVER
+
+[    0.822507] i8042: PNP: PS/2 Controller [PNP03virtio-9p device status is 15 that means DRIVER OK
+03:KBD,PNP0f13:MOU] at 0x60,0x64 irq 1,12
+[    0.823698] serio: i8042 KBD port at 0x60,0x64 irq 1
+[    0.823702] serio: i8042 AUX port at 0x60,0x64 irq 12
+[    0.823790] rtc_cmos PNP0B00:00: RTC can wake from S4
+[    0.824403] input: AT Translated Set 2 keyboard as /devices/platform/i8042/serio0/input/input1
+[    0.824462] rtc_cmos PNP0B00:00: registered as rtc0
+[    0.824519] rtc_cmos PNP0B00:00: alarms up to one day, y3k, 242 bytes nvram, hpet irqs
+[    0.824710] device-mapper: ioctl: 4.50.0-ioctl (2025-04-28) initialised: dm-devel@lists.linux.dev
+[    0.824717] intel_pstate: CPU model not supported
+[    0.824727] hid: raw HID events driver (C) Jiri Kosina
+[    0.824791] usbcore: registered new interface driver usbhid
+[    0.824792] usbhid: USB HID core driver
+[    0.825279] nf_conntrack_irc: The irc conntrack helper is scheduled for removal.
+[    0.825279] Please contact the netfilter-devel mailing list if you still need this.
+[    0.826596] Initializing XFRM netlink socket
+[    0.826619] NET: Registered PF_INET6 protocol family
+[    0.826864] Segment Routing with IPv6
+[    0.826871] In-situ OAM (IOAM) with IPv6
+[    0.826893] NET: Registered PF_PACKET protocol family
+[    0.826910] 9pnet: Installing 9P2000 support
+[    0.827914] Key type dns_resolver registered
+[    0.828387] IPI shorthand broadcast: enabled
+[    0.831205] sched_clock: Marking stable (745003082, 85579090)->(833141456, -2559284)
+[    0.833801] registered taskstats version 1
+[    0.837012] Loading compiled-in X.509 certificates
+[    0.838426] Demotion targets for Node 0: null
+[    0.838481] PM:   Magic number: 14:525:981
+[    0.838507] netconsole: network logging started
+[    0.838546] cfg80211: Loading compiled-in X.509 certificates for regulatory database
+[    0.838613] kworker/u16:0 (75) used greatest stack depth: 14432 bytes left
+[    0.838828] Loaded X.509 cert 'sforshee: 00b28ddf47aef9cea7'
+[    0.838941] Loaded X.509 cert 'wens: 61c038651aabdcf94bd0ac7ff06c7248db18c600'
+[    0.838953] ALSA device list:
+[    0.838954]   No soundcards found.
+[    0.839977] faux_driver regulatory: Direct firmware load for regulatory.db failed with error -2
+[    0.839979] cfg80211: failed to load regulatory.db
+[    0.843657] Freeing unused kernel image (initmem) memory: 3816K
+[    0.844127] Write protecting the kernel read-only data: 28672k
+[    0.846006] Freeing unused kernel image (text/rodata gap) memory: 576K
+[    0.893980] x86/mm: Checked W+X mappings: passed, no W+X pages found.
+[    0.894039] x86/mm: Checking user space page tables
+[    0.939977] x86/mm: Checked W+X mappings: passed, no W+X pages found.
+[    0.939979] Run /init as init process
+[    0.941278] busybox (78) used greatest stack depth: 13560 bytes left
+insmod: can't insert '/ko/virtio_blk.ko': invalid module format
+insmod: can't insert '/ko/mbcache.ko': invalid module format
+[    0.942640] module virtio_blk: .gnu.linkonce.this_module section size must match the kernel's built struct module size at run time
+[    0.943152] module mbcache: .gnu.linkonce.this_module section size must match the kernel's built struct module size at run time
+[    0.944466] module jbd2: .gnu.linkonce.this_module section size must match the kernel's built struct module size at run time
+insmod: can't insert '/ko/jbd2.ko': invalid module format
+[    0.951546] module ext4: .gnu.linkonce.this_module section size must match the kernel's built struct module size at run time
+insmod: can't insert '/ko/ext4.ko': invalid module format
+[    0.954107] IOMAPDBG iter_enter: ino=8 pos=0 len=4096 start=0 | iomap off=0 len=4096 type=2 addr=9e97000 flags=0x0 src=0
+[    0.954111] IOMAPDBG iter_exit: ino=8 ret=0 pos=0 len=4096 start=0 | iomap off=0 len=4096 type=2 addr=9e97000
+[    1.258399] input: ImExPS/2 Generic Explorer Mouse as /devices/platform/i8042/serio1/input/input3
+[    1.393571] EXT4-fs (vda): recovery complete
+loader: /dev/vda mounted as ext4, switching root
+[    1.416148] EXT4-fs (vda): mounted filesystem 34afeb39-8c01-4a56-bf4b-a2f5a9f1ea41 r/w with ordered data mode. Quota mode: none.
+[    1.416215] busybox (86) used greatest stack depth: 12968 bytes left
+/bin/sh: can't access tty; job control turned off
+# [6n# VM 内顺序执行的命令
+# mkdir -p /host
+# mount -t 9p -o trans=virtio,version=9p2000.L host /host
+mount: mounting host on /host failed: Device or resource busy
+# mkdir -p /mnt/c /mnt/f
+[    9.618460] 9pnet_virtio: no channels available for device host
+# 
+# echo "@@@@@@ MOUNT_CHUNK @@@@@@"
+@@@@@@ MOUNT_CHUNK @@@@@@
+# mount -t erofs /dev/vdb /mnt/c
+# echo "rc=[    9.623045] erofs (device vdb): initialized per-cpu workers successfully.
+[    9.623065] erofs (device vdb): mounted with root inode @ nid 36.
+$?"
+rc=0
+# echo "@@@@@@ MOUNT_FLAT @@@@@@"
+@@@@@@ MOUNT_FLAT @@@@@@
+# mount -t erofs /dev/vdc /mnt/f
+# ech[    9.628340] erofs (device vdc): mounted with root inode @ nid 36.
+o "rc=$?"
+rc=0
+# ls -l /mnt/c /mnt/f
+/mnt/c:
+-rw-r--r--    1 0        0          1048576 Oct 28 09:38 big1m
+-rw-r--r--    1 0        0      [    9.630816] IOMAPDBG e_begin: ino=36 la=0 llen=102 mflags=0x3 pa=4a0 -> type=4 addr=4a0 bdev=1 devid=0
+       5000 Oct [    9.630819] IOMAPDBG iter_enter: ino=36 pos=0 len=4096 start=0 | iomap off=0 len=102 type=4 addr=4a0 flags=0x0 src=0
+28 09:43 mid5000[    9.630823] IOMAPDBG e_begin: ino=36 la=102 llen=3994 mflags=0x0 -> HOLE addr=ffffffffffffffff devid=0
+
+-rw-r--r--    [    9.630824] IOMAPDBG iter_enter: ino=36 pos=102 len=3994 start=102 | iomap off=102 len=3994 type=0 addr=ffffffffffffffff flags=0x0 src=0
+1 0        0    [    9.630826] IOMAPDBG rf_iter: ino=36 fpos=0 fsize=4096 pos=102 type=0 poff=102 plen=3994 submitted=0
+        16384 Oc[    9.630828] IOMAPDBG rf_done: ino=36 fpos=0 type=0 poff=102 plen=3994 submitted=0
+t 28 09:38 spars[    9.630829] IOMAPDBG iter_exit: ino=36 ret=0 pos=4096 len=0 start=102 | iomap off=102 len=3994 type=0 addr=ffffffffffffffff
+e16k
+-rw-r--r--[    9.630831] IOMAPDBG read_end_noifs: ino=36 fpos=0 fsize=4096 submitted=0
+    1 0        0[    9.636559] IOMAPDBG e_begin: ino=36 la=0 llen=83 mflags=0x3 pa=4a0 -> type=4 addr=4a0 bdev=1 devid=0
+               2[    9.636562] IOMAPDBG iter_enter: ino=36 pos=0 len=4096 start=0 | iomap off=0 len=83 type=4 addr=4a0 flags=0x0 src=0
+4 Oct 28 09:38 t[    9.636564] IOMAPDBG e_begin: ino=36 la=83 llen=4013 mflags=0x0 -> HOLE addr=ffffffffffffffff devid=0
+iny23
+
+/mnt/f:[    9.636565] IOMAPDBG iter_enter: ino=36 pos=83 len=4013 start=83 | iomap off=83 len=4013 type=0 addr=ffffffffffffffff flags=0x0 src=0
+
+-rw-r--r--    [    9.636567] IOMAPDBG rf_iter: ino=36 fpos=0 fsize=4096 pos=83 type=0 poff=83 plen=4013 submitted=0
+1 0        0    [    9.636568] IOMAPDBG rf_done: ino=36 fpos=0 type=0 poff=83 plen=4013 submitted=0
+      1048576 Oc[    9.636569] IOMAPDBG iter_exit: ino=36 ret=0 pos=4096 len=0 start=83 | iomap off=83 len=4013 type=0 addr=ffffffffffffffff
+t 28 09:38 big1m[    9.636571] IOMAPDBG read_end_noifs: ino=36 fpos=0 fsize=4096 submitted=0
+
+-rw-r--r--    1 0        0            16384 Oct 28 09:38 sparse16k
+-rw-r--r--    1 0        0               24 Oct 28 09:38 tiny23
+# 
+# echo "@@@@@@ READ chunk:/sparse16k (MAPPED/HOLE/MAPPED 期望三轮) @@@@@@"
+@@@@@@ READ chunk:/sparse16k (MAPPED/HOLE/MAPPED 期望三轮) @@@@@@
+# cat /mnt/c/sparse16k > /dev/null
+# 
+# echo "@@@@@@ READ chunk:/mid5000 @@@@@@"
+@@@@@@ READ chunk:/mid5000 @@@@@@
+# cat /mnt/c/mid5000 > /dev/null
+[    9.649048] IOMAPDBG e_begin: ino=46 la=0 llen=4096 mflags=0x1 pa=103000 -> type=2 addr=103000 bdev=1 devid=0
+[    9.649052] IOMAPDBG iter_enter: ino=46 pos=0 len=16384 start=0 | iomap off=0 len=4096 type=2 addr=103000 flags=0x0 src=0
+# 
+# echo "@@@@@@ READ flat:/tiny23 (tailpacking inline) @@@@@@"
+@@@@@@ READ flat:/tiny23 (tailpacking inline) @@@@@@
+# cat /mnt/f/tiny23 > /dev/null
+[    9.649055] IOMAPDBG rf_iter: ino=46 fpos=0 fsize=4096 pos=0 type=2 poff=0 plen=4096 submitted=0
+[    9.649058] IOMAPDBG rf_done: ino=46 fpos=0 type=2 poff=0 plen=4096 submitted=4096
+[    9.649061] IOMAPDBG e_begin: ino=46 la=4096 llen=4096 mflags=0x0 -> HOLE addr=ffffffffffffffff devid=0
+# 
+# echo "@@@@@@ READ flat:/big1m (单映射多 folio) @@@@@@"
+@@@@@@ READ flat:/big1m (单映射多 folio) @@@@@@
+# head -c 65536 /mnt/f/big1m > /dev/null
+[    9.649062] IOMAPDBG iter_enter: ino=46 pos=4096 len=12288 start=4096 | iomap off=4096 len=4096 type=0 addr=ffffffffffffffff flags=0x0 src=0
+# 
+# echo "@@@@@@ DMESG @@@@@@"
+@@@@@@ DMESG @@@@@@
+# dmesg | grep IOMAPDBG
+[    9.649064] IOMAPDBG rf_iter: ino=46 fpos=4096 fsize=4096 pos=4096 type=0 poff=0 plen=4096 submitted=0
+[    9.649066] IOMAPDBG rf_done: ino=46 fpos=4096 type=0 poff=0 plen=4096 submitted=0
+[    9.649067] IOMAPDBG e_begin: ino=46 la=8192 llen=8192 mflags=0x1 pa=104000 -> type=2 addr=104000 bdev=1 devid=0
+[    0.954107] IOMAPDBG iter_enter: ino=8 pos=0 len=4096 start=0 | iomap off=0 len=4096 type=2 addr=9e97000 flags=0x0 src=0
+[    0.954111] IOMAPDBG iter_exit: ino=8 ret=0 pos=0 len=4096 start=0 | iomap off=0 len=4096 type=2 addr=9e97000
+[    9.630816] IOMAPDBG e_begin: ino=36 la=0 llen=102 mflags=0x3 pa=4a0 -> type=4 addr=4a0 bdev=1 devid=0
+[    9.630819] IOMAPDBG iter_enter: ino=36 pos=0 len=4096 start=0 | iomap off=0 len=102 type=4 addr=4a0 flags=0x0 src=0
+[    9.630823] IOMAPDBG e_begin: ino=36 la=102 llen=3994 mflags=0x0 -> HOLE addr=ffffffffffffffff devid=0
+[    9.630824] IOMAPDBG iter_enter: ino=36 pos=102 len=3994 start=102 | iomap off=102 len=3994 type=0 addr=ffffffffffffffff flags=0x0 src=0
+[    9.630826] IOMAPDBG rf_iter: ino=36 fpos=0 fsize=4096 pos=102 type=0 poff=102 plen=3994 submitted=0
+[    9.630828] IOMAPDBG rf_done: ino=36 fpos=0 type=0 poff=102 plen=3994 submitted=0
+[    9.630829] IOMAPDBG iter_exit: ino=36 ret=0 pos=4096 len=0 start=102 | iomap off=102 len=3994 type=0 addr=ffffffffffffffff
+[    9.630831] IOMAPDBG read_end_noifs: ino=36 fpos=0 fsize=4096 submitted=0
+[    9.636559] IOMAPDBG e_begin: ino=36 la=0 llen=83 mflags=0x3 pa=4a0 -> type=4 addr=4a0 bdev=1 devid=0
+[    9.636562] IOMAPDBG iter_enter: ino=36 pos=0 len=4096 start=0 | iomap off=0 len=83 type=4 addr=4a0 flags=0x0 src=0
+[    9.636564] IOMAPDBG e_begin: ino=36 la=83 llen=4013 mflags=0x0 -> HOLE addr=ffffffffffffffff devid=0
+[    9.636565] IOMAPDBG iter_enter: ino=36 pos=83 len=4013 start=83 | iomap off=83 len=4013 type=0 addr=ffffffffffffffff flags=0x0 src=0
+[    9.636567] IOMAPDBG rf_iter: ino=36 fpos=0 fsize=4096 pos=83 type=0 poff=83 plen=4013 submitted=0
+[    9.636568] IOMAPDBG rf_done: ino=36 fpos=0 type=0 poff=83 plen=4013 submitted=0
+[    9.636569] IOMAPDBG iter_exit: ino=36 ret=0 pos=4096 len=0 start=83 | iomap off=83 len=4013 type=0 addr=ffffffffffffffff
+[    9.636571] IOMAPDBG read_end_noifs: ino=36 fpos=0 fsize=4096 submitted=0
+[    9.649048] IOMAPDBG e_begin: ino=46 la=0 llen=4096 mflags=0x1 pa=103000 -> type=2 addr=103000 bdev=1 devid=0
+[    9.649052] IOMAPDBG iter_enter: ino=46 pos=0 len=16384 start=0 | iomap off=0 len=4096 type=2 addr=103000 flags=0x0 src=0
+[    9.649055] IOMAPDBG rf_iter: ino=46 fpos=0 fsize=4096 pos=0 type=2 poff=0 plen=4096 submitted=0
+[    9.649058] IOMAPDBG rf_done: ino=46 fpos=0 type=2 poff=0 plen=4096 submitted=4096
+[    9.649061] IOMAPDBG e_begin: ino=46 la=4096 llen=4096 mflags=0x0 -> HOLE addr=ffffffffffffffff devid=0
+[    9.649062] IOMAPDBG iter_enter: ino=46 pos=4096 len=12288 start=4096 | iomap off=4096 len=4096 type=0 addr=ffffffffffffffff flags=0x0 src=0
+[    9.649064] IOMAPDBG rf_iter: ino=46 fpos=4096 fsize=4096 pos=4096 type=0 poff=0 plen=4096 submitted=0
+[    9.649066] IOMAPDBG rf_done: ino=46 fpos=4096 type=0 poff=0 plen=4096 submitted=0
+[    9.649067] IOMAPDBG e_begin: ino=46 la=8192 llen=8192 mflags=0x1 pa=104000 -> type=2 addr=104000 bdev=1 devid=0
+[    9.649068] IOMAPDBG iter_enter: ino=46 pos=8192 len=8192 start=8192 | iomap off=8192 len=8192 type=2 addr=104000 flags=0x0 src=0
+[    9.649070] IOMAPDBG read_end_noifs: ino=46 fpos=4096 fsize=4096 submitted=0
+[    9.649070] IOMAPDBG rf_iter: ino=46 fpos=8192 fsize=4096 pos=8192 type=2 poff=0 plen=4096 submitted=0
+[    9.649071] IOMAPDBG rf_done: ino=46 fpos=8192 type=2 poff=0 plen=4096 submitted=4096
+[    9.649072] IOMAPDBG rf_iter: ino=46 fpos=12288 fsize=4096 pos=12288 type=2 poff=0 plen=4096 submitted=0
+[    9.649073] IOMAPDBG rf_done: ino=46 fpos=12288 type=2 poff=0 plen=4096 submitted=4096
+[    9.649075] IOMAPDBG iter_exit: ino=46 ret=0 pos=16384 len=0 start=8192 | iomap off=8192 len=8192 type=2 addr=104000
+[    9.652644] IOMAPDBG e_begin: ino=44 la=0 llen=8192 mflags=0x1 pa=101000 -> type=2 addr=101000 bdev=1 devid=0
+[    9.652647] IOMAPDBG iter_enter: ino=44 pos=0 len=8192 start=0 | iomap off=0 len=8192 type=2 addr=101000 flags=0x0 src=0
+[    9.652649] IOMAPDBG rf_iter: ino=44 fpos=0 fsize=4096 pos=0 type=2 poff=0 plen=4096 submitted=0
+[    9.652651] IOMAPDBG rf_done: ino=44 fpos=0 type=2 poff=0 plen=4096 submitted=4096
+[    9.652652] IOMAPDBG rf_iter: ino=44 fpos=4096 fsize=4096 pos=4096 type=2 poff=0 plen=4096 submitted=0
+[    9.652653] IOMAPDBG rf_done: ino=44 fpos=4096 type=2 poff=0 plen=4096 submitted=4096
+[    9.652656] IOMAPDBG iter_exit: ino=44 ret=0 pos=8192 len=0 start=0 | iomap off=0 len=8192 type=2 addr=101000
+[    9.656447] IOMAPDBG e_begin: ino=42 la=0 llen=24 mflags=0x3 pa=560 -> type=4 addr=560 bdev=1 devid=0
+[    9.656450] IOMAPDBG iter_enter: ino=42 pos=0 len=4096 start=0 | iomap off=0 len=24 type=4 addr=560 flags=0x0 src=0
+[    9.656452] IOMAPDBG e_begin: ino=42 la=24 llen=4072 mflags=0x0 -> HOLE addr=ffffffffffffffff devid=0
+[    9.656453] IOMAPDBG iter_enter: ino=42 pos=24 len=4072 start=24 | iomap off=24 len=4072 type=0 addr=ffffffffffffffff flags=0x0 src=0
+[    9.656455] IOMAPDBG rf_iter: ino=42 fpos=0 fsize=4096 pos=24 type=0 poff=24 plen=4072 submitted=0
+[    9.656457] IOMAPDBG rf_done: ino=42 fpos=0 type=0 poff=24 plen=4072 submitted=0
+[    9.656458] IOMAPDBG iter_exit: ino=42 ret=0 pos=4096 len=0 start=24 | iomap off=24 len=4072 type=0 addr=ffffffffffffffff
+[    9.656459] IOMAPDBG read_end_noifs: ino=42 fpos=0 fsize=4096 submitted=0
+[    9.661505] IOMAPDBG e_begin: ino=40 la=0 llen=1048576 mflags=0x1 pa=1000 -> type=2 addr=1000 bdev=1 devid=0
+[    9.661507] IOMAPDBG iter_enter: ino=40 pos=0 len=16384 start=0 | iomap off=0 len=1048576 type=2 addr=1000 flags=0x0 src=0
+[    9.661509] IOMAPDBG rf_iter: ino=40 fpos=0 fsize=4096 pos=0 type=2 poff=0 plen=4096 submitted=0
+[    9.661510] IOMAPDBG rf_done: ino=40 fpos=0 type=2 poff=0 plen=4096 submitted=4096
+[    9.661511] IOMAPDBG rf_iter: ino=40 fpos=4096 fsize=4096 pos=4096 type=2 poff=0 plen=4096 submitted=0
+[    9.661512] IOMAPDBG rf_done: ino=40 fpos=4096 type=2 poff=0 plen=4096 submitted=4096
+[    9.661513] IOMAPDBG rf_iter: ino=40 fpos=8192 fsize=4096 pos=8192 type=2 poff=0 plen=4096 submitted=0
+[    9.661514] IOMAPDBG rf_done: ino=40 fpos=8192 type=2 poff=0 plen=4096 submitted=4096
+[    9.661515] IOMAPDBG rf_iter: ino=40 fpos=12288 fsize=4096 pos=12288 type=2 poff=0 plen=4096 submitted=0
+[    9.661515] IOMAPDBG rf_done: ino=40 fpos=12288 type=2 poff=0 plen=4096 submitted=4096
+[    9.661518] IOMAPDBG iter_exit: ino=40 ret=0 pos=16384 len=0 start=0 | iomap off=0 len=1048576 type=2 addr=1000
+[    9.661635] IOMAPDBG e_begin: ino=40 la=16384 llen=1032192 mflags=0x1 pa=5000 -> type=2 addr=5000 bdev=1 devid=0
+[    9.661637] IOMAPDBG iter_enter: ino=40 pos=16384 len=65536 start=16384 | iomap off=16384 len=1032192 type=2 addr=5000 flags=0x0 src=0
+[    9.661638] IOMAPDBG rf_iter: ino=40 fpos=16384 fsize=4096 pos=16384 type=2 poff=0 plen=4096 submitted=0
+[    9.661640] IOMAPDBG rf_done: ino=40 fpos=16384 type=2 poff=0 plen=4096 submitted=4096
+[    9.661641] IOMAPDBG rf_iter: ino=40 fpos=20480 fsize=4096 pos=20480 type=2 poff=0 plen=4096 submitted=0
+[    9.661641] IOMAPDBG rf_done: ino=40 fpos=20480 type=2 poff=0 plen=4096 submitted=4096
+[    9.661642] IOMAPDBG rf_iter: ino=40 fpos=24576 fsize=4096 pos=24576 type=2 poff=0 plen=4096 submitted=0
+[    9.661643] IOMAPDBG rf_done: ino=40 fpos=24576 type=2 poff=0 plen=4096 submitted=4096
+[    9.661644] IOMAPDBG rf_iter: ino=40 fpos=28672 fsize=4096 pos=28672 type=2 poff=0 plen=4096 submitted=0
+[    9.661644] IOMAPDBG rf_done: ino=40 fpos=28672 type=2 poff=0 plen=4096 submitted=4096
+[    9.661645] IOMAPDBG rf_iter: ino=40 fpos=32768 fsize=4096 pos=32768 type=2 poff=0 plen=4096 submitted=0
+[    9.661646] IOMAPDBG rf_done: ino=40 fpos=32768 type=2 poff=0 plen=4096 submitted=4096
+[    9.661646] IOMAPDBG rf_iter: ino=40 fpos=36864 fsize=4096 pos=36864 type=2 poff=0 plen=4096 submitted=0
+[    9.661647] IOMAPDBG rf_done: ino=40 fpos=36864 type=2 poff=0 plen=4096 submitted=4096
+[    9.661648] IOMAPDBG rf_iter: ino=40 fpos=40960 fsize=4096 pos=40960 type=2 poff=0 plen=4096 submitted=0
+[    9.661649] IOMAPDBG rf_done: ino=40 fpos=40960 type=2 poff=0 plen=4096 submitted=4096
+[    9.661649] IOMAPDBG rf_iter: ino=40 fpos=45056 fsize=4096 pos=45056 type=2 poff=0 plen=4096 submitted=0
+[    9.661650] IOMAPDBG rf_done: ino=40 fpos=45056 type=2 poff=0 plen=4096 submitted=4096
+[    9.661651] IOMAPDBG rf_iter: ino=40 fpos=49152 fsize=4096 pos=49152 type=2 poff=0 plen=4096 submitted=0
+[    9.661651] IOMAPDBG rf_done: ino=40 fpos=49152 type=2 poff=0 plen=4096 submitted=4096
+[    9.661652] IOMAPDBG rf_iter: ino=40 fpos=53248 fsize=4096 pos=53248 type=2 poff=0 plen=4096 submitted=0
+[    9.661653] IOMAPDBG rf_done: ino=40 fpos=53248 type=2 poff=0 plen=4096 submitted=4096
+[    9.661653] IOMAPDBG rf_iter: ino=40 fpos=57344 fsize=4096 pos=57344 type=2 poff=0 plen=4096 submitted=0
+[    9.661654] IOMAPDBG rf_done: ino=40 fpos=57344 type=2 poff=0 plen=4096 submitted=4096
+[    9.661655] IOMAPDBG rf_iter: ino=40 fpos=61440 fsize=4096 pos=61440 type=2 poff=0 plen=4096 submitted=0
+[    9.661656] IOMAPDBG rf_done: ino=40 fpos=61440 type=2 poff=0 plen=4096 submitted=4096
+[    9.661656] IOMAPDBG rf_iter: ino=40 fpos=65536 fsize=4096 pos=65536 type=2 poff=0 plen=4096 submitted=0
+[    9.661657] IOMAPDBG rf_done: ino=40 fpos=65536 type=2 poff=0 plen=4096 submitted=4096
+[    9.661658] IOMAPDBG rf_iter: ino=40 fpos=69632 fsize=4096 pos=69632 type=2 poff=0 plen=4096 submitted=0
+[    9.661658] IOMAPDBG rf_done: ino=40 fpos=69632 type=2 poff=0 plen=4096 submitted=4096
+[    9.661659] IOMAPDBG rf_iter: ino=40 fpos=73728 fsize=4096 pos=73728 type=2 poff=0 plen=4096 submitted=0
+[    9.661660] IOMAPDBG rf_done: ino=40 fpos=73728 type=2 poff=0 plen=4096 submitted=4096
+[    9.661660] IOMAPDBG rf_iter: ino=40 fpos=77824 fsize=4096 pos=77824 type=2 poff=0 plen=4096 submitted=0
+[    9.661661] IOMAPDBG rf_done: ino=40 fpos=77824 type=2 poff=0 plen=4096 submitted=4096
+[    9.661663] IOMAPDBG iter_exit: ino=40 ret=0 pos=81920 len=0 start=16384 | iomap off=16384 len=1032192 type=2 addr=5000
+[    9.661732] IOMAPDBG e_begin: ino=40 la=81920 llen=966656 mflags=0x1 pa=15000 -> type=2 addr=15000 bdev=1 devid=0
+[    9.661734] IOMAPDBG iter_enter: ino=40 pos=81920 len=262144 start=81920 | iomap off=81920 len=966656 type=2 addr=15000 flags=0x0 src=0
+[    9.661735] IOMAPDBG rf_iter: ino=40 fpos=81920 fsize=4096 pos=81920 type=2 poff=0 plen=4096 submitted=0
+[    9.661737] IOMAPDBG rf_done: ino=40 fpos=81920 type=2 poff=0 plen=4096 submitted=4096
+[    9.661737] IOMAPDBG rf_iter: ino=40 fpos=86016 fsize=4096 pos=86016 type=2 poff=0 plen=4096 submitted=0
+[    9.661738] IOMAPDBG rf_done: ino=40 fpos=86016 type=2 poff=0 plen=4096 submitted=4096
+[    9.661739] IOMAPDBG rf_iter: ino=40 fpos=90112 fsize=4096 pos=90112 type=2 poff=0 plen=4096 submitted=0
+[    9.661740] IOMAPDBG rf_done: ino=40 fpos=90112 type=2 poff=0 plen=4096 submitted=4096
+[    9.661741] IOMAPDBG rf_iter: ino=40 fpos=94208 fsize=4096 pos=94208 type=2 poff=0 plen=4096 submitted=0
+[    9.661741] IOMAPDBG rf_done: ino=40 fpos=94208 type=2 poff=0 plen=4096 submitted=4096
+[    9.661742] IOMAPDBG rf_iter: ino=40 fpos=98304 fsize=4096 pos=98304 type=2 poff=0 plen=4096 submitted=0
+[    9.661743] IOMAPDBG rf_done: ino=40 fpos=98304 type=2 poff=0 plen=4096 submitted=4096
+[    9.661743] IOMAPDBG rf_iter: ino=40 fpos=102400 fsize=4096 pos=102400 type=2 poff=0 plen=4096 submitted=0
+[    9.661744] IOMAPDBG rf_done: ino=40 fpos=102400 type=2 poff=0 plen=4096 submitted=4096
+[    9.661745] IOMAPDBG rf_iter: ino=40 fpos=106496 fsize=4096 pos=106496 type=2 poff=0 plen=4096 submitted=0
+[    9.661746] IOMAPDBG rf_done: ino=40 fpos=106496 type=2 poff=0 plen=4096 submitted=4096
+[    9.661746] IOMAPDBG rf_iter: ino=40 fpos=110592 fsize=4096 pos=110592 type=2 poff=0 plen=4096 submitted=0
+[    9.661747] IOMAPDBG rf_done: ino=40 fpos=110592 type=2 poff=0 plen=4096 submitted=4096
+[    9.661748] IOMAPDBG rf_iter: ino=40 fpos=114688 fsize=4096 pos=114688 type=2 poff=0 plen=4096 submitted=0
+[    9.661749] IOMAPDBG rf_done: ino=40 fpos=114688 type=2 poff=0 plen=4096 submitted=4096
+[    9.661749] IOMAPDBG rf_iter: ino=40 fpos=118784 fsize=4096 pos=118784 type=2 poff=0 plen=4096 submitted=0
+[    9.661750] IOMAPDBG rf_done: ino=40 fpos=118784 type=2 poff=0 plen=4096 submitted=4096
+[    9.661751] IOMAPDBG rf_iter: ino=40 fpos=122880 fsize=4096 pos=122880 type=2 poff=0 plen=4096 submitted=0
+[    9.661751] IOMAPDBG rf_done: ino=40 fpos=122880 type=2 poff=0 plen=4096 submitted=4096
+[    9.661752] IOMAPDBG rf_iter: ino=40 fpos=126976 fsize=4096 pos=126976 type=2 poff=0 plen=4096 submitted=0
+[    9.661753] IOMAPDBG rf_done: ino=40 fpos=126976 type=2 poff=0 plen=4096 submitted=4096
+[    9.661753] IOMAPDBG rf_iter: ino=40 fpos=131072 fsize=4096 pos=131072 type=2 poff=0 plen=4096 submitted=0
+[    9.661754] IOMAPDBG rf_done: ino=40 fpos=131072 type=2 poff=0 plen=4096 submitted=4096
+[    9.661755] IOMAPDBG rf_iter: ino=40 fpos=135168 fsize=4096 pos=135168 type=2 poff=0 plen=4096 submitted=0
+[    9.661755] IOMAPDBG rf_done: ino=40 fpos=135168 type=2 poff=0 plen=4096 submitted=4096
+[    9.661756] IOMAPDBG rf_iter: ino=40 fpos=139264 fsize=4096 pos=139264 type=2 poff=0 plen=4096 submitted=0
+[    9.661757] IOMAPDBG rf_done: ino=40 fpos=139264 type=2 poff=0 plen=4096 submitted=4096
+[    9.661757] IOMAPDBG rf_iter: ino=40 fpos=143360 fsize=4096 pos=143360 type=2 poff=0 plen=4096 submitted=0
+[    9.661758] IOMAPDBG rf_done: ino=40 fpos=143360 type=2 poff=0 plen=4096 submitted=4096
+[    9.661759] IOMAPDBG rf_iter: ino=40 fpos=147456 fsize=4096 pos=147456 type=2 poff=0 plen=4096 submitted=0
+[    9.661759] IOMAPDBG rf_done: ino=40 fpos=147456 type=2 poff=0 plen=4096 submitted=4096
+[    9.661760] IOMAPDBG rf_iter: ino=40 fpos=151552 fsize=4096 pos=151552 type=2 poff=0 plen=4096 submitted=0
+[    9.661761] IOMAPDBG rf_done: ino=40 fpos=151552 type=2 poff=0 plen=4096 submitted=4096
+[    9.661762] IOMAPDBG rf_iter: ino=40 fpos=155648 fsize=4096 pos=155648 type=2 poff=0 plen=4096 submitted=0
+[    9.661762] IOMAPDBG rf_done: ino=40 fpos=155648 type=2 poff=0 plen=4096 submitted=4096
+[    9.661763] IOMAPDBG rf_iter: ino=40 fpos=159744 fsize=4096 pos=159744 type=2 poff=0 plen=4096 submitted=0
+[    9.661764] IOMAPDBG rf_done: ino=40 fpos=159744 type=2 poff=0 plen=4096 submitted=4096
+[    9.661764] IOMAPDBG rf_iter: ino=40 fpos=163840 fsize=4096 pos=163840 type=2 poff=0 plen=4096 submitted=0
+[    9.661765] IOMAPDBG rf_done: ino=40 fpos=163840 type=2 poff=0 plen=4096 submitted=4096
+[    9.661766] IOMAPDBG rf_iter: ino=40 fpos=167936 fsize=4096 pos=167936 type=2 poff[    9.649068] IOMAPDBG iter_enter: ino=46 pos=8192 len=8192 start=8192 | iomap off=8192 len=8192 type=2 addr=104000 flags=0x0 src=0
+=0 plen=4096 submitted=0
+[    9.661766] IOMAPDBG rf_done: ino=40 fpos=167936 type=2 poff=0 plen=4096 submitted=4096
+[    9.661767] IOMAPDBG rf_iter: ino=40 fpos=172032 fsize=4096 pos=172032 type=2 poff=0 plen=4096 submitted=0
+[    9.661768] IOMAPDBG rf_done: ino=40 fpos=172032 type=2 poff=0 plen=4096 submitted=4096
+[    9.661769] IOMAPDBG rf_iter: ino=40 fpos=176128 fsize=4096 pos=176128 type=2 poff=0 plen=4096 submitted=0
+[    9.661770] IOMAPDBG rf_done: ino=40 fpos=176128 type=2 poff=0 plen=4096 submitted=4096
+[    9.661770] IOMAPDBG rf_iter: ino=40 fpos=180224 fsize=4096 pos=180224 type=2 poff=0 plen=4096 submitted=0
+[    9.661771] IOMAPDBG rf_done: ino=40 fpos=180224 type=2 poff=0 plen=4096 submitted=4096
+[    9.661772] IOMAPDBG rf_iter: ino=40 fpos=184320 fsize=4096 pos=184320 type=2 poff=0 plen=4096 submitted=0
+[    9.661772] IOMAPDBG rf_done: ino=40 fpos=184320 type=2 poff=0 plen=4096 submitted=4096
+[    9.661773] IOMAPDBG rf_iter: ino=40 fpos=188416 fsize=4096 pos=188416 type=2 poff=0 plen=4096 submitted=0
+[    9.661774] IOMAPDBG rf_done: ino=40 fpos=188416 type=2 poff=0 plen=4096 submitted=4096
+[    9.661774] IOMAPDBG rf_iter: ino=40 fpos=192512 fsize=4096 pos=192512 type=2 poff=0 plen=4096 submitted=0
+[    9.661775] IOMAPDBG rf_done: ino=40 fpos=192512 type=2 poff=0 plen=4096 submitted=4096
+[    9.661776] IOMAPDBG rf_iter: ino=40 fpos=196608 fsize=4096 pos=196608 type=2 poff=0 plen=4096 submitted=0
+[    9.661777] IOMAPDBG rf_done: ino=40 fpos=196608 type=2 poff=0 plen=4096 submitted=4096
+[    9.661777] IOMAPDBG rf_iter: ino=40 fpos=200704 fsize=4096 pos=200704 type=2 poff=0 plen=4096 submitted=0
+[    9.661778] IOMAPDBG rf_done: ino=40 fpos=200704 type=2 poff=0 plen=4096 submitted=4096
+[    9.661779] IOMAPDBG rf_iter: ino=40 fpos=204800 fsize=4096 pos=204800 type=2 poff=0 plen=4096 submitted=0
+[    9.661779] IOMAPDBG rf_done: ino=40 fpos=204800 type=2 poff=0 plen=4096 submitted=4096
+[    9.661780] IOMAPDBG rf_iter: ino=40 fpos=208896 fsize=4096 pos=208896 type=2 poff=0 plen=4096 submitted=0
+[    9.661781] IOMAPDBG rf_done: ino=40 fpos=208896 type=2 poff=0 plen=4096 submitted=4096
+[    9.661781] IOMAPDBG rf_iter: ino=40 fpos=212992 fsize=4096 pos=212992 type=2 poff=0 plen=4096 submitted=0
+[    9.661782] IOMAPDBG rf_done: ino=40 fpos=212992 type=2 poff=0 plen=4096 submitted=4096
+[    9.661783] IOMAPDBG rf_iter: ino=40 fpos=217088 fsize=4096 pos=217088 type=2 poff=0 plen=4096 submitted=0
+[    9.661783] IOMAPDBG rf_done: ino=40 fpos=217088 type=2 poff=0 plen=4096 submitted=4096
+[    9.661784] IOMAPDBG rf_iter: ino=40 fpos=221184 fsize=4096 pos=221184 type=2 poff=0 plen=4096 submitted=0
+[    9.661785] IOMAPDBG rf_done: ino=40 fpos=221184 type=2 poff=0 plen=4096 submitted=4096
+[    9.661785] IOMAPDBG rf_iter: ino=40 fpos=225280 fsize=4096 pos=225280 type=2 poff=0 plen=4096 submitted=0
+[    9.661786] IOMAPDBG rf_done: ino=40 fpos=225280 type=2 poff=0 plen=4096 submitted=4096
+[    9.661787] IOMAPDBG rf_iter: ino=40 fpos=229376 fsize=4096 pos=229376 type=2 poff=0 plen=4096 submitted=0
+[    9.661788] IOMAPDBG rf_done: ino=40 fpos=229376 type=2 poff=0 plen=4096 submitted=4096
+[    9.661788] IOMAPDBG rf_iter: ino=40 fpos=233472 fsize=4096 pos=233472 type=2 poff=0 plen=4096 submitted=0
+[    9.661789] IOMAPDBG rf_done: ino=40 fpos=233472 type=2 poff=0 plen=4096 submitted=4096
+[    9.661790] IOMAPDBG rf_iter: ino=40 fpos=237568 fsize=4096 pos=237568 type=2 poff=0 plen=4096 submitted=0
+[    9.661790] IOMAPDBG rf_done: ino=40 fpos=237568 type=2 poff=0 plen=4096 submitted=4096
+[    9.661791] IOMAPDBG rf_iter: ino=40 fpos=241664 fsize=4096 pos=241664 type=2 poff=0 plen=4096 submitted=0
+[    9.661792] IOMAPDBG rf_done: ino=40 fpos=241664 type=2 poff=0 plen=4096 submitted=4096
+[    9.661792] IOMAPDBG rf_iter: ino=40 fpos=245760 fsize=4096 pos=245760 type=2 poff=0 plen=4096 submitted=0
+[    9.661793] IOMAPDBG rf_done: ino=40 fpos=245760 type=2 poff=0 plen=4096 submitted=4096
+[    9.661794] IOMAPDBG rf_iter: ino=40 fpos=249856 fsize=4096 pos=249856 type=2 poff=0 plen=4096 submitted=0
+[    9.661794] IOMAPDBG rf_done: ino=40 fpos=249856 type=2 poff=0 plen=4096 submitted=4096
+[    9.661795] IOMAPDBG rf_iter: ino=40 fpos=253952 fsize=4096 pos=253952 type=2 poff=0 plen=4096 submitted=0
+[    9.661796] IOMAPDBG rf_done: ino=40 fpos=253952 type=2 poff=0 plen=4096 submitted=4096
+[    9.661796] IOMAPDBG rf_iter: ino=40 fpos=258048 fsize=4096 pos=258048 type=2 poff=0 plen=4096 submitted=0
+[    9.661797] IOMAPDBG rf_done: ino=40 fpos=258048 type=2 poff=0 plen=4096 submitted=4096
+[    9.661798] IOMAPDBG rf_iter: ino=40 fpos=262144 fsize=4096 pos=262144 type=2 poff=0 plen=4096 submitted=0
+[    9.661798] IOMAPDBG rf_done: ino=40 fpos=262144 type=2 poff=0 plen=4096 submitted=4096
+[    9.661799] IOMAPDBG rf_iter: ino=40 fpos=266240 fsize=4096 pos=266240 type=2 poff=0 plen=4096 submitted=0
+[    9.661800] IOMAPDBG rf_done: ino=40 fpos=266240 type=2 poff=0 plen=4096 submitted=4096
+[    9.661800] IOMAPDBG rf_iter: ino=40 fpos=270336 fsize=4096 pos=270336 type=2 poff=0 plen=4096 submitted=0
+[    9.661801] IOMAPDBG rf_done: ino=40 fpos=270336 type=2 poff=0 plen=4096 submitted=4096
+[    9.661802] IOMAPDBG rf_iter: ino=40 fpos=274432 fsize=4096 pos=274432 type=2 poff=0 plen=4096 submitted=0
+[    9.661803] IOMAPDBG rf_done: ino=40 fpos=274432 type=2 poff=0 plen=4096 submitted=4096
+[    9.661803] IOMAPDBG rf_iter: ino=40 fpos=278528 fsize=4096 pos=278528 type=2 poff=0 plen=4096 submitted=0
+[    9.661804] IOMAPDBG rf_done: ino=40 fpos=278528 type=2 poff=0 plen=4096 submitted=4096
+[    9.661805] IOMAPDBG rf_iter: ino=40 fpos=282624 fsize=4096 pos=282624 type=2 poff=0 plen=4096 submitted=0
+[    9.661805] IOMAPDBG rf_done: ino=40 fpos=282624 type=2 poff=0 plen=4096 submitted=4096
+[    9.661806] IOMAPDBG rf_iter: ino=40 fpos=286720 fsize=4096 pos=286720 type=2 poff=0 plen=4096 submitted=0
+[    9.661807] IOMAPDBG rf_done: ino=40 fpos=286720 type=2 poff=0 plen=4096 submitted=4096
+[    9.661807] IOMAPDBG rf_iter: ino=40 fpos=290816 fsize=4096 pos=290816 type=2 poff=0 plen=4096 submitted=0
+[    9.661808] IOMAPDBG rf_done: ino=40 fpos=290816 type=2 poff=0 plen=4096 submitted=4096
+[    9.661809] IOMAPDBG rf_iter: ino=40 fpos=294912 fsize=4096 pos=294912 type=2 poff=0 plen=4096 submitted=0
+[    9.661809] IOMAPDBG rf_done: ino=40 fpos=294912 type=2 poff=0 plen=4096 submitted=4096
+[    9.661810] IOMAPDBG rf_iter: ino=40 fpos=299008 fsize=4096 pos=299008 type=2 poff=0 plen=4096 submitted=0
+[    9.661811] IOMAPDBG rf_done: ino=40 fpos=299008 type=2 poff=0 plen=4096 submitted=4096
+[    9.661811] IOMAPDBG rf_iter: ino=40 fpos=303104 fsize=4096 pos=303104 type=2 poff=0 plen=4096 submitted=0
+[    9.661812] IOMAPDBG rf_done: ino=40 fpos=303104 type=2 poff=0 plen=4096 submitted=4096
+[    9.661813] IOMAPDBG rf_iter: ino=40 fpos=307200 fsize=4096 pos=307200 type=2 poff=0 plen=4096 submitted=0
+[    9.661813] IOMAPDBG rf_done: ino=40 fpos=307200 type=2 poff=0 plen=4096 submitted=4096
+[    9.661814] IOMAPDBG rf_iter: ino=40 fpos=311296 fsize=4096 pos=311296 type=2 poff=0 plen=4096 submitted=0
+[    9.661815] IOMAPDBG rf_done: ino=40 fpos=311296 type=2 poff=0 plen=4096 submitted=4096
+[    9.661815] IOMAPDBG rf_iter: ino=40 fpos=315392 fsize=4096 pos=315392 type=2 poff=0 plen=4096 submitted=0
+[    9.661816] IOMAPDBG rf_done: ino=40 fpos=315392 type=2 poff=0 plen=4096 submitted=4096
+[    9.661817] IOMAPDBG rf_iter: ino=40 fpos=319488 fsize=4096 pos=319488 type=2 poff=0 plen=4096 submitted=0
+[    9.661818] IOMAPDBG rf_done: ino=40 fpos=319488 type=2 poff=0 plen=4096 submitted=4096
+[    9.661818] IOMAPDBG rf_iter: ino=40 fpos=323584 fsize=4096 pos=323584 type=2 poff=0 plen=4096 submitted=0
+[    9.661819] IOMAPDBG rf_done: ino=40 fpos=323584 type=2 poff=0 plen=4096 submitted=4096
+[    9.661820] IOMAPDBG rf_iter: ino=40 fpos=327680 fsize=4096 pos=327680 type=2 poff=0 plen=4096 submitted=0
+[    9.661820] IOMAPDBG rf_done: ino=40 fpos=327680 type=2 poff=0 plen=4096 submitted=4096
+[    9.661821] IOMAPDBG rf_iter: ino=40 fpos=331776 fsize=4096 pos=331776 type=2 poff=0 plen=4096 submitted=0
+[    9.661822] IOMAPDBG rf_done: ino=40 fpos=331776 type=2 poff=0 plen=4096 submitted=4096
+[    9.661822] IOMAPDBG rf_iter: ino=40 fpos=335872 fsize=4096 pos=335872 type=2 poff=0 plen=4096 submitted=0
+[    9.661823] IOMAPDBG rf_done: ino=40 fpos=335872 type=2 poff=0 plen=4096 submitted=4096
+[    9.661824] IOMAPDBG rf_iter: ino=40 fpos=339968 fsize=4096 pos=339968 type=2 poff=0 plen=4096 submitted=0
+[    9.661825] IOMAPDBG rf_done: ino=40 fpos=339968 type=2 poff=0 plen=4096 submitted=4096
+[    9.661826] IOMAPDBG iter_exit: ino=40 ret=0 pos=344064 len=0 start=81920 | iomap off=81920 len=966656 type=2 addr=15000
+# echo "@@@@@@ ALL_DONE @@@@@@"
+@@@@@@ ALL_DONE @@@@@@
+# sleep 2
+[    9.649070] IOMAPDBG read_end_noifs: ino=46 fpos=4096 fsize=4096 submitted=0
+[    9.649070] IOMAPDBG rf_iter: ino=46 fpos=8192 fsize=4096 pos=8192 type=2 poff=0 plen=4096 submitted=0
+[    9.649071] IOMAPDBG rf_done: ino=46 fpos=8192 type=2 poff=0 plen=4096 submitted=4096
+[    9.649072] IOMAPDBG rf_iter: ino=46 fpos=12288 fsize=4096 pos=12288 type=2 poff=0 plen=4096 submitted=0
+[    9.649073] IOMAPDBG rf_done: ino=46 fpos=12288 type=2 poff=0 plen=4096 submitted=4096
+[    9.649075] IOMAPDBG iter_exit: ino=46 ret=0 pos=16384 len=0 start=8192 | iomap off=8192 len=8192 type=2 addr=104000
+[    9.652644] IOMAPDBG e_begin: ino=44 la=0 llen=8192 mflags=0x1 pa=101000 -> type=2 addr=101000 bdev=1 devid=0
+[    9.652647] IOMAPDBG iter_enter: ino=44 pos=0 len=8192 start=0 | iomap off=0 len=8192 type=2 addr=101000 flags=0x0 src=0
+[    9.652649] IOMAPDBG rf_iter: ino=44 fpos=0 fsize=4096 pos=0 type=2 poff=0 plen=4096 submitted=0
+[    9.652651] IOMAPDBG rf_done: ino=44 fpos=0 type=2 poff=0 plen=4096 submitted=4096
+[    9.652652] IOMAPDBG rf_iter: ino=44 fpos=4096 fsize=4096 pos=4096 type=2 poff=0 plen=4096 submitted=0
+[    9.652653] IOMAPDBG rf_done: ino=44 fpos=4096 type=2 poff=0 plen=4096 submitted=4096
+[    9.652656] IOMAPDBG iter_exit: ino=44 ret=0 pos=8192 len=0 start=0 | iomap off=0 len=8192 type=2 addr=101000
+[    9.656447] IOMAPDBG e_begin: ino=42 la=0 llen=24 mflags=0x3 pa=560 -> type=4 addr=560 bdev=1 devid=0
+[    9.656450] IOMAPDBG iter_enter: ino=42 pos=0 len=4096 start=0 | iomap off=0 len=24 type=4 addr=560 flags=0x0 src=0
+[    9.656452] IOMAPDBG e_begin: ino=42 la=24 llen=4072 mflags=0x0 -> HOLE addr=ffffffffffffffff devid=0
+[    9.656453] IOMAPDBG iter_enter: ino=42 pos=24 len=4072 start=24 | iomap off=24 len=4072 type=0 addr=ffffffffffffffff flags=0x0 src=0
+[    9.656455] IOMAPDBG rf_iter: ino=42 fpos=0 fsize=4096 pos=24 type=0 poff=24 plen=4072 submitted=0
+[    9.656457] IOMAPDBG rf_done: ino=42 fpos=0 type=0 poff=24 plen=4072 submitted=0
+[    9.656458] IOMAPDBG iter_exit: ino=42 ret=0 pos=4096 len=0 start=24 | iomap off=24 len=4072 type=0 addr=ffffffffffffffff
+[    9.656459] IOMAPDBG read_end_noifs: ino=42 fpos=0 fsize=4096 submitted=0
+[    9.661505] IOMAPDBG e_begin: ino=40 la=0 llen=1048576 mflags=0x1 pa=1000 -> type=2 addr=1000 bdev=1 devid=0
+[    9.661507] IOMAPDBG iter_enter: ino=40 pos=0 len=16384 start=0 | iomap off=0 len=1048576 type=2 addr=1000 flags=0x0 src=0
+[    9.661509] IOMAPDBG rf_iter: ino=40 fpos=0 fsize=4096 pos=0 type=2 poff=0 plen=4096 submitted=0
+[    9.661510] IOMAPDBG rf_done: ino=40 fpos=0 type=2 poff=0 plen=4096 submitted=4096
+[    9.661511] IOMAPDBG rf_iter: ino=40 fpos=4096 fsize=4096 pos=4096 type=2 poff=0 plen=4096 submitted=0
+[    9.661512] IOMAPDBG rf_done: ino=40 fpos=4096 type=2 poff=0 plen=4096 submitted=4096
+[    9.661513] IOMAPDBG rf_iter: ino=40 fpos=8192 fsize=4096 pos=8192 type=2 poff=0 plen=4096 submitted=0
+[    9.661514] IOMAPDBG rf_done: ino=40 fpos=8192 type=2 poff=0 plen=4096 submitted=4096
+[    9.661515] IOMAPDBG rf_iter: ino=40 fpos=12288 fsize=4096 pos=12288 type=2 poff=0 plen=4096 submitted=0
+[    9.661515] IOMAPDBG rf_done: ino=40 fpos=12288 type=2 poff=0 plen=4096 submitted=4096
+[    9.661518] IOMAPDBG iter_exit: ino=40 ret=0 pos=16384 len=0 start=0 | iomap off=0 len=1048576 type=2 addr=1000
+[    9.661635] IOMAPDBG e_begin: ino=40 la=16384 llen=1032192 mflags=0x1 pa=5000 -> type=2 addr=5000 bdev=1 devid=0
+[    9.661637] IOMAPDBG iter_enter: ino=40 pos=16384 len=65536 start=16384 | iomap off=16384 len=1032192 type=2 addr=5000 flags=0x0 src=0
+[    9.661638] IOMAPDBG rf_iter: ino=40 fpos=16384 fsize=4096 pos=16384 type=2 poff=0 plen=4096 submitted=0
+[    9.661640] IOMAPDBG rf_done: ino=40 fpos=16384 type=2 poff=0 plen=4096 submitted=4096
+[    9.661641] IOMAPDBG rf_iter: ino=40 fpos=20480 fsize=4096 pos=20480 type=2 poff=0 plen=4096 submitted=0
+[    9.661641] IOMAPDBG rf_done: ino=40 fpos=20480 type=2 poff=0 plen=4096 submitted=4096
+[    9.661642] IOMAPDBG rf_iter: ino=40 fpos=24576 fsize=4096 pos=24576 type=2 poff=0 plen=4096 submitted=0
+[    9.661643] IOMAPDBG rf_done: ino=40 fpos=24576 type=2 poff=0 plen=4096 submitted=4096
+[    9.661644] IOMAPDBG rf_iter: ino=40 fpos=28672 fsize=4096 pos=28672 type=2 poff=0 plen=4096 submitted=0
+[    9.661644] IOMAPDBG rf_done: ino=40 fpos=28672 type=2 poff=0 plen=4096 submitted=4096
+[    9.661645] IOMAPDBG rf_iter: ino=40 fpos=32768 fsize=4096 pos=32768 type=2 poff=0 plen=4096 submitted=0
+[    9.661646] IOMAPDBG rf_done: ino=40 fpos=32768 type=2 poff=0 plen=4096 submitted=4096
+[    9.661646] IOMAPDBG rf_iter: ino=40 fpos=36864 fsize=4096 pos=36864 type=2 poff=0 plen=4096 submitted=0
+[    9.661647] IOMAPDBG rf_done: ino=40 fpos=36864 type=2 poff=0 plen=4096 submitted=4096
+[    9.661648] IOMAPDBG rf_iter: ino=40 fpos=40960 fsize=4096 pos=40960 type=2 poff=0 plen=4096 submitted=0
+[    9.661649] IOMAPDBG rf_done: ino=40 fpos=40960 type=2 poff=0 plen=4096 submitted=4096
+[    9.661649] IOMAPDBG rf_iter: ino=40 fpos=45056 fsize=4096 pos=45056 type=2 poff=0 plen=4096 submitted=0
+[    9.661650] IOMAPDBG rf_done: ino=40 fpos=45056 type=2 poff=0 plen=4096 submitted=4096
+[    9.661651] IOMAPDBG rf_iter: ino=40 fpos=49152 fsize=4096 pos=49152 type=2 poff=0 plen=4096 submitted=0
+[    9.661651] IOMAPDBG rf_done: ino=40 fpos=49152 type=2 poff=0 plen=4096 submitted=4096
+[    9.661652] IOMAPDBG rf_iter: ino=40 fpos=53248 fsize=4096 pos=53248 type=2 poff=0 plen=4096 submitted=0
+[    9.661653] IOMAPDBG rf_done: ino=40 fpos=53248 type=2 poff=0 plen=4096 submitted=4096
+[    9.661653] IOMAPDBG rf_iter: ino=40 fpos=57344 fsize=4096 pos=57344 type=2 poff=0 plen=4096 submitted=0
+[    9.661654] IOMAPDBG rf_done: ino=40 fpos=57344 type=2 poff=0 plen=4096 submitted=4096
+[    9.661655] IOMAPDBG rf_iter: ino=40 fpos=61440 fsize=4096 pos=61440 type=2 poff=0 plen=4096 submitted=0
+[    9.661656] IOMAPDBG rf_done: ino=40 fpos=61440 type=2 poff=0 plen=4096 submitted=4096
+[    9.661656] IOMAPDBG rf_iter: ino=40 fpos=65536 fsize=4096 pos=65536 type=2 poff=0 plen=4096 submitted=0
+[    9.661657] IOMAPDBG rf_done: ino=40 fpos=65536 type=2 poff=0 plen=4096 submitted=4096
+[    9.661658] IOMAPDBG rf_iter: ino=40 fpos=69632 fsize=4096 pos=69632 type=2 poff=0 plen=4096 submitted=0
+[    9.661658] IOMAPDBG rf_done: ino=40 fpos=69632 type=2 poff=0 plen=4096 submitted=4096
+[    9.661659] IOMAPDBG rf_iter: ino=40 fpos=73728 fsize=4096 pos=73728 type=2 poff=0 plen=4096 submitted=0
+[    9.661660] IOMAPDBG rf_done: ino=40 fpos=73728 type=2 poff=0 plen=4096 submitted=4096
+[    9.661660] IOMAPDBG rf_iter: ino=40 fpos=77824 fsize=4096 pos=77824 type=2 poff=0 plen=4096 submitted=0
+[    9.661661] IOMAPDBG rf_done: ino=40 fpos=77824 type=2 poff=0 plen=4096 submitted=4096
+[    9.661663] IOMAPDBG iter_exit: ino=40 ret=0 pos=81920 len=0 start=16384 | iomap off=16384 len=1032192 type=2 addr=5000
+[    9.661732] IOMAPDBG e_begin: ino=40 la=81920 llen=966656 mflags=0x1 pa=15000 -> type=2 addr=15000 bdev=1 devid=0
+[    9.661734] IOMAPDBG iter_enter: ino=40 pos=81920 len=262144 start=81920 | iomap off=81920 len=966656 type=2 addr=15000 flags=0x0 src=0
+[    9.661735] IOMAPDBG rf_iter: ino=40 fpos=81920 fsize=4096 pos=81920 type=2 poff=0 plen=4096 submitted=0
+[    9.661737] IOMAPDBG rf_done: ino=40 fpos=81920 type=2 poff=0 plen=4096 submitted=4096
+[    9.661737] IOMAPDBG rf_iter: ino=40 fpos=86016 fsize=4096 pos=86016 type=2 poff=0 plen=4096 submitted=0
+[    9.661738] IOMAPDBG rf_done: ino=40 fpos=86016 type=2 poff=0 plen=4096 submitted=4096
+[    9.661739] IOMAPDBG rf_iter: ino=40 fpos=90112 fsize=4096 pos=90112 type=2 poff=0 plen=4096 submitted=0
+[    9.661740] IOMAPDBG rf_done: ino=40 fpos=90112 type=2 poff=0 plen=4096 submitted=4096
+[    9.661741] IOMAPDBG rf_iter: ino=40 fpos=94208 fsize=4096 pos=94208 type=2 poff=0 plen=4096 submitted=0
+[    9.661741] IOMAPDBG rf_done: ino=40 fpos=94208 type=2 poff=0 plen=4096 submitted=4096
+[    9.661742] IOMAPDBG rf_iter: ino=40 fpos=98304 fsize=4096 pos=98304 type=2 poff=0 plen=4096 submitted=0
+[    9.661743] IOMAPDBG rf_done: ino=40 fpos=98304 type=2 poff=0 plen=4096 submitted=4096
+[    9.661743] IOMAPDBG rf_iter: ino=40 fpos=102400 fsize=4096 pos=102400 type=2 poff=0 plen=4096 submitted=0
+[    9.661744] IOMAPDBG rf_done: ino=40 fpos=102400 type=2 poff=0 plen=4096 submitted=4096
+[    9.661745] IOMAPDBG rf_iter: ino=40 fpos=106496 fsize=4096 pos=106496 type=2 poff=0 plen=4096 submitted=0
+[    9.661746] IOMAPDBG rf_done: ino=40 fpos=106496 type=2 poff=0 plen=4096 submitted=4096
+[    9.661746] IOMAPDBG rf_iter: ino=40 fpos=110592 fsize=4096 pos=110592 type=2 poff=0 plen=4096 submitted=0
+[    9.661747] IOMAPDBG rf_done: ino=40 fpos=110592 type=2 poff=0 plen=4096 submitted=4096
+[    9.661748] IOMAPDBG rf_iter: ino=40 fpos=114688 fsize=4096 pos=114688 type=2 poff=0 plen=4096 submitted=0
+[    9.661749] IOMAPDBG rf_done: ino=40 fpos=114688 type=2 poff=0 plen=4096 submitted=4096
+[    9.661749] IOMAPDBG rf_iter: ino=40 fpos=118784 fsize=4096 pos=118784 type=2 poff=0 plen=4096 submitted=0
+[    9.661750] IOMAPDBG rf_done: ino=40 fpos=118784 type=2 poff=0 plen=4096 submitted=4096
+[    9.661751] IOMAPDBG rf_iter: ino=40 fpos=122880 fsize=4096 pos=122880 type=2 poff=0 plen=4096 submitted=0
+[    9.661751] IOMAPDBG rf_done: ino=40 fpos=122880 type=2 poff=0 plen=4096 submitted=4096
+[    9.661752] IOMAPDBG rf_iter: ino=40 fpos=126976 fsize=4096 pos=126976 type=2 poff=0 plen=4096 submitted=0
+[    9.661753] IOMAPDBG rf_done: ino=40 fpos=126976 type=2 poff=0 plen=4096 submitted=4096
+[    9.661753] IOMAPDBG rf_iter: ino=40 fpos=131072 fsize=4096 pos=131072 type=2 poff=0 plen=4096 submitted=0
+[    9.661754] IOMAPDBG rf_done: ino=40 fpos=131072 type=2 poff=0 plen=4096 submitted=4096
+[    9.661755] IOMAPDBG rf_iter: ino=40 fpos=135168 fsize=4096 pos=135168 type=2 poff=0 plen=4096 submitted=0
+[    9.661755] IOMAPDBG rf_done: ino=40 fpos=135168 type=2 poff=0 plen=4096 submitted=4096
+[    9.661756] IOMAPDBG rf_iter: ino=40 fpos=139264 fsize=4096 pos=139264 type=2 poff=0 plen=4096 submitted=0
+[    9.661757] IOMAPDBG rf_done: ino=40 fpos=139264 type=2 poff=0 plen=4096 submitted=4096
+[    9.661757] IOMAPDBG rf_iter: ino=40 fpos=143360 fsize=4096 pos=143360 type=2 poff=0 plen=4096 submitted=0
+[    9.661758] IOMAPDBG rf_done: ino=40 fpos=143360 type=2 poff=0 plen=4096 submitted=4096
+[    9.661759] IOMAPDBG rf_iter: ino=40 fpos=147456 fsize=4096 pos=147456 type=2 poff=0 plen=4096 submitted=0
+[    9.661759] IOMAPDBG rf_done: ino=40 fpos=147456 type=2 poff=0 plen=4096 submitted=4096
+[    9.661760] IOMAPDBG rf_iter: ino=40 fpos=151552 fsize=4096 pos=151552 type=2 poff=0 plen=4096 submitted=0
+[    9.661761] IOMAPDBG rf_done: ino=40 fpos=151552 type=2 poff=0 plen=4096 submitted=4096
+[    9.661762] IOMAPDBG rf_iter: ino=40 fpos=155648 fsize=4096 pos=155648 type=2 poff=0 plen=4096 submitted=0
+[    9.661762] IOMAPDBG rf_done: ino=40 fpos=155648 type=2 poff=0 plen=4096 submitted=4096
+[    9.661763] IOMAPDBG rf_iter: ino=40 fpos=159744 fsize=4096 pos=159744 type=2 poff=0 plen=4096 submitted=0
+[    9.661764] IOMAPDBG rf_done: ino=40 fpos=159744 type=2 poff=0 plen=4096 submitted=4096
+[    9.661764] IOMAPDBG rf_iter: ino=40 fpos=163840 fsize=4096 pos=163840 type=2 poff=0 plen=4096 submitted=0
+[    9.661765] IOMAPDBG rf_done: ino=40 fpos=163840 type=2 poff=0 plen=4096 submitted=4096
+[    9.661766] IOMAPDBG rf_iter: ino=40 fpos=167936 fsize=4096 pos=167936 type=2 poff=0 plen=4096 submitted=0
+[    9.661766] IOMAPDBG rf_done: ino=40 fpos=167936 type=2 poff=0 plen=4096 submitted=4096
+[    9.661767] IOMAPDBG rf_iter: ino=40 fpos=172032 fsize=4096 pos=172032 type=2 poff=0 plen=4096 submitted=0
+[    9.661768] IOMAPDBG rf_done: ino=40 fpos=172032 type=2 poff=0 plen=4096 submitted=4096
+[    9.661769] IOMAPDBG rf_iter: ino=40 fpos=176128 fsize=4096 pos=176128 type=2 poff=0 plen=4096 submitted=0
+[    9.661770] IOMAPDBG rf_done: ino=40 fpos=176128 type=2 poff=0 plen=4096 submitted=4096
+[    9.661770] IOMAPDBG rf_iter: ino=40 fpos=180224 fsize=4096 pos=180224 type=2 poff=0 plen=4096 submitted=0
+[    9.661771] IOMAPDBG rf_done: ino=40 fpos=180224 type=2 poff=0 plen=4096 submitted=4096
+[    9.661772] IOMAPDBG rf_iter: ino=40 fpos=184320 fsize=4096 pos=184320 type=2 poff=0 plen=4096 submitted=0
+[    9.661772] IOMAPDBG rf_done: ino=40 fpos=184320 type=2 poff=0 plen=4096 submitted=4096
+[    9.661773] IOMAPDBG rf_iter: ino=40 fpos=188416 fsize=4096 pos=188416 type=2 poff=0 plen=4096 submitted=0
+[    9.661774] IOMAPDBG rf_done: ino=40 fpos=188416 type=2 poff=0 plen=4096 submitted=4096
+[    9.661774] IOMAPDBG rf_iter: ino=40 fpos=192512 fsize=4096 pos=192512 type=2 poff=0 plen=4096 submitted=0
+[    9.661775] IOMAPDBG rf_done: ino=40 fpos=192512 type=2 poff=0 plen=4096 submitted=4096
+[    9.661776] IOMAPDBG rf_iter: ino=40 fpos=196608 fsize=4096 pos=196608 type=2 poff=0 plen=4096 submitted=0
+[    9.661777] IOMAPDBG rf_done: ino=40 fpos=196608 type=2 poff=0 plen=4096 submitted=4096
+[    9.661777] IOMAPDBG rf_iter: ino=40 fpos=200704 fsize=4096 pos=200704 type=2 poff=0 plen=4096 submitted=0
+[    9.661778] IOMAPDBG rf_done: ino=40 fpos=200704 type=2 poff=0 plen=4096 submitted=4096
+[    9.661779] IOMAPDBG rf_iter: ino=40 fpos=204800 fsize=4096 pos=204800 type=2 poff=0 plen=4096 submitted=0
+[    9.661779] IOMAPDBG rf_done: ino=40 fpos=204800 type=2 poff=0 plen=4096 submitted=4096
+[    9.661780] IOMAPDBG rf_iter: ino=40 fpos=208896 fsize=4096 pos=208896 type=2 poff=0 plen=4096 submitted=0
+[    9.661781] IOMAPDBG rf_done: ino=40 fpos=208896 type=2 poff=0 plen=4096 submitted=4096
+[    9.661781] IOMAPDBG rf_iter: ino=40 fpos=212992 fsize=4096 pos=212992 type=2 poff=0 plen=4096 submitted=0
+[    9.661782] IOMAPDBG rf_done: ino=40 fpos=212992 type=2 poff=0 plen=4096 submitted=4096
+[    9.661783] IOMAPDBG rf_iter: ino=40 fpos=217088 fsize=4096 pos=217088 type=2 poff=0 plen=4096 submitted=0
+[    9.661783] IOMAPDBG rf_done: ino=40 fpos=217088 type=2 poff=0 plen=4096 submitted=4096
+[    9.661784] IOMAPDBG rf_iter: ino=40 fpos=221184 fsize=4096 pos=221184 type=2 poff=0 plen=4096 submitted=0
+[    9.661785] IOMAPDBG rf_done: ino=40 fpos=221184 type=2 poff=0 plen=4096 submitted=4096
+[    9.661785] IOMAPDBG rf_iter: ino=40 fpos=225280 fsize=4096 pos=225280 type=2 poff=0 plen=4096 submitted=0
+[    9.661786] IOMAPDBG rf_done: ino=40 fpos=225280 type=2 poff=0 plen=4096 submitted=4096
+[    9.661787] IOMAPDBG rf_iter: ino=40 fpos=229376 fsize=4096 pos=229376 type=2 poff=0 plen=4096 submitted=0
+[    9.661788] IOMAPDBG rf_done: ino=40 fpos=229376 type=2 poff=0 plen=4096 submitted=4096
+[    9.661788] IOMAPDBG rf_iter: ino=40 fpos=233472 fsize=4096 pos=233472 type=2 poff=0 plen=4096 submitted=0
+[    9.661789] IOMAPDBG rf_done: ino=40 fpos=233472 type=2 poff=0 plen=4096 submitted=4096
+[    9.661790] IOMAPDBG rf_iter: ino=40 fpos=237568 fsize=4096 pos=237568 type=2 poff=0 plen=4096 submitted=0
+[    9.661790] IOMAPDBG rf_done: ino=40 fpos=237568 type=2 poff=0 plen=4096 submitted=4096
+[    9.661791] IOMAPDBG rf_iter: ino=40 fpos=241664 fsize=4096 pos=241664 type=2 poff=0 plen=4096 submitted=0
+[    9.661792] IOMAPDBG rf_done: ino=40 fpos=241664 type=2 poff=0 plen=4096 submitted=4096
+[    9.661792] IOMAPDBG rf_iter: ino=40 fpos=245760 fsize=4096 pos=245760 type=2 poff=0 plen=4096 submitted=0
+[    9.661793] IOMAPDBG rf_done: ino=40 fpos=245760 type=2 poff=0 plen=4096 submitted=4096
+[    9.661794] IOMAPDBG rf_iter: ino=40 fpos=249856 fsize=4096 pos=249856 type=2 poff=0 plen=4096 submitted=0
+[    9.661794] IOMAPDBG rf_done: ino=40 fpos=249856 type=2 poff=0 plen=4096 submitted=4096
+[    9.661795] IOMAPDBG rf_iter: ino=40 fpos=253952 fsize=4096 pos=253952 type=2 poff=0 plen=4096 submitted=0
+[    9.661796] IOMAPDBG rf_done: ino=40 fpos=253952 type=2 poff=0 plen=4096 submitted=4096
+[    9.661796] IOMAPDBG rf_iter: ino=40 fpos=258048 fsize=4096 pos=258048 type=2 poff=0 plen=4096 submitted=0
+[    9.661797] IOMAPDBG rf_done: ino=40 fpos=258048 type=2 poff=0 plen=4096 submitted=4096
+[    9.661798] IOMAPDBG rf_iter: ino=40 fpos=262144 fsize=4096 pos=262144 type=2 poff=0 plen=4096 submitted=0
+[    9.661798] IOMAPDBG rf_done: ino=40 fpos=262144 type=2 poff=0 plen=4096 submitted=4096
+[    9.661799] IOMAPDBG rf_iter: ino=40 fpos=266240 fsize=4096 pos=266240 type=2 poff=0 plen=4096 submitted=0
+[    9.661800] IOMAPDBG rf_done: ino=40 fpos=266240 type=2 poff=0 plen=4096 submitted=4096
+[    9.661800] IOMAPDBG rf_iter: ino=40 fpos=270336 fsize=4096 pos=270336 type=2 poff=0 plen=4096 submitted=0
+[    9.661801] IOMAPDBG rf_done: ino=40 fpos=270336 type=2 poff=0 plen=4096 submitted=4096
+[    9.661802] IOMAPDBG rf_iter: ino=40 fpos=274432 fsize=4096 pos=274432 type=2 poff=0 plen=4096 submitted=0
+[    9.661803] IOMAPDBG rf_done: ino=40 fpos=274432 type=2 poff=0 plen=4096 submitted=4096
+[    9.661803] IOMAPDBG rf_iter: ino=40 fpos=278528 fsize=4096 pos=278528 type=2 poff=0 plen=4096 submitted=0
+[    9.661804] IOMAPDBG rf_done: ino=40 fpos=278528 type=2 poff=0 plen=4096 submitted=4096
+[    9.661805] IOMAPDBG rf_iter: ino=40 fpos=282624 fsize=4096 pos=282624 type=2 poff=0 plen=4096 submitted=0
+[    9.661805] IOMAPDBG rf_done: ino=40 fpos=282624 type=2 poff=0 plen=4096 submitted=4096
+[    9.661806] IOMAPDBG rf_iter: ino=40 fpos=286720 fsize=4096 pos=286720 type=2 poff=0 plen=4096 submitted=0
+[    9.661807] IOMAPDBG rf_done: ino=40 fpos=286720 type=2 poff=0 plen=4096 submitted=4096
+[    9.661807] IOMAPDBG rf_iter: ino=40 fpos=290816 fsize=4096 pos=290816 type=2 poff=0 plen=4096 submitted=0
+[    9.661808] IOMAPDBG rf_done: ino=40 fpos=290816 type=2 poff=0 plen=4096 submitted=4096
+[    9.661809] IOMAPDBG rf_iter: ino=40 fpos=294912 fsize=4096 pos=294912 type=2 poff=0 plen=4096 submitted=0
+[    9.661809] IOMAPDBG rf_done: ino=40 fpos=294912 type=2 poff=0 plen=4096 submitted=4096
+[    9.661810] IOMAPDBG rf_iter: ino=40 fpos=299008 fsize=4096 pos=299008 type=2 poff=0 plen=4096 submitted=0
+[    9.661811] IOMAPDBG rf_done: ino=40 fpos=299008 type=2 poff=0 plen=4096 submitted=4096
+[    9.661811] IOMAPDBG rf_iter: ino=40 fpos=303104 fsize=4096 pos=303104 type=2 poff=0 plen=4096 submitted=0
+[    9.661812] IOMAPDBG rf_done: ino=40 fpos=303104 type=2 poff=0 plen=4096 submitted=4096
+[    9.661813] IOMAPDBG rf_iter: ino=40 fpos=307200 fsize=4096 pos=307200 type=2 poff=0 plen=4096 submitted=0
+[    9.661813] IOMAPDBG rf_done: ino=40 fpos=307200 type=2 poff=0 plen=4096 submitted=4096
+[    9.661814] IOMAPDBG rf_iter: ino=40 fpos=311296 fsize=4096 pos=311296 type=2 poff=0 plen=4096 submitted=0
+[    9.661815] IOMAPDBG rf_done: ino=40 fpos=311296 type=2 poff=0 plen=4096 submitted=4096
+[    9.661815] IOMAPDBG rf_iter: ino=40 fpos=315392 fsize=4096 pos=315392 type=2 poff=0 plen=4096 submitted=0
+[    9.661816] IOMAPDBG rf_done: ino=40 fpos=315392 type=2 poff=0 plen=4096 submitted=4096
+[    9.661817] IOMAPDBG rf_iter: ino=40 fpos=319488 fsize=4096 pos=319488 type=2 poff=0 plen=4096 submitted=0
+[    9.661818] IOMAPDBG rf_done: ino=40 fpos=319488 type=2 poff=0 plen=4096 submitted=4096
+[    9.661818] IOMAPDBG rf_iter: ino=40 fpos=323584 fsize=4096 pos=323584 type=2 poff=0 plen=4096 submitted=0
+[    9.661819] IOMAPDBG rf_done: ino=40 fpos=323584 type=2 poff=0 plen=4096 submitted=4096
+[    9.661820] IOMAPDBG rf_iter: ino=40 fpos=327680 fsize=4096 pos=327680 type=2 poff=0 plen=4096 submitted=0
+[    9.661820] IOMAPDBG rf_done: ino=40 fpos=327680 type=2 poff=0 plen=4096 submitted=4096
+[    9.661821] IOMAPDBG rf_iter: ino=40 fpos=331776 fsize=4096 pos=331776 type=2 poff=0 plen=4096 submitted=0
+[    9.661822] IOMAPDBG rf_done: ino=40 fpos=331776 type=2 poff=0 plen=4096 submitted=4096
+[    9.661822] IOMAPDBG rf_iter: ino=40 fpos=335872 fsize=4096 pos=335872 type=2 poff=0 plen=4096 submitted=0
+[    9.661823] IOMAPDBG rf_done: ino=40 fpos=335872 type=2 poff=0 plen=4096 submitted=4096
+[    9.661824] IOMAPDBG rf_iter: ino=40 fpos=339968 fsize=4096 pos=339968 type=2 poff=0 plen=4096 submitted=0
+[    9.661825] IOMAPDBG rf_done: ino=40 fpos=339968 type=2 poff=0 plen=4096 submitted=4096
+[    9.661826] IOMAPDBG iter_exit: ino=40 ret=0 pos=344064 len=0 start=81920 | iomap off=81920 len=966656 type=2 addr=15000
+# poweroff -f
+[   11.940940] ACPI: PM: Preparing to enter system sleep state S5
+[   11.941490] reboot: Power down
+VM will be soft power off
